@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sistema PCP: Controle de Produção e Roteiros (Visualização Interativa)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
+    :root { color-scheme: light dark; }
+    body { font-family: "Inter", sans-serif; }
+    .bg-gradient-header { background: linear-gradient(90deg, #1e40af 0%, #3b82f6 100%); }
+    .modal-fixed { position: fixed; inset: 0; }
+    #instruction-modal-content a { color: #3b82f6; text-decoration: underline; font-weight: 600; }
+    .highlight-red { color: #dc2626; font-weight: 600; }
+
+    /* ---------- Mobile tweaks ---------- */
+    /* Deixa os modais em fullscreen no mobile, mantendo max-width no desktop */
+    .modal-panel { max-height: calc(100dvh - 2rem); }
+    @media (max-width: 640px) {
+      .modal-panel {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        display: flex;
+        flex-direction: column;
+      }
+      .modal-body-scroll {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .sticky-footer {
+        position: sticky;
+        bottom: 0;
+        background: white;
+        padding-top: .5rem;
+      }
+      .card-tap-big { padding: 1rem; }
+    }
+
+    /* Safe areas (notch iOS) */
+    body {
+      padding-left: max(env(safe-area-inset-left), 0px);
+      padding-right: max(env(safe-area-inset-right), 0px);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-100 antialiased">
+
+  <!-- HEADER -->
+  <header id="header-container" class="bg-gradient-header shadow-lg p-3 sm:p-4 sticky top-0 z-10">
+    <div class="max-w-7xl mx-auto flex justify-between items-center gap-2">
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-white flex items-center">
+        <i data-lucide="factory" class="w-7 h-7 sm:w-8 sm:h-8 mr-2"></i>
+        Controle de Produção e Processos
+      </h1>
+      <div class="flex gap-2 items-center">
+        <button id="btn-profile"
+                class="text-white bg-blue-800 hover:bg-blue-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden"
+                onclick="openUserModal()">
+          <i data-lucide="user-cog" class="w-5 h-5 inline-block mr-1"></i>
+          <span class="hidden sm:inline">Perfil</span>
+        </button>
+
+        <select id="user-view-select"
+                onchange="updateView(this.value)"
+                class="bg-blue-800 text-white text-xs sm:text-sm font-semibold py-2 px-2 rounded-lg transition hover:bg-blue-700 focus:ring-2 focus:ring-blue-300">
+          <option value="PCP">Visão: PCP (Gerencial)</option>
+          <option value="Operador">Visão: Operador</option>
+          <option value="Relatorio">Visão: Relatório</option>
+        </select>
+
+        <button onclick="openModal('create-of-modal')" id="btn-create-of"
+                class="text-white bg-green-600 hover:bg-green-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden">
+          <i data-lucide="plus" class="w-5 h-5 inline-block mr-1"></i>
+          <span class="hidden sm:inline">Criar OF</span>
+        </button>
+        <button onclick="openModal('setup-roteiro-modal')" id="btn-setup-roteiro"
+                class="text-white bg-yellow-600 hover:bg-yellow-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden">
+          <i data-lucide="settings" class="w-5 h-5 inline-block mr-1"></i>
+          <span class="hidden sm:inline">Setup Roteiro</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto p-3 sm:p-6 lg:p-8">
+    <!-- LOADING -->
+    <div id="loading-indicator" class="flex flex-col items-center justify-center p-6 sm:p-12 bg-white rounded-xl shadow-xl">
+      <i data-lucide="loader-circle" class="w-8 h-8 sm:w-10 sm:h-10 text-blue-500 animate-spin"></i>
+      <p class="mt-3 sm:mt-4 text-gray-600 font-semibold text-sm sm:text-base">Carregando dados e autenticando...</p>
+    </div>
+
+    <!-- PCP VIEW -->
+    <div id="pcp-view" class="space-y-4 sm:space-y-6 hidden">
+      <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
+        <i data-lucide="bar-chart-3" class="w-5 h-5 sm:w-6 sm:h-6 mr-2"></i>
+        Painel PCP: Acompanhamento de OFs
+      </h2>
+      <div id="kpis-container" class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4"></div>
+      <div id="ofs-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6"></div>
+    </div>
+
+    <!-- OPERATOR VIEW -->
+    <div id="operator-view" class="space-y-4 sm:space-y-6 hidden">
+      <div class="bg-white p-3 sm:p-4 rounded-xl shadow-lg mb-4 sm:mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <h2 class="text-lg sm:text-xl font-bold text-gray-800 flex items-center">
+          <i data-lucide="clipboard-list" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-blue-600"></i>
+          Minhas Tarefas
+        </h2>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <label for="sector-filter" class="text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">Setor:</label>
+          <select id="sector-filter" onchange="updateSectorFilter(this.value)"
+                  class="p-2 border border-blue-300 rounded-lg bg-blue-50 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48"></select>
+        </div>
+      </div>
+      <div id="tasks-list-container" class="space-y-3 sm:space-y-4"></div>
+    </div>
+
+    <!-- REPORT VIEW -->
+    <div id="report-view" class="space-y-4 sm:space-y-6 hidden">
+      <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
+        <i data-lucide="file-text" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-purple-600"></i>
+        Relatório Detalhado de Pausas e Atrasos
+      </h2>
+      <div class="bg-white p-3 sm:p-4 rounded-xl shadow-lg">
+        <div class="flex justify-between items-center mb-3 sm:mb-4">
+          <h3 class="text-base sm:text-xl font-semibold text-gray-700">Ocorrências Registradas (Desvios)</h3>
+          <button id="btn-export-report" onclick="exportReportCSV()"
+                  class="px-3 sm:px-4 py-2 bg-purple-600 text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-purple-700 transition">
+            <i data-lucide="download" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Exportar (CSV)
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">OF</th>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">CHICOTE</th>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">ATIVIDADE</th>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">MOTIVO PAUSA</th>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">MOTIVO ATRASO</th>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">T. PAUSA (min)</th>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">T. ATRASO (min)</th>
+              </tr>
+            </thead>
+            <tbody id="report-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ACTION MODAL -->
+  <div id="action-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
+    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-md modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
+      <h3 id="modal-title" class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2"></h3>
+      <div class="modal-body-scroll">
+        <p id="modal-message" class="text-gray-600 mb-3 sm:mb-4"></p>
+        <div id="modal-content">
+          <div id="justification-area" class="space-y-3 sm:space-y-4">
+            <label for="justification-select" class="block text-sm font-medium text-gray-700">Selecione o Motivo Principal:</label>
+            <select id="justification-select" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-blue-500 focus:border-blue-500 transition">
+              <option value="">-- Selecione uma opção --</option>
+            </select>
+            <label for="justification-text" class="block text-sm font-medium text-gray-700">Detalhes Adicionais (Opcional):</label>
+            <textarea id="justification-text" rows="2" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-blue-500 focus:border-blue-500 transition" placeholder=""></textarea>
+            <p id="justification-required-text" class="text-sm text-red-500 hidden font-semibold">🚨 Campo obrigatório devido ao desvio de tempo!</p>
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3 sticky-footer">
+        <button onclick="closeModal()" class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition">Cancelar</button>
+        <button id="modal-confirm-button" class="px-3 sm:px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition" onclick="handleConfirmedAction()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- INSTRUCTION MODAL -->
+  <div id="instruction-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
+    <div class="bg-white rounded-xl shadow-2xl p-5 sm:p-8 w-full max-w-2xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
+      <h3 class="text-xl sm:text-2xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2 flex items-center">
+        <i data-lucide="book-open-text" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-indigo-600"></i> Instrução de Trabalho
+      </h3>
+      <div class="max-h-[65vh] sm:max-h-[70vh] overflow-y-auto pr-1 sm:pr-2 modal-body-scroll">
+        <p class="text-sm font-semibold text-gray-700 mb-2" id="instruction-modal-header"></p>
+        <div id="instruction-modal-content" class="text-gray-700 space-y-3"></div>
+      </div>
+      <div class="mt-4 sm:mt-6 flex justify-end">
+        <button onclick="closeModal('instruction-modal')" class="px-3 sm:px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATE OF MODAL -->
+  <div id="create-of-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
+    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-lg modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
+      <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Criar Nova Ordem de Fabricação (OF)</h3>
+      <div class="space-y-3 sm:space-y-4 modal-body-scroll">
+        <div>
+          <label for="of-id" class="block text-sm font-medium text-gray-700">Código da OF:</label>
+          <input type="text" id="of-id" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: OF-003">
+        </div>
+        <div>
+          <label for="of-quantity" class="block text-sm font-medium text-gray-700">Quantidade de Peças:</label>
+          <input type="number" id="of-quantity" min="1" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: 50">
+        </div>
+        <div>
+          <label for="of-chicote" class="block text-sm font-medium text-gray-700">Modelo do Chicote (Roteiro Mestre):</label>
+          <select id="of-chicote" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-blue-500 focus:border-blue-500">
+            <option value="">Carregando roteiros...</option>
+          </select>
+        </div>
+        <div id="of-creation-message" class="text-sm text-red-500 hidden"></div>
+      </div>
+      <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3 sticky-footer">
+        <button onclick="closeModal('create-of-modal')" class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition">Cancelar</button>
+        <button onclick="createOF()" class="px-3 sm:px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition">
+          <i data-lucide="factory" class="w-5 h-5 inline-block mr-1"></i> Gerar OF
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETUP ROTEIRO MODAL -->
+  <div id="setup-roteiro-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
+    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-2xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
+      <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Setup: Cadastro de Roteiros Mestres</h3>
+      <div id="roteiro-list" class="space-y-4 h-[50vh] sm:h-64 overflow-y-auto mb-4 p-2 border rounded-lg bg-gray-50 modal-body-scroll"></div>
+      <div class="border-t pt-4 space-y-4">
+        <h4 class="text-base sm:text-lg font-semibold text-gray-700">Nova Etapa para Roteiro:</h4>
+        <div class="flex flex-col gap-3">
+          <div class="flex flex-col sm:flex-row gap-3">
+            <input type="text" id="roteiro-chicote-name" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Nome do Chicote (Ex: CHICOTE-A)">
+            <select id="roteiro-setor" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"></select>
+          </div>
+          <input type="text" id="roteiro-activity-name" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Nome da Atividade (Ex: Pré Conexão)">
+          <div class="flex flex-col sm:flex-row gap-3">
+            <input type="number" id="roteiro-setup-time" min="0" step="0.1" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Setup (min)">
+            <input type="number" id="roteiro-cycle-time" min="0" step="0.1" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ciclo (min/pç)">
+          </div>
+          <div>
+            <label for="roteiro-instruction-text" class="block text-sm font-medium text-gray-700 mb-1">Instrução de Trabalho (HTML permitido):</label>
+            <textarea id="roteiro-instruction-text" rows="4" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: <b>1. Preparação:</b> ..."></textarea>
+          </div>
+          <button onclick="addRoteiroActivity()" class="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+            <i data-lucide="plus" class="w-5 h-5 inline-block mr-1"></i> Adicionar Etapa
+          </button>
+        </div>
+        <div id="roteiro-message" class="text-sm text-red-500"></div>
+      </div>
+      <div class="mt-4 sm:mt-6 flex justify-end">
+        <button onclick="closeModal('setup-roteiro-modal')" class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- OF DETAILS MODAL -->
+  <div id="of-details-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal('of-details-modal')">
+    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-3xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-2">
+        <h3 id="of-details-title" class="text-xl sm:text-2xl font-bold text-gray-800"></h3>
+        <button class="p-2 rounded-lg hover:bg-gray-100" onclick="closeModal('of-details-modal')">
+          <i data-lucide="x" class="w-6 h-6"></i>
+        </button>
+      </div>
+      <div id="of-details-summary" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 sm:mb-4"></div>
+      <div class="w-full bg-gray-200 rounded-full h-2 mb-3 sm:mb-4">
+        <div id="of-details-progress" class="h-2 rounded-full bg-blue-500" style="width:0%"></div>
+      </div>
+      <div id="of-details-content" class="max-h-[60vh] overflow-y-auto space-y-3 sm:space-y-4 modal-body-scroll"></div>
+      <div class="mt-4 sm:mt-5 flex justify-end gap-2 sm:gap-3 sticky-footer">
+        <button id="btn-export-of" class="px-3 sm:px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition" onclick="exportOFTasksCSV(window.__ofDetailsOpenId)">Exportar CSV</button>
+        <button class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition" onclick="closeModal('of-details-modal')">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- USER / LOGIN MODAL -->
+  <div id="user-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="event.stopPropagation()">
+    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-md modal-panel mx-0 sm:mx-4">
+      <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Acesso</h3>
+      <div class="space-y-3 sm:space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Perfil</label>
+          <select id="user-role" class="w-full border border-gray-300 rounded-lg p-2 mt-1">
+            <option value="OPERADOR">Operador</option>
+            <option value="MASTER">Master</option>
+          </select>
+        </div>
+        <div id="user-sector-wrap">
+          <label class="block text-sm font-medium text-gray-700">Setor do Operador</label>
+          <select id="user-sector" class="w-full border border-gray-300 rounded-lg p-2 mt-1"></select>
+        </div>
+        <div id="user-pin-wrap" class="hidden">
+          <label class="block text-sm font-medium text-gray-700">PIN do Master</label>
+          <input type="password" id="user-pin" class="w-full border border-gray-300 rounded-lg p-2 mt-1" placeholder="****">
+          <p class="text-xs text-gray-500 mt-1">PIN padrão: 1234 (altere no código)</p>
+        </div>
+      </div>
+      <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3">
+        <button class="px-3 sm:px-4 py-2 bg-gray-200 rounded-lg font-semibold hover:bg-gray-300" onclick="closeModal('user-modal')">Cancelar</button>
+        <button class="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700" onclick="confirmUser()">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==========================
+    //  VARIÁVEIS E DADOS
+    // ==========================
+    const MASTER_PIN = "7889";
+    const SECTORS = [
+      'Corte','Corte de Revestimentos','Pré-Montagem','Preparação','Pré Conexão',
+      'Conexão','Pré Grampeação','Grampeação','Acabamento','Embalagem','Montagem','Cabo de Bateria 1','Cabo de Bateria 2'
+    ];
+    const PAUSE_REASONS = [
+      "Falta de material na bancada","Manutenção/Ajuste de máquina","Instrução de trabalho confusa/ausente",
+      "Necessidade de assistência técnica","Troca de turno/intervalo programado","Outro (Detalhar abaixo)"
+    ];
+    const DELAY_REASONS = [
+      "Complexidade inesperada da peça","Problema de qualidade na etapa anterior","Falta de treinamento/experiência",
+      "Tempo padrão calculado incorretamente","Quebra/defeito de ferramenta","Outro (Detalhar abaixo)"
+    ];
+
+    let allOFs = {};
+    let allTasks = {};
+    let allRoteiros = {};
+    let allOcurrencesLog = [];
+    let currentAction = {};
+    let currentSectorFilter = SECTORS[0];
+    let currentUser = null;
+
+    // Counters
+    let taskCounter = 1;
+    let roteiroCounter = 7;
+
+    // ==========================
+    //  PERSISTÊNCIA (localStorage)
+    // ==========================
+    const STORAGE_KEY = "pcp_state_v2";
+
+    function saveState() {
+      const state = {
+        allOFs, allTasks, allRoteiros, allOcurrencesLog,
+        counters: { taskCounter, roteiroCounter },
+        currentUser
+      };
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) { console.warn("Falha ao salvar estado:", e); }
+    }
+
+    function restoreState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return false;
+        const state = JSON.parse(raw);
+        allOFs = state.allOFs || {};
+        allTasks = state.allTasks || {};
+        allRoteiros = state.allRoteiros || {};
+        allOcurrencesLog = state.allOcurrencesLog || [];
+        taskCounter = state.counters?.taskCounter || taskCounter;
+        roteiroCounter = state.counters?.roteiroCounter || roteiroCounter;
+        if (state.currentUser) setUser(state.currentUser);
+        return true;
+      } catch(e) {
+        console.warn("Falha ao restaurar estado:", e);
+        return false;
+      }
+    }
+
+    // ==========================
+    //  ROTEIROS PRÉ-CARREGADOS
+    // ==========================
+    const DEFAULT_ROTEIROS = {
+      "r1": { id:"r1", chicote_nome:"CHICOTE-001", setor:"Corte", nome_atividade:"Corte dos Fios", tempo_setup:5, tempo_ciclo:0.2,
+        instrucao_trabalho:"<b>1. Preparação:</b> Verifique se a faca está calibrada para o fio 1.0mm.<br><b>2. Medição:</b> Corte 50 peças com 150mm cada.<br><b>3. Conferência:</b> Faça uma conferência visual. <a href='https://upload.wikimedia.org/wikipedia/commons/4/4e/Sample_cut.png' target='_blank'>**Ver Imagem de Padrão**</a>."
+      },
+      "r2": { id:"r2", chicote_nome:"CHICOTE-001", setor:"Pré-Montagem", nome_atividade:"Crimpagem de Terminais", tempo_setup:8, tempo_ciclo:0.5,
+        instrucao_trabalho:"<b>1. Fio Preto:</b> ...<br><b>2. Fio Vermelho:</b> ...<br><b>3. Teste:</b> > 10Kgf. <a href='https://www.youtube.com/watch?v=dQw4w9WgXcQ' target='_blank'>**Assistir Vídeo**</a>"
+      },
+      "r3": { id:"r3", chicote_nome:"CHICOTE-001", setor:"Montagem Final", nome_atividade:"Montagem de Conectores", tempo_setup:15, tempo_ciclo:1.0,
+        instrucao_trabalho:"<b>Atenção:</b> Conectar posições 35 e 33. Proibido forçar."
+      },
+      "r4": { id:"r4", chicote_nome:"CHICOTE-001", setor:"Qualidade", nome_atividade:"Teste de Continuidade", tempo_setup:3, tempo_ciclo:0.1,
+        instrucao_trabalho:"Usar jig JIG-10B. 100% devem passar."
+      },
+      "r5": { id:"r5", chicote_nome:"CHICOTE-B", setor:"Corte", nome_atividade:"Corte Fios Reforçados", tempo_setup:10, tempo_ciclo:0.3, instrucao_trabalho:"Instrução básica B."},
+      "r6": { id:"r6", chicote_nome:"CHICOTE-B", setor:"Montagem Final", nome_atividade:"Montagem Simples", tempo_setup:5, tempo_ciclo:0.8, instrucao_trabalho:"Conectar 4 vias."},
+    };
+
+    // ==========================
+    //  ELEMENTOS UI
+    // ==========================
+    const pcpView = document.getElementById("pcp-view");
+    const operatorView = document.getElementById("operator-view");
+    const reportView = document.getElementById("report-view");
+    const loadingIndicator = document.getElementById("loading-indicator");
+    const ofsListContainer = document.getElementById("ofs-list-container");
+    const tasksListContainer = document.getElementById("tasks-list-container");
+    const userViewSelect = document.getElementById("user-view-select");
+    const btnCreateOF = document.getElementById("btn-create-of");
+    const btnSetupRoteiro = document.getElementById("btn-setup-roteiro");
+    const btnProfile = document.getElementById("btn-profile");
+    const btnExportReport = document.getElementById("btn-export-report");
+
+    // ==========================
+    //  HELPERS & PERMISSÕES
+    // ==========================
+    function msToMinutes(ms){ return parseFloat((ms / (1000*60)).toFixed(2)); }
+    function formatMinutes(v){ return `${Number(v||0).toFixed(2)} min`; }
+    function setUser(u){ currentUser = u; localStorage.setItem("pcp_current_user", JSON.stringify(u)); }
+    function getUser(){ try{ return JSON.parse(localStorage.getItem("pcp_current_user")||"null"); }catch(e){ return null; } }
+    function isMaster(){ return currentUser && currentUser.role === "MASTER"; }
+    function isOperador(){ return currentUser && currentUser.role === "OPERADOR"; }
+
+    // ==========================
+    //  CÁLCULOS DE TEMPO
+    // ==========================
+    function calculateTempoReal(task){
+      let tempoReal = task.tempo_real_acumulado || 0;
+      const now = Date.now();
+      if (task.status === 'Em Processo' && task.timestamp_inicio){
+        let inicioMs = task.timestamp_inicio instanceof Date ? task.timestamp_inicio.getTime() : task.timestamp_inicio;
+        let tempoTrabalhadoDesdeInicio = msToMinutes(now - inicioMs);
+        tempoReal += tempoTrabalhadoDesdeInicio;
+      }
+      return parseFloat(tempoReal.toFixed(2));
+    }
+    function calculateDesvio(task){
+      const tempoReal = calculateTempoReal(task);
+      const desvio = (task.tempo_planejado||0) - tempoReal;
+      return parseFloat(desvio.toFixed(2));
+    }
+    function calculateTotalPauseMinutes(task){
+      let totalMs = task.total_pause_time_ms || 0;
+      if (task.status === 'Pausada' && task.pause_start_timestamp){
+        totalMs += Date.now() - task.pause_start_timestamp;
+      }
+      return msToMinutes(totalMs);
+    }
+
+    // ==========================
+    //  INICIALIZAÇÃO
+    // ==========================
+    function setupSectorDropdowns(){
+      const roteiroSetorSelect = document.getElementById('roteiro-setor');
+      const sectorFilterSelect = document.getElementById('sector-filter');
+      if (roteiroSetorSelect) { roteiroSetorSelect.innerHTML = ''; }
+      if (sectorFilterSelect) { sectorFilterSelect.innerHTML=''; }
+
+      // Setup Roteiro
+      if (roteiroSetorSelect) {
+        SECTORS.forEach(sector=>{
+          const o1 = document.createElement('option'); o1.value=sector; o1.textContent=sector; roteiroSetorSelect.appendChild(o1);
+        });
+      }
+
+      // Operador vê apenas seu setor
+      if (sectorFilterSelect){
+        if (isOperador()){
+          const o = document.createElement('option'); o.value=currentUser.sector; o.textContent=currentUser.sector; sectorFilterSelect.appendChild(o);
+          sectorFilterSelect.value=currentUser.sector;
+          sectorFilterSelect.disabled = true;
+          currentSectorFilter = currentUser.sector;
+        }else{
+          SECTORS.forEach(sector=>{
+            const o2 = document.createElement('option'); o2.value=sector; o2.textContent=sector; sectorFilterSelect.appendChild(o2);
+          });
+          currentSectorFilter = SECTORS[0];
+          sectorFilterSelect.value = SECTORS[0];
+          sectorFilterSelect.disabled = false;
+        }
+      }
+    }
+
+    function initializeApp(){
+      // Aviso de simulação
+      document.getElementById('loading-indicator').innerHTML = `
+        <div class="p-3 sm:p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg shadow-md" role="alert">
+          <p class="font-bold">Aviso: Modo de Execução Local (Simulação)</p>
+          <p class="text-xs sm:text-sm">Seus dados ficam salvos neste navegador (localStorage). Limpe o cache para resetar.</p>
+        </div>`;
+      document.getElementById('loading-indicator').classList.remove('hidden');
+
+      // Restaura estado, ou cria dados iniciais
+      const restored = restoreState();
+      if (!restored){
+        allRoteiros = { ...DEFAULT_ROTEIROS }; // roteiros padrão
+        // duas OFs iniciais
+        createOF('OF-001', 10, 'CHICOTE-001', true);
+        createOF('OF-002', 20, 'CHICOTE-B', true);
+        saveState();
+      }
+
+      const savedUser = getUser();
+      if (savedUser){ setUser(savedUser); }
+
+      setTimeout(()=>{
+        loadingIndicator.classList.add('hidden');
+        openUserModal(savedUser ? null : undefined);
+        setupUIRefresh();
+      }, 300);
+    }
+
+    // ==========================
+    //  KPI / RENDER
+    // ==========================
+    function reloadActiveFilter(){ /* placeholder */ }
+
+    function renderKPIs(){
+      const kpisContainer = document.getElementById('kpis-container');
+      if (!kpisContainer) return;
+      const totalOFs = Object.keys(allOFs).filter(k=> allOFs[k]?.status !== 'Concluído').length;
+      const concludedTasks = Object.values(allTasks).filter(t=>t.status==='Concluído').length;
+      const totalTasks = Object.values(allTasks).length;
+      const totalPause = allOcurrencesLog.reduce((s,l)=> s + (l.TEMPO_PAUSA||0), 0);
+
+      const kpiData = [
+        { title:"OFs Ativas", value: totalOFs, icon:"package", color:"bg-blue-600" },
+        { title:"Tarefas Concluídas", value: `${concludedTasks} / ${totalTasks}`, icon:"check-circle", color:"bg-green-600" },
+        { title:"Pausas (min)", value: totalPause.toFixed(1), icon:"pause-circle", color:"bg-yellow-600" },
+        { title:"Ocorrências", value: allOcurrencesLog.length, icon:"alert-triangle", color:"bg-red-600" },
+      ];
+      kpisContainer.innerHTML = kpiData.map(k=>`
+        <div class="${k.color} text-white p-3 sm:p-4 rounded-xl shadow-md flex items-center justify-between">
+          <div>
+            <p class="text-xs sm:text-sm font-medium opacity-80">${k.title}</p>
+            <p class="text-2xl sm:text-3xl font-bold">${k.value}</p>
+          </div>
+          <i data-lucide="${k.icon}" class="w-7 h-7 sm:w-8 sm:h-8 opacity-70"></i>
+        </div>`).join('');
+      lucide.createIcons();
+    }
+
+    function updateView(view){
+      if (isOperador() && view !== 'Operador'){ view = 'Operador'; }
+
+      const isPCP = view === 'PCP';
+      const isReport = view === 'Relatorio';
+
+      pcpView.classList.toggle('hidden', !isPCP);
+      operatorView.classList.toggle('hidden', (isPCP || isReport));
+      reportView.classList.toggle('hidden', !isReport);
+
+      userViewSelect.value = view;
+      btnCreateOF.classList.toggle('hidden', !isMaster());
+      btnSetupRoteiro.classList.toggle('hidden', !isMaster());
+      btnProfile.classList.remove('hidden');
+      userViewSelect.disabled = isOperador();
+      if (btnExportReport) btnExportReport.classList.toggle('hidden', !isMaster());
+
+      if (isPCP){
+        renderKPIs();
+        renderOFs();
+        reloadActiveFilter();
+      } else if (view === 'Operador'){
+        renderTasks();
+      } else if (isReport){
+        renderReport();
+      }
+      lucide.createIcons();
+    }
+    window.updateView = updateView;
+
+    function renderReport(){
+      const body = document.getElementById('report-table-body');
+      if (allOcurrencesLog.length === 0){
+        body.innerHTML = `<tr><td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">Nenhuma ocorrência registrada.</td></tr>`;
+        return;
+      }
+      const html = allOcurrencesLog.map(log=>{
+        const atrasoClass = (log.TEMPO_ATRASO||0) > 0 ? 'highlight-red' : 'text-gray-600';
+        const pausaClass  = (log.TEMPO_PAUSA||0) > 0 ? 'text-yellow-700 font-semibold' : 'text-gray-600';
+        return `
+          <tr>
+            <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm font-medium text-gray-900">${log.OF}</td>
+            <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm text-gray-600">${log.CHICOTE}</td>
+            <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm text-gray-600">${log.ATIVIDADE}</td>
+            <td class="px-3 sm:px-6 py-2 text-sm text-gray-700">${log.MOTIVO_PAUSA || '-'}</td>
+            <td class="px-3 sm:px-6 py-2 text-sm text-gray-700">${log.MOTIVO_ATRASO || '-'}</td>
+            <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm ${pausaClass}">${(log.TEMPO_PAUSA||0).toFixed(2)}</td>
+            <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm ${atrasoClass}">${(log.TEMPO_ATRASO||0).toFixed(2)}</td>
+          </tr>`;
+      }).join('');
+      body.innerHTML = html;
+    }
+
+    function renderOFs(){
+      if (!pcpView.classList.contains('hidden')) {
+        const ofs = Object.values(allOFs).filter(of=> of.status !== 'Concluído');
+        const ofsHtml = ofs.map(of=>{
+          const tasks = Object.values(allTasks).filter(t=> t.id_of === of.id);
+          const completed = tasks.filter(t=> t.status==='Concluído').length;
+          const nextTask = tasks.find(t=> t.status === 'Em Espera');
+
+          let statusColor = 'bg-gray-100 border-gray-300';
+          let progress = 0;
+          if (tasks.length>0){
+            progress = Math.floor((completed / tasks.length) * 100);
+            if (progress > 0) statusColor = 'bg-blue-100 border-blue-400';
+            if (progress === 100) statusColor = 'bg-green-100 border-green-400';
+          }
+
+          return `
+            <div ondblclick="openOFDetails('${of.id}')"
+                 class="cursor-zoom-in bg-white p-3 sm:p-4 rounded-xl shadow-lg border-l-4 ${statusColor} card-tap-big">
+              <div class="flex justify-between items-start gap-2">
+                <div>
+                  <h3 class="text-lg sm:text-xl font-bold text-gray-900 mb-1">OF: ${of.id} (${of.chicote_nome})</h3>
+                  <p class="text-xs sm:text-sm text-gray-600 mb-2">Peças: ${of.quantidade} | Etapas: ${completed}/${tasks.length}</p>
+                </div>
+                ${isMaster() ? `
+                  <button title="Excluir OF" onclick="event.stopPropagation(); deleteOF('${of.id}')"
+                          class="p-2 rounded-md bg-red-50 hover:bg-red-100 text-red-600">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                  </button>` : ``}
+              </div>
+
+              <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                <div class="h-2.5 rounded-full ${progress===100?'bg-green-500':'bg-blue-500'}" style="width:${progress}%"></div>
+              </div>
+              <p class="text-[11px] sm:text-xs text-gray-500 mb-3">Progresso: ${progress}%</p>
+
+              ${ nextTask ?
+                `<p class="text-xs sm:text-sm font-semibold text-gray-700">Próxima Atividade:</p>
+                 <p class="text-sm sm:text-md text-blue-700 font-bold">${nextTask.nome_atividade} (${nextTask.setor})</p>` :
+                `<div class="flex items-center justify-between">
+                   <p class="text-md font-bold text-green-700">Produção Concluída.</p>
+                   ${isMaster() ? `<button onclick="event.stopPropagation(); completeOF('${of.id}')" class="mt-2 px-3 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600">Finalizar OF</button>`:''}
+                 </div>`
+              }
+            </div>`;
+        }).join('');
+
+        ofsListContainer.innerHTML = ofsHtml || `
+          <div class="col-span-3 p-6 bg-white rounded-xl shadow-lg text-center text-gray-500">
+            Nenhuma Ordem de Fabricação ativa no momento. Crie uma nova para iniciar o fluxo.
+          </div>`;
+      }
+      lucide.createIcons();
+    }
+
+    function renderTasks(){
+      if (!operatorView.classList.contains('hidden')){
+        const tasks = Object.values(allTasks)
+          .filter(t=> t.status !== 'Concluído')
+          .filter(t=> t.setor === currentSectorFilter)
+          .sort((a,b)=>{
+            if (a.status==='Em Processo' && b.status!=='Em Processo') return -1;
+            if (a.status!=='Em Processo' && b.status==='Em Processo') return 1;
+            if (a.status==='Em Espera' && b.status==='Pausada') return -1;
+            if (a.status==='Pausada' && b.status==='Em Espera') return 1;
+            return 0;
+          });
+
+        const html = tasks.map(task=>{
+          const isProcessing = task.status==='Em Processo';
+          const isPaused = task.status==='Pausada';
+          const tempoReal = calculateTempoReal(task);
+          const totalPausa = calculateTotalPauseMinutes(task);
+          const desvio = calculateDesvio(task);
+
+          let statusClass = 'bg-gray-50 text-gray-800';
+          if (isProcessing) statusClass = 'bg-blue-50 text-blue-800 border-l-4 border-blue-500';
+          if (isPaused) statusClass = 'bg-yellow-50 text-yellow-800 border-l-4 border-yellow-500';
+
+          let desvioColor = 'text-gray-600';
+          if (desvio < -0.1) desvioColor = 'text-red-600';
+          if (desvio > 0.1) desvioColor = 'text-green-600';
+
+          return `
+          <div class="bg-white rounded-xl shadow-lg p-3 sm:p-5 ${statusClass} hover:shadow-xl transition">
+            <div class="flex justify-between items-start mb-2 sm:mb-3">
+              <h3 class="text-base sm:text-lg font-bold text-gray-900">${task.nome_atividade} <span class="text-gray-500">(OF: ${task.id_of})</span></h3>
+              <span class="px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold rounded-full">${task.status}</span>
+            </div>
+            <p class="text-xs sm:text-sm text-gray-600 mb-1">Chicote: <span class="font-bold text-blue-700">${task.chicote_nome}</span> • Peças: ${task.quantidade}</p>
+            <p class="text-xs sm:text-sm text-gray-600 mb-1">Planejado: <span class="font-semibold">${(task.tempo_planejado||0).toFixed(2)} min</span></p>
+            <p class="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3">Real (Acumulado): <span class="font-bold ${desvioColor}">${tempoReal.toFixed(2)} min</span> (Desvio: ${desvio.toFixed(2)} min)</p>
+            <p class="text-[11px] sm:text-xs text-gray-500">Pausa acumulada: ${totalPausa.toFixed(2)} min</p>
+            <div class="mt-3 sm:mt-4 grid grid-cols-2 sm:flex sm:space-x-2 gap-2">
+              <button onclick="openInstructionModal('${task.id}')"
+                      class="px-2 sm:px-4 py-2 bg-indigo-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-indigo-700 transition">
+                <i data-lucide="book-open-text" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Instrução
+              </button>
+
+              ${(!isProcessing && !isPaused) ? `
+                <button onclick="startTask('${task.id}')"
+                        class="px-2 sm:px-4 py-2 bg-blue-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-blue-700 transition">
+                  <i data-lucide="play" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Iniciar
+                </button>` : ''}
+
+              ${isProcessing ? `
+                <button onclick="openPauseModal('${task.id}')"
+                        class="px-2 sm:px-4 py-2 bg-yellow-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-yellow-700 transition">
+                  <i data-lucide="pause" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Pausar
+                </button>` : ''}
+
+              ${isPaused ? `
+                <button onclick="resumeTask('${task.id}')"
+                        class="px-2 sm:px-4 py-2 bg-blue-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-blue-700 transition">
+                  <i data-lucide="play" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Retomar
+                </button>` : ''}
+
+              ${isProcessing ? `
+                <button onclick="openCompleteModal('${task.id}')"
+                        class="px-2 sm:px-4 py-2 bg-green-600 text-white text-xs sm:text-sm font-semibold rounded-lg hover:bg-green-700 transition">
+                  <i data-lucide="check" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Concluir
+                </button>` : ''}
+            </div>
+          </div>`;
+        }).join('');
+
+        tasksListContainer.innerHTML = html || `
+          <div class="p-6 bg-white rounded-xl shadow-lg text-center text-gray-500">
+            Nenhuma tarefa em ${currentSectorFilter} para realizar.
+          </div>`;
+        lucide.createIcons();
+      }
+    }
+
+    // ==========================
+    //  FLUXO OPERACIONAL
+    // ==========================
+    // MÚLTIPLAS tarefas simultâneas (sem bloqueio), setup aplicado uma vez
+    function startTask(taskId){
+      const task = allTasks[taskId];
+      const setupTime = task.roteiro_data?.tempo_setup || 0;
+      task.tempo_real_acumulado = task.tempo_real_acumulado || 0;
+      if (!task._setup_aplicado) {
+        task.tempo_real_acumulado += setupTime;
+        task._setup_aplicado = true;
+      }
+      task.status = 'Em Processo';
+      task.timestamp_inicio = Date.now();
+      logOccurrence(task, 'INICIO', setupTime, `Tarefa iniciada${setupTime ? ` (SETUP ${setupTime} min)` : ''}.`);
+      saveState();
+      renderTasks(); renderOFs(); renderKPIs();
+    }
+
+    function completeTask(taskId, justification, justificationText){
+      const task = allTasks[taskId];
+      const tempoRealFinal = calculateTempoReal(task);
+      const desvio = (task.tempo_planejado||0) - tempoRealFinal;
+      let atraso = 0, motivoAtraso = '';
+      if (desvio < -0.1){ atraso = Math.abs(desvio); motivoAtraso = justification; }
+      logOccurrence(task, 'CONCLUSAO', 0, `Tarefa concluída. Desvio: ${desvio.toFixed(2)} min.`, 0, atraso, motivoAtraso, justificationText);
+      task.status = 'Concluído'; task.timestamp_fim = Date.now();
+      const ofTasks = Object.values(allTasks).filter(t=> t.id_of === task.id_of).sort((a,b)=> a.id.localeCompare(b.id));
+      const nextIdx = ofTasks.findIndex(t=> t.id === task.id) + 1;
+      if (ofTasks[nextIdx]){ ofTasks[nextIdx].status = 'Em Espera'; } else { allOFs[task.id_of].status = 'Aguardando Finalização'; }
+      saveState();
+      closeModal(); renderTasks(); renderOFs(); renderKPIs();
+    }
+
+    function pauseTask(taskId, reason, justificationText){
+      const task = allTasks[taskId];
+      const tempoTrabalhado = calculateTempoReal(task);
+      task.tempo_real_acumulado = tempoTrabalhado;
+      task.timestamp_inicio = null;
+      task.status = 'Pausada'; task.pause_start_timestamp = Date.now();
+      const pauseTime = calculateTotalPauseMinutes(task);
+      logOccurrence(task, 'PAUSA', 0, reason, pauseTime, 0, null, justificationText);
+      saveState();
+      closeModal(); renderTasks(); renderOFs(); renderKPIs();
+    }
+
+    function resumeTask(taskId){
+      const task = allTasks[taskId];
+      const totalPauseMs = Date.now() - task.pause_start_timestamp;
+      task.total_pause_time_ms = (task.total_pause_time_ms||0) + totalPauseMs;
+      task.status = 'Em Processo';
+      task.pause_start_timestamp = null;
+      task.timestamp_inicio = Date.now();
+      logOccurrence(task, 'RETORNO', 0, `Tarefa retomada. Pausa total: ${msToMinutes(task.total_pause_time_ms).toFixed(2)} min.`);
+      saveState();
+      renderTasks(); renderOFs(); renderKPIs();
+    }
+
+    function openInstructionModal(taskId){
+      const task = allTasks[taskId];
+      const modal = document.getElementById('instruction-modal');
+      document.getElementById('instruction-modal-header').innerHTML = `Instrução para ${task.nome_atividade} do Chicote ${task.chicote_nome}.`;
+      document.getElementById('instruction-modal-content').innerHTML = task.roteiro_data.instrucao_trabalho;
+      modal.style.display = 'flex';
+      lucide.createIcons();
+    }
+    window.openInstructionModal = openInstructionModal;
+
+    function openPauseModal(taskId){
+      currentAction = { type:'pause', taskId };
+      openActionModal('Pausar Atividade', 'Selecione o motivo da pausa.', PAUSE_REASONS);
+      document.getElementById('justification-required-text').classList.add('hidden');
+    }
+    function openCompleteModal(taskId){
+      const task = allTasks[taskId];
+      const desvio = calculateDesvio(task);
+      currentAction = { type:'complete', taskId };
+      openActionModal('Concluir Atividade', 'Certifique-se de que a atividade foi finalizada. Se houver atraso, justifique.', DELAY_REASONS);
+      const isLate = desvio < -0.1;
+      document.getElementById('justification-area').classList.toggle('hidden', !isLate);
+      document.getElementById('justification-required-text').classList.toggle('hidden', !isLate);
+      document.getElementById('modal-message').textContent = isLate
+        ? `Concluir Atividade (Atraso de ${Math.abs(desvio).toFixed(2)} min). Justificativa obrigatória.`
+        : 'Concluir Atividade. Não houve desvio significativo.';
+    }
+    function openActionModal(title, message, reasonsArray){
+      const modal = document.getElementById('action-modal');
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-message').textContent = message;
+      const select = document.getElementById('justification-select');
+      select.innerHTML = '<option value="">-- Selecione uma opção --</option>';
+      reasonsArray.forEach(reason=>{
+        const option = document.createElement('option'); option.value=reason; option.textContent=reason; select.appendChild(option);
+      });
+      document.getElementById('justification-text').value = '';
+      document.getElementById('justification-area').classList.remove('hidden');
+      modal.style.display='flex'; lucide.createIcons();
+    }
+    function handleConfirmedAction(){
+      const justification = document.getElementById('justification-select').value;
+      const justificationText = document.getElementById('justification-text').value;
+      if (currentAction.type === 'pause'){
+        if (!justification){ alert('Selecione um motivo para a pausa.'); return; }
+        pauseTask(currentAction.taskId, justification, justificationText);
+      }else if (currentAction.type === 'complete'){
+        const task = allTasks[currentAction.taskId];
+        const desvio = calculateDesvio(task);
+        if (desvio < -0.1 && !justification){ alert('Selecione o motivo do atraso.'); return; }
+        completeTask(currentAction.taskId, justification, justificationText);
+      }
+    }
+    window.handleConfirmedAction = handleConfirmedAction;
+
+    function updateSectorFilter(sector){
+      if (isOperador()) return;
+      currentSectorFilter = sector; renderTasks(); lucide.createIcons();
+    }
+
+    function logOccurrence(task, type, pauseTime=0, justification='', totalPauseMin=0, totalDelayMin=0, delayReason='', details=''){
+      allOcurrencesLog.push({
+        ID_OCORRENCIA: Date.now(), OF: task.id_of, CHICOTE: task.chicote_nome, ATIVIDADE: task.nome_atividade, TIPO: type,
+        MOTIVO_PAUSA: type==='PAUSA' ? justification : null,
+        MOTIVO_ATRASO: type==='CONCLUSAO' && totalDelayMin>0 ? delayReason : null,
+        TEMPO_PAUSA: totalPauseMin, TEMPO_ATRASO: totalDelayMin, DETALHES: details || null, TIMESTAMP: new Date().toISOString()
+      });
+      saveState();
+    }
+
+    // ==========================
+    //  CADASTRO / SETUP / OF
+    // ==========================
+    function setupChicoteDropdowns(){
+      const ofChicoteSelect = document.getElementById('of-chicote');
+      if (!ofChicoteSelect) return;
+      ofChicoteSelect.innerHTML = '';
+      const chicotesUnicos = [...new Set(Object.values(allRoteiros).map(r=>r.chicote_nome))];
+      if (chicotesUnicos.length===0){
+        ofChicoteSelect.innerHTML = '<option value="">Nenhum roteiro mestre cadastrado.</option>';
+        return;
+      }
+      chicotesUnicos.forEach(ch=>{
+        const o = document.createElement('option'); o.value=ch; o.textContent=ch; ofChicoteSelect.appendChild(o);
+      });
+    }
+
+    function createOF(ofId, quantity, chicote, isSimulation=false){
+      if (!isSimulation && !isMaster()){ alert('Acesso restrito ao Master.'); return; }
+      const ofIdInput = ofId || document.getElementById('of-id').value.toUpperCase().trim();
+      const quantityInput = quantity || parseInt(document.getElementById('of-quantity').value);
+      const chicoteInput = chicote || document.getElementById('of-chicote').value;
+      const messageDiv = document.getElementById('of-creation-message');
+      messageDiv?.classList?.add('hidden');
+
+      if (!isSimulation && (!ofIdInput || !quantityInput || !chicoteInput)){
+        messageDiv.textContent = 'Preencha todos os campos obrigatórios.'; messageDiv.classList.remove('hidden'); return;
+      }
+      if (!isSimulation && allOFs[ofIdInput]){ messageDiv.textContent=`A OF ${ofIdInput} já existe.`; messageDiv.classList.remove('hidden'); return; }
+      const roteiroTasks = Object.values(allRoteiros).filter(r=> r.chicote_nome === chicoteInput);
+      if (roteiroTasks.length===0){ messageDiv.textContent=`Nenhum roteiro cadastrado para o chicote ${chicoteInput}.`; messageDiv.classList.remove('hidden'); return; }
+
+      const newOF = { id: ofIdInput, chicote_nome: chicoteInput, quantidade: quantityInput, status:'Em Produção' };
+      allOFs[ofIdInput] = newOF;
+
+      roteiroTasks.sort((a,b)=> a.id.localeCompare(b.id)).forEach((roteiro, index)=>{
+        const tempoPlanejado = roteiro.tempo_setup + (roteiro.tempo_ciclo * quantityInput);
+        const taskId = `T-${taskCounter++}`;
+        allTasks[taskId] = {
+          id: taskId, id_of: ofIdInput, chicote_nome: roteiro.chicote_nome, setor: roteiro.setor, nome_atividade: roteiro.nome_atividade,
+          quantidade: quantityInput, tempo_planejado: parseFloat(tempoPlanejado.toFixed(2)),
+          status: index===0 ? 'Em Espera' : 'Aguardando', roteiro_data: roteiro, tempo_real_acumulado:0, total_pause_time_ms:0
+        };
+      });
+
+      saveState();
+      if (!isSimulation){ closeModal('create-of-modal'); updateView('PCP'); }
+    }
+    window.createOF = createOF;
+
+    function addRoteiroActivity(){
+      if (!isMaster()){ alert('Acesso restrito ao Master.'); return; }
+      const chicoteName = document.getElementById('roteiro-chicote-name').value.toUpperCase().trim();
+      const setor = document.getElementById('roteiro-setor').value;
+      const activityName = document.getElementById('roteiro-activity-name').value.trim();
+      const setupTime = parseFloat(document.getElementById('roteiro-setup-time').value);
+      const cycleTime = parseFloat(document.getElementById('roteiro-cycle-time').value);
+      const instruction = document.getElementById('roteiro-instruction-text').value.trim();
+      const messageDiv = document.getElementById('roteiro-message');
+
+      messageDiv.textContent='';
+      if (!chicoteName || !setor || !activityName || isNaN(setupTime) || isNaN(cycleTime) || !instruction){
+        messageDiv.textContent='Preencha todos os campos corretamente.'; return;
+      }
+      const newRoteiroId = `r${roteiroCounter++}`;
+      allRoteiros[newRoteiroId] = {
+        id:newRoteiroId, chicote_nome:chicoteName, setor, nome_atividade:activityName, tempo_setup:setupTime, tempo_ciclo:cycleTime,
+        instrucao_trabalho: instruction.replace(/\n/g,'<br>')
+      };
+      messageDiv.textContent = `Etapa "${activityName}" adicionada ao roteiro mestre "${chicoteName}".`;
+      messageDiv.style.color='green';
+      document.getElementById('roteiro-activity-name').value='';
+      document.getElementById('roteiro-setup-time').value='';
+      document.getElementById('roteiro-cycle-time').value='';
+      document.getElementById('roteiro-instruction-text').value='';
+      saveState();
+      renderRoteirosSetup(); setupChicoteDropdowns();
+    }
+    window.addRoteiroActivity = addRoteiroActivity;
+
+    function renderRoteirosSetup(){
+      if (!isMaster()){ return; }
+      const div = document.getElementById('roteiro-list');
+      const porChicote = Object.values(allRoteiros).reduce((acc,r)=>{
+        (acc[r.chicote_nome] = acc[r.chicote_nome] || []).push(r); return acc;
+      }, {});
+      let html='';
+      const chicotes = Object.keys(porChicote).sort();
+      if (chicotes.length===0){ html = '<p class="text-center text-gray-500 py-4">Nenhum roteiro mestre cadastrado.</p>'; }
+      else {
+        chicotes.forEach(ch=>{
+          const atividades = porChicote[ch].sort((a,b)=> a.id.localeCompare(b.id));
+          html += `<div class="p-3 bg-white border rounded-lg shadow-sm">
+            <h5 class="text-md font-bold text-indigo-700">${ch} (${atividades.length} Etapas)</h5>
+            <ul class="list-disc list-inside text-sm text-gray-700 mt-1">`+
+            atividades.map(ativ=>`<li>[${ativ.setor}] ${ativ.nome_atividade} (Setup: ${ativ.tempo_setup} min | Ciclo: ${ativ.tempo_ciclo} min/pç)
+              <button onclick="deleteRoteiroActivity('${ativ.id}')" class="ml-2 text-red-500 hover:text-red-700 text-xs">(X)</button></li>`).join('')+
+            `</ul></div>`;
+        });
+      }
+      div.innerHTML = html;
+    }
+    window.renderRoteirosSetup = renderRoteirosSetup;
+
+    function deleteRoteiroActivity(id){
+      if (!isMaster()){ alert('Acesso restrito ao Master.'); return; }
+      if (confirm('Remover esta etapa do roteiro?')){ delete allRoteiros[id]; saveState(); renderRoteirosSetup(); setupChicoteDropdowns(); }
+    }
+    window.deleteRoteiroActivity = deleteRoteiroActivity;
+
+    function completeOF(ofId){
+      if (!isMaster()){ alert('Acesso restrito ao Master.'); return; }
+      if (confirm(`Finalizar a OF ${ofId}?`)){
+        allOFs[ofId].status='Concluído';
+        Object.values(allTasks).filter(t=> t.id_of===ofId).forEach(t=> t.status='Concluído');
+        saveState();
+        renderOFs(); renderKPIs();
+      }
+    }
+    window.completeOF = completeOF;
+
+    // NOVO: Excluir OF (com confirmação)
+    function deleteOF(ofId){
+      if (!isMaster()) return alert('Acesso restrito ao Master.');
+      const temTarefasEmAndamento = Object.values(allTasks).some(t => t.id_of === ofId && (t.status === 'Em Processo' || t.status === 'Pausada'));
+      const msg = temTarefasEmAndamento
+        ? `A OF ${ofId} possui tarefas em andamento/pausadas.\nTem certeza que deseja EXCLUIR? Isso removerá a OF, suas tarefas e ocorrências relacionadas.`
+        : `Tem certeza que deseja EXCLUIR a OF ${ofId}?`;
+
+      if (!confirm(msg)) return;
+
+      // remove tarefas da OF
+      Object.keys(allTasks).forEach(k => { if (allTasks[k].id_of === ofId) delete allTasks[k]; });
+      // remove ocorrências da OF
+      allOcurrencesLog = allOcurrencesLog.filter(o => o.OF !== ofId);
+      // remove OF
+      delete allOFs[ofId];
+
+      saveState();
+      renderOFs(); renderKPIs();
+      // Se o modal de detalhes estiver aberto para esta OF, fecha
+      if (window.__ofDetailsOpenId === ofId) closeModal('of-details-modal');
+    }
+    window.deleteOF = deleteOF;
+
+    function exportReportCSV(){
+      if (!isMaster()){ alert('Acesso restrito ao Master.'); return; }
+      if (allOcurrencesLog.length===0){ alert('Não há dados para exportar.'); return; }
+      const headers = ["ID_OCORRENCIA","OF","CHICOTE","ATIVIDADE","TIPO","MOTIVO_PAUSA","MOTIVO_ATRASO","TEMPO_PAUSA","TEMPO_ATRASO","DETALHES","TIMESTAMP"];
+      const csvRows = [ headers.join(';'),
+        ...allOcurrencesLog.map(log=> headers.map(h=>{
+          const key = h; let value = (log[key] ?? '');
+          if (typeof value==='number') return value.toFixed(2).replace('.',',');
+          if (typeof value==='string') return `"${value.replace(/"/g,'""').replace(/;/g,',')}"`;
+          return value;
+        }).join(';'))
+      ];
+      const csvString = csvRows.join('\n');
+      const blob = new Blob([csvString], { type:'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "relatorio_desvios_"+ new Date().toISOString().split('T')[0]+".csv";
+      document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    }
+    window.exportReportCSV = exportReportCSV;
+
+    // ==========================
+    //  MODAIS
+    // ==========================
+    function openModal(id){
+      if (id==='setup-roteiro-modal' && !isMaster()) return alert('Acesso restrito ao Master.');
+      if (id==='create-of-modal' && !isMaster()) return alert('Acesso restrito ao Master.');
+      document.getElementById(id).style.display='flex';
+      if (id==='create-of-modal') setupChicoteDropdowns();
+      if (id==='setup-roteiro-modal') renderRoteirosSetup();
+      lucide.createIcons();
+    }
+    window.openModal = openModal;
+
+    function closeModal(id){
+      const modalId = id || 'action-modal';
+      const modal = document.getElementById(modalId);
+      if (modal) modal.style.display='none';
+    }
+    window.closeModal = closeModal;
+
+    function setupUIRefresh(){
+      setInterval(()=>{
+        const view = userViewSelect.value;
+        if (view==='Operador') renderTasks();
+        if (view==='PCP'){ renderOFs(); renderKPIs(); }
+        if (document.getElementById('of-details-modal').style.display==='flex' && window.__ofDetailsOpenId){
+          renderOFDetails(window.__ofDetailsOpenId);
+        }
+      }, 5000);
+    }
+
+    // ==========================
+    //  DETALHES DA OF (DUPLO CLIQUE)
+    // ==========================
+    function openOFDetails(ofId){
+      if (!isMaster()) return;
+      window.__ofDetailsOpenId = ofId;
+      renderOFDetails(ofId);
+      document.getElementById('of-details-modal').style.display='flex';
+      lucide.createIcons();
+    }
+    window.openOFDetails = openOFDetails;
+
+    function renderOFDetails(ofId){
+      const of = allOFs[ofId]; if (!of) return;
+      const tasks = Object.values(allTasks).filter(t=> t.id_of===ofId);
+      document.getElementById('of-details-title').textContent = `${of.id} (${of.chicote_nome})`;
+
+      let plan=0, real=0, rest=0, done=0;
+      tasks.forEach(t=>{
+        const p = t.tempo_planejado || 0;
+        const r = calculateTempoReal(t);
+        const re = Math.max(0, p - r);
+        plan += p; real += r; rest += re; if (t.status==='Concluído') done++;
+      });
+      const progress = tasks.length ? Math.floor((done/tasks.length)*100) : 0;
+
+      document.getElementById('of-details-summary').innerHTML = [
+        {label:'Etapas', val:`${done}/${tasks.length}`},
+        {label:'Progresso', val:`${progress}%`},
+        {label:'Real', val:formatMinutes(real)},
+        {label:'Restante', val:formatMinutes(rest)},
+      ].map(k=>`
+        <div class="bg-gray-50 rounded-lg p-3 border">
+          <p class="text-xs text-gray-500">${k.label}</p>
+          <p class="text-lg font-bold">${k.val}</p>
+        </div>`).join('');
+      document.getElementById('of-details-progress').style.width = `${progress}%`;
+
+      const groups = {
+        'Em Processo': tasks.filter(t=> t.status==='Em Processo'),
+        'Em Espera': tasks.filter(t=> t.status==='Em Espera'),
+        'Pausadas': tasks.filter(t=> t.status==='Pausada'),
+        'Aguardando': tasks.filter(t=> t.status==='Aguardando'),
+        'Concluídas': tasks.filter(t=> t.status==='Concluído'),
+      };
+      const badge = (status)=> {
+        const map = {
+          'Em Processo':'bg-blue-100 text-blue-800',
+          'Em Espera':'bg-gray-200 text-gray-800',
+          'Pausadas':'bg-yellow-100 text-yellow-800',
+          'Aguardando':'bg-gray-100 text-gray-700',
+          'Concluídas':'bg-green-100 text-green-800',
+        }; return map[status] || 'bg-gray-100 text-gray-800';
+      };
+
+      const section = (title, arr)=> `
+        <div class="bg-white border rounded-lg">
+          <div class="flex items-center justify-between px-3 py-2">
+            <h4 class="font-semibold text-gray-800">${title}</h4>
+            <span class="text-xs text-gray-500">${arr.length}</span>
+          </div>
+          <div class="divide-y">
+            ${arr.map(t=>{
+              const p = t.tempo_planejado||0;
+              const r = calculateTempoReal(t);
+              const re = Math.max(0, p - r);
+              return `
+              <div class="p-3 flex items-center justify-between">
+                <div class="min-w-0">
+                  <p class="font-semibold text-gray-800">${t.nome_atividade} <span class="text-gray-500">• ${t.setor}</span></p>
+                  <p class="text-xs text-gray-500">Planejado: ${p.toFixed(2)} m • Real: ${r.toFixed(2)} m • Restante:
+                    <span class="${re>0?'text-blue-700 font-semibold':'text-gray-600'}">${re.toFixed(2)} m</span>
+                  </p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-1 text-xs rounded ${badge(title)}">${title}</span>
+                  <button class="p-2 rounded hover:bg-gray-100" title="Ver Instrução" onclick="openInstructionModal('${t.id}')">
+                    <i data-lucide="info" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>`; }).join('')}
+          </div>
+        </div>`;
+
+      const content = Object.entries(groups).map(([k,v])=> section(k,v)).join('');
+      document.getElementById('of-details-content').innerHTML = content;
+      document.getElementById('btn-export-of').classList.toggle('hidden', !isMaster());
+      lucide.createIcons();
+    }
+
+    function exportOFTasksCSV(ofId){
+      if (!isMaster()) return alert('Acesso restrito ao Master.');
+      const tasks = Object.values(allTasks).filter(t=> t.id_of===ofId);
+      if (!tasks.length) return alert('Sem tarefas para exportar.');
+      const headers = ["OF","CHICOTE","ATIVIDADE","SETOR","STATUS","PLANEJADO","REAL","RESTANTE"];
+      const rows = [headers.join(';'),
+        ...tasks.map(t=>{
+          const p=t.tempo_planejado||0, r=calculateTempoReal(t), re=Math.max(0,p-r);
+          const vals = [t.id_of,t.chicote_nome,t.nome_atividade,t.setor,t.status,p.toFixed(2),r.toFixed(2),re.toFixed(2)];
+          return vals.map(v=> typeof v==='string' ? `"${v.replace(/"/g,'""')}"` : v).join(';');
+        })
+      ];
+      const csv = rows.join('\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`of_${ofId}_tarefas.csv`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+
+    // ==========================
+    //  LOGIN / PERFIL
+    // ==========================
+    function openUserModal(){
+      const modal = document.getElementById('user-modal');
+      const roleSel = document.getElementById('user-role');
+      const pinWrap = document.getElementById('user-pin-wrap');
+      const sectorWrap = document.getElementById('user-sector-wrap');
+      const sectorSel = document.getElementById('user-sector');
+
+      sectorSel.innerHTML = '';
+      SECTORS.forEach(s=>{ const o=document.createElement('option'); o.value=s; o.textContent=s; sectorSel.appendChild(o); });
+
+      roleSel.value = (currentUser?.role || 'OPERADOR');
+      if (currentUser?.sector) sectorSel.value = currentUser.sector;
+
+      roleSel.onchange = () => {
+        const isM = roleSel.value === 'MASTER';
+        pinWrap.classList.toggle('hidden', !isM);
+        sectorWrap.classList.toggle('hidden', isM);
+      };
+      roleSel.onchange();
+      modal.style.display='flex';
+    }
+    function confirmUser(){
+      const role = document.getElementById('user-role').value;
+      const sector = document.getElementById('user-sector').value;
+      const pin = document.getElementById('user-pin').value;
+
+      if (role==='MASTER'){
+        if (pin !== MASTER_PIN){ alert('PIN incorreto.'); return; }
+        setUser({ role:'MASTER', name:'Master' });
+        saveState();
+        closeModal('user-modal');
+        setupSectorDropdowns();
+        updateView('PCP');
+      } else {
+        if (!sector){ alert('Selecione um setor.'); return; }
+        setUser({ role:'OPERADOR', sector, name:'Operador' });
+        saveState();
+        closeModal('user-modal');
+        setupSectorDropdowns();
+        updateView('Operador');
+      }
+    }
+    window.openUserModal = openUserModal;
+    window.confirmUser = confirmUser;
+
+    // ==========================
+    //  STARTUP
+    // ==========================
+    lucide.createIcons();
+    initializeApp();
+  </script>
+</body>
+</html>
