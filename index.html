@@ -16,7 +16,6 @@
     .highlight-red { color: #dc2626; font-weight: 600; }
 
     /* ---------- Mobile tweaks ---------- */
-    /* Deixa os modais em fullscreen no mobile, mantendo max-width no desktop */
     .modal-panel { max-height: calc(100dvh - 2rem); }
     @media (max-width: 640px) {
       .modal-panel {
@@ -726,7 +725,6 @@
     // ==========================
     //  FLUXO OPERACIONAL
     // ==========================
-    // MÚLTIPLAS tarefas simultâneas (sem bloqueio), setup aplicado uma vez
     function startTask(taskId){
       const task = allTasks[taskId];
       const setupTime = task.roteiro_data?.tempo_setup || 0;
@@ -879,16 +877,16 @@
       if (!isSimulation && (!ofIdInput || !quantityInput || !chicoteInput)){
         messageDiv.textContent = 'Preencha todos os campos obrigatórios.'; messageDiv.classList.remove('hidden'); return;
       }
-      if (!isSimulation && allOFs[ofIdInput]){ messageDiv.textContent=`A OF ${ofIdInput} já existe.`; messageDiv.classList.remove('hidden'); return; }
+      if (!isSimulation && allOFs[ofIdInput]){ messageDiv.textContent=\`A OF \${ofIdInput} já existe.\`; messageDiv.classList.remove('hidden'); return; }
       const roteiroTasks = Object.values(allRoteiros).filter(r=> r.chicote_nome === chicoteInput);
-      if (roteiroTasks.length===0){ messageDiv.textContent=`Nenhum roteiro cadastrado para o chicote ${chicoteInput}.`; messageDiv.classList.remove('hidden'); return; }
+      if (roteiroTasks.length===0){ messageDiv.textContent=\`Nenhum roteiro cadastrado para o chicote \${chicoteInput}.\`; messageDiv.classList.remove('hidden'); return; }
 
       const newOF = { id: ofIdInput, chicote_nome: chicoteInput, quantidade: quantityInput, status:'Em Produção' };
       allOFs[ofIdInput] = newOF;
 
       roteiroTasks.sort((a,b)=> a.id.localeCompare(b.id)).forEach((roteiro, index)=>{
         const tempoPlanejado = roteiro.tempo_setup + (roteiro.tempo_ciclo * quantityInput);
-        const taskId = `T-${taskCounter++}`;
+        const taskId = \`T-\${taskCounter++}\`;
         allTasks[taskId] = {
           id: taskId, id_of: ofIdInput, chicote_nome: roteiro.chicote_nome, setor: roteiro.setor, nome_atividade: roteiro.nome_atividade,
           quantidade: quantityInput, tempo_planejado: parseFloat(tempoPlanejado.toFixed(2)),
@@ -915,12 +913,12 @@
       if (!chicoteName || !setor || !activityName || isNaN(setupTime) || isNaN(cycleTime) || !instruction){
         messageDiv.textContent='Preencha todos os campos corretamente.'; return;
       }
-      const newRoteiroId = `r${roteiroCounter++}`;
+      const newRoteiroId = \`r\${roteiroCounter++}\`;
       allRoteiros[newRoteiroId] = {
         id:newRoteiroId, chicote_nome:chicoteName, setor, nome_atividade:activityName, tempo_setup:setupTime, tempo_ciclo:cycleTime,
-        instrucao_trabalho: instruction.replace(/\n/g,'<br>')
+        instrucao_trabalho: instruction.replace(/\\n/g,'<br>')
       };
-      messageDiv.textContent = `Etapa "${activityName}" adicionada ao roteiro mestre "${chicoteName}".`;
+      messageDiv.textContent = \`Etapa "\${activityName}" adicionada ao roteiro mestre "\${chicoteName}".\`;
       messageDiv.style.color='green';
       document.getElementById('roteiro-activity-name').value='';
       document.getElementById('roteiro-setup-time').value='';
@@ -943,12 +941,12 @@
       else {
         chicotes.forEach(ch=>{
           const atividades = porChicote[ch].sort((a,b)=> a.id.localeCompare(b.id));
-          html += `<div class="p-3 bg-white border rounded-lg shadow-sm">
-            <h5 class="text-md font-bold text-indigo-700">${ch} (${atividades.length} Etapas)</h5>
-            <ul class="list-disc list-inside text-sm text-gray-700 mt-1">`+
-            atividades.map(ativ=>`<li>[${ativ.setor}] ${ativ.nome_atividade} (Setup: ${ativ.tempo_setup} min | Ciclo: ${ativ.tempo_ciclo} min/pç)
-              <button onclick="deleteRoteiroActivity('${ativ.id}')" class="ml-2 text-red-500 hover:text-red-700 text-xs">(X)</button></li>`).join('')+
-            `</ul></div>`;
+          html += \`<div class="p-3 bg-white border rounded-lg shadow-sm">
+            <h5 class="text-md font-bold text-indigo-700">\${ch} (\${atividades.length} Etapas)</h5>
+            <ul class="list-disc list-inside text-sm text-gray-700 mt-1">\`+
+            atividades.map(ativ=>\`<li>[\${ativ.setor}] \${ativ.nome_atividade} (Setup: \${ativ.tempo_setup} min | Ciclo: \${ativ.tempo_ciclo} min/pç)
+              <button onclick="deleteRoteiroActivity('\${ativ.id}')" class="ml-2 text-red-500 hover:text-red-700 text-xs">(X)</button></li>\`).join('')+
+            \`</ul></div>\`;
         });
       }
       div.innerHTML = html;
@@ -963,7 +961,7 @@
 
     function completeOF(ofId){
       if (!isMaster()){ alert('Acesso restrito ao Master.'); return; }
-      if (confirm(`Finalizar a OF ${ofId}?`)){
+      if (confirm(\`Finalizar a OF \${ofId}?\`)){
         allOFs[ofId].status='Concluído';
         Object.values(allTasks).filter(t=> t.id_of===ofId).forEach(t=> t.status='Concluído');
         saveState();
@@ -972,26 +970,22 @@
     }
     window.completeOF = completeOF;
 
-    // NOVO: Excluir OF (com confirmação)
+    // NOVO: Excluir OF
     function deleteOF(ofId){
       if (!isMaster()) return alert('Acesso restrito ao Master.');
       const temTarefasEmAndamento = Object.values(allTasks).some(t => t.id_of === ofId && (t.status === 'Em Processo' || t.status === 'Pausada'));
       const msg = temTarefasEmAndamento
-        ? `A OF ${ofId} possui tarefas em andamento/pausadas.\nTem certeza que deseja EXCLUIR? Isso removerá a OF, suas tarefas e ocorrências relacionadas.`
-        : `Tem certeza que deseja EXCLUIR a OF ${ofId}?`;
+        ? \`A OF \${ofId} possui tarefas em andamento/pausadas.\\nTem certeza que deseja EXCLUIR? Isso removerá a OF, suas tarefas e ocorrências relacionadas.\`
+        : \`Tem certeza que deseja EXCLUIR a OF \${ofId}?\`;
 
       if (!confirm(msg)) return;
 
-      // remove tarefas da OF
       Object.keys(allTasks).forEach(k => { if (allTasks[k].id_of === ofId) delete allTasks[k]; });
-      // remove ocorrências da OF
       allOcurrencesLog = allOcurrencesLog.filter(o => o.OF !== ofId);
-      // remove OF
       delete allOFs[ofId];
 
       saveState();
       renderOFs(); renderKPIs();
-      // Se o modal de detalhes estiver aberto para esta OF, fecha
       if (window.__ofDetailsOpenId === ofId) closeModal('of-details-modal');
     }
     window.deleteOF = deleteOF;
@@ -1004,11 +998,11 @@
         ...allOcurrencesLog.map(log=> headers.map(h=>{
           const key = h; let value = (log[key] ?? '');
           if (typeof value==='number') return value.toFixed(2).replace('.',',');
-          if (typeof value==='string') return `"${value.replace(/"/g,'""').replace(/;/g,',')}"`;
+          if (typeof value==='string') return \`"\${value.replace(/"/g,'""').replace(/;/g,',')}"\`;
           return value;
         }).join(';'))
       ];
-      const csvString = csvRows.join('\n');
+      const csvString = csvRows.join('\\n');
       const blob = new Blob([csvString], { type:'text/csv;charset=utf-8;' });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
@@ -1063,7 +1057,7 @@
     function renderOFDetails(ofId){
       const of = allOFs[ofId]; if (!of) return;
       const tasks = Object.values(allTasks).filter(t=> t.id_of===ofId);
-      document.getElementById('of-details-title').textContent = `${of.id} (${of.chicote_nome})`;
+      document.getElementById('of-details-title').textContent = \`\${of.id} (\${of.chicote_nome})\`;
 
       let plan=0, real=0, rest=0, done=0;
       tasks.forEach(t=>{
@@ -1075,16 +1069,16 @@
       const progress = tasks.length ? Math.floor((done/tasks.length)*100) : 0;
 
       document.getElementById('of-details-summary').innerHTML = [
-        {label:'Etapas', val:`${done}/${tasks.length}`},
-        {label:'Progresso', val:`${progress}%`},
+        {label:'Etapas', val:\`\${done}/\${tasks.length}\`},
+        {label:'Progresso', val:\`\${progress}%\`},
         {label:'Real', val:formatMinutes(real)},
         {label:'Restante', val:formatMinutes(rest)},
-      ].map(k=>`
+      ].map(k=>\`
         <div class="bg-gray-50 rounded-lg p-3 border">
-          <p class="text-xs text-gray-500">${k.label}</p>
-          <p class="text-lg font-bold">${k.val}</p>
-        </div>`).join('');
-      document.getElementById('of-details-progress').style.width = `${progress}%`;
+          <p class="text-xs text-gray-500">\${k.label}</p>
+          <p class="text-lg font-bold">\${k.val}</p>
+        </div>\`).join('');
+      document.getElementById('of-details-progress').style.width = \`\${progress}%\`;
 
       const groups = {
         'Em Processo': tasks.filter(t=> t.status==='Em Processo'),
@@ -1103,34 +1097,34 @@
         }; return map[status] || 'bg-gray-100 text-gray-800';
       };
 
-      const section = (title, arr)=> `
+      const section = (title, arr)=> \`
         <div class="bg-white border rounded-lg">
           <div class="flex items-center justify-between px-3 py-2">
-            <h4 class="font-semibold text-gray-800">${title}</h4>
-            <span class="text-xs text-gray-500">${arr.length}</span>
+            <h4 class="font-semibold text-gray-800">\${title}</h4>
+            <span class="text-xs text-gray-500">\${arr.length}</span>
           </div>
           <div class="divide-y">
-            ${arr.map(t=>{
+            \${arr.map(t=>{
               const p = t.tempo_planejado||0;
               const r = calculateTempoReal(t);
               const re = Math.max(0, p - r);
-              return `
+              return \`
               <div class="p-3 flex items-center justify-between">
                 <div class="min-w-0">
-                  <p class="font-semibold text-gray-800">${t.nome_atividade} <span class="text-gray-500">• ${t.setor}</span></p>
-                  <p class="text-xs text-gray-500">Planejado: ${p.toFixed(2)} m • Real: ${r.toFixed(2)} m • Restante:
-                    <span class="${re>0?'text-blue-700 font-semibold':'text-gray-600'}">${re.toFixed(2)} m</span>
+                  <p class="font-semibold text-gray-800">\${t.nome_atividade} <span class="text-gray-500">• \${t.setor}</span></p>
+                  <p class="text-xs text-gray-500">Planejado: \${p.toFixed(2)} m • Real: \${r.toFixed(2)} m • Restante:
+                    <span class="\${re>0?'text-blue-700 font-semibold':'text-gray-600'}">\${re.toFixed(2)} m</span>
                   </p>
                 </div>
                 <div class="flex items-center gap-2">
-                  <span class="px-2 py-1 text-xs rounded ${badge(title)}">${title}</span>
-                  <button class="p-2 rounded hover:bg-gray-100" title="Ver Instrução" onclick="openInstructionModal('${t.id}')">
+                  <span class="px-2 py-1 text-xs rounded \${badge(title)}">\${title}</span>
+                  <button class="p-2 rounded hover:bg-gray-100" title="Ver Instrução" onclick="openInstructionModal('\${t.id}')">
                     <i data-lucide="info" class="w-4 h-4"></i>
                   </button>
                 </div>
-              </div>`; }).join('')}
+              </div>\`; }).join('')}
           </div>
-        </div>`;
+        </div>\`;
 
       const content = Object.entries(groups).map(([k,v])=> section(k,v)).join('');
       document.getElementById('of-details-content').innerHTML = content;
@@ -1147,12 +1141,12 @@
         ...tasks.map(t=>{
           const p=t.tempo_planejado||0, r=calculateTempoReal(t), re=Math.max(0,p-r);
           const vals = [t.id_of,t.chicote_nome,t.nome_atividade,t.setor,t.status,p.toFixed(2),r.toFixed(2),re.toFixed(2)];
-          return vals.map(v=> typeof v==='string' ? `"${v.replace(/"/g,'""')}"` : v).join(';');
+          return vals.map(v=> typeof v==='string' ? \`"\${v.replace(/"/g,'""')}"\` : v).join(';');
         })
       ];
-      const csv = rows.join('\n');
+      const csv = rows.join('\\n');
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-      const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`of_${ofId}_tarefas.csv`;
+      const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=\`of_\${ofId}_tarefas.csv\`;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
 
@@ -1212,4 +1206,3 @@
   </script>
 </body>
 </html>
-
