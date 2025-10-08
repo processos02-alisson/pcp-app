@@ -307,12 +307,13 @@
       </div>
     </div>
   </div>
-<!-- Firebase SDK (adicione este bloco antes do script principal) -->
 <script type="module">
+  // Importar os módulos necessários do Firebase
   import { initializeApp }   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getFirestore }    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
   import { getAnalytics }    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
 
+  // Configuração do Firebase
   const firebaseConfig = {
     apiKey: "AIzaSyDIJJIe4WIVj5OKYTtR-HQscrxIzxNK9eY",
     authDomain: "pcp-app-24c56.firebaseapp.com",
@@ -323,6 +324,7 @@
     measurementId: "G-DH06WDCKJY"
   };
 
+  // Inicialização do Firebase
   const app = initializeApp(firebaseConfig);
   const db  = getFirestore(app);
   const analytics = getAnalytics(app);
@@ -330,24 +332,37 @@
   console.log("🔥 Firebase conectado com sucesso!");
 </script>
 
-  <script>
-    // ==========================
-    //  VARIÁVEIS E DADOS
-    // ==========================
-    const MASTER_PIN = "7889";
-    const SECTORS = [
-      'Corte','Corte de Revestimentos','Pré-Montagem','Preparação','Pré Conexão',
-      'Conexão','Pré Grampeação','Grampeação','Acabamento','Embalagem','Montagem','Cabo de Bateria 1','Cabo de Bateria 2'
-    ];
-    const PAUSE_REASONS = [
-      "Falta de material na bancada","Manutenção/Ajuste de máquina","Instrução de trabalho confusa/ausente",
-      "Necessidade de assistência técnica","Troca de turno/intervalo programado","Outro (Detalhar abaixo)"
-    ];
-    const DELAY_REASONS = [
-      "Complexidade inesperada da peça","Problema de qualidade na etapa anterior","Falta de treinamento/experiência",
-      "Tempo padrão calculado incorretamente","Quebra/defeito de ferramenta","Outro (Detalhar abaixo)"
-    ];
+<!-- Script principal do sistema PCP -->
+<script>
+  // ==========================
+  //  VARIÁVEIS E DADOS
+  // ==========================
+  const MASTER_PIN = "7889";
 
+  const SECTORS = [
+    'Corte','Corte de Revestimentos','Pré-Montagem','Preparação','Pré Conexão',
+    'Conexão','Pré Grampeação','Grampeação','Acabamento','Embalagem','Montagem',
+    'Cabo de Bateria 1','Cabo de Bateria 2'
+  ];
+
+  const PAUSE_REASONS = [
+    "Falta de material na bancada",
+    "Manutenção/Ajuste de máquina",
+    "Instrução de trabalho confusa/ausente",
+    "Necessidade de assistência técnica",
+    "Troca de turno/intervalo programado",
+    "Outro (Detalhar abaixo)"
+  ];
+
+  const DELAY_REASONS = [
+    "Complexidade inesperada da peça",
+    "Problema de qualidade na etapa anterior",
+    "Falta de treinamento/experiência",
+    "Tempo padrão calculado incorretamente",
+    "Quebra/defeito de ferramenta",
+    "Outro (Detalhar abaixo)"
+  ];
+  
     let allOFs = {};
     let allTasks = {};
     let allRoteiros = {};
@@ -1246,6 +1261,7 @@
   </script>
 </body>
 </html>
+
 
 
 
