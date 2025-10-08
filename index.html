@@ -307,6 +307,34 @@
       </div>
     </div>
   </div>
+<!-- Firebase SDK (adicione este bloco antes do script principal) -->
+<script type="module">
+  import { initializeApp }   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore }    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAnalytics }    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDIJJIe4WIVj5OKYTtR-HQscrxIzxNK9eY",
+    authDomain: "pcp-app-24c56.firebaseapp.com",
+    projectId: "pcp-app-24c56",
+    storageBucket: "pcp-app-24c56.appspot.com",
+    messagingSenderId: "675295958467",
+    appId: "1:675295958467:web:9d79700af6fc1c28db5976",
+    measurementId: "G-DH06WDCKJY"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+  const analytics = getAnalytics(app);
+
+  console.log("🔥 Firebase conectado com sucesso!");
+</script>
+
+<script>
+  // ==========================
+  //  VARIÁVEIS E DADOS
+  // ==========================
+  const MASTER_PIN = "7889";
 
   <script>
     // ==========================
@@ -1206,3 +1234,4 @@
   </script>
 </body>
 </html>
+
