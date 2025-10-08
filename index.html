@@ -527,10 +527,28 @@
       if (savedUser){ setUser(savedUser); }
 
       setTimeout(()=>{
-        loadingIndicator.classList.add('hidden');
-        openUserModal(savedUser ? null : undefined);
-        setupUIRefresh();
-      }, 300);
+  try {
+    // esconde o loader sempre
+    loadingIndicator.classList.add('hidden');
+  } catch(e) {
+    console.warn('Falha ao esconder loader:', e);
+  }
+
+  // se não houver usuário salvo, abre o modal de login SEMPRE
+  if (!getUser()) {
+    openUserModal();
+  } else {
+    // se já havia usuário salvo, ajusta a visão padrão
+    updateView(isOperador() ? 'Operador' : 'PCP');
+  }
+
+  // inicia o auto-refresh
+  setupUIRefresh();
+
+  // log de diagnóstico (pode ver no F12 > Console)
+  console.log('Init OK | user =', getUser());
+}, 300);
+
     }
 
     // ==========================
@@ -1234,4 +1252,5 @@
   </script>
 </body>
 </html>
+
 
