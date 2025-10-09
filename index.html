@@ -6,6 +6,7 @@
   <title>Sistema PCP: Controle de Produção e Roteiros (Firebase Edition)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Firebase compat para manter a API atual -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <style>
@@ -16,9 +17,6 @@
     .modal-fixed { position: fixed; inset: 0; }
     #instruction-modal-content a { color: #3b82f6; text-decoration: underline; font-weight: 600; }
     .highlight-red { color: #dc2626; font-weight: 600; }
-
-    /* ---------- Mobile tweaks ---------- */
-    /* Deixa os modais em fullscreen no mobile, mantendo max-width no desktop */
     .modal-panel { max-height: calc(100dvh - 2rem); }
     @media (max-width: 640px) {
       .modal-panel {
@@ -27,35 +25,19 @@
         border-radius: 0 !important; margin: 0 !important;
         display: flex; flex-direction: column;
       }
-      .modal-body-scroll {
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-      }
-      .sticky-footer {
-        position: sticky;
-        bottom: 0;
-        background: white;
-        padding-top: .5rem;
-      }
+      .modal-body-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+      .sticky-footer { position: sticky; bottom: 0; background: white; padding-top: .5rem; }
       .card-tap-big { padding: 1rem; }
     }
-
-    /* Safe areas (notch iOS) */
     body {
       padding-left: max(env(safe-area-inset-left), 0px);
       padding-right: max(env(safe-area-inset-right), 0px);
     }
-
-    /* Estilos para a nova visualização de cards do PCP */
-    .of-status-bg-Atrasada { background-color: #fef2f2; border-left: 6px solid #ef4444; }
-    .of-status-bg-Pausada { background-color: #fffbeb; border-left: 6px solid #f59e0b; }
-    .of-status-bg-Em-Processo { background-color: #eff6ff; border-left: 6px solid #3b82f6; }
-    .of-status-bg-Pendente { background-color: #f3f4f6; border-left: 6px solid #9ca3af; }
-    .of-status-bg-Finalizada { background-color: #f0fdf4; border-left: 6px solid #10b981; }
   </style>
 </head>
 <body class="min-h-screen bg-gray-100 antialiased">
 
+  <!-- Header -->
   <header id="header-container" class="bg-gradient-header shadow-lg p-3 sm:p-4 sticky top-0 z-10">
     <div class="max-w-7xl mx-auto flex justify-between items-center gap-2">
       <h1 class="text-2xl sm:text-3xl font-extrabold text-white flex items-center">
@@ -64,7 +46,7 @@
       </h1>
       <div class="flex gap-2 items-center">
         <button id="btn-profile"
-              class="text-white bg-blue-800 hover:bg-blue-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden"
+                class="text-white bg-blue-800 hover:bg-blue-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden"
                 onclick="openUserModal()">
           <i data-lucide="user-cog" class="w-5 h-5 inline-block mr-1"></i>
           <span class="hidden sm:inline">Perfil</span>
@@ -92,21 +74,30 @@
     </div>
   </header>
 
+  <!-- Main -->
   <main class="max-w-7xl mx-auto p-3 sm:p-6 lg:p-8">
     <div id="loading-indicator" class="flex flex-col items-center justify-center p-6 sm:p-12 bg-white rounded-xl shadow-xl">
       <i data-lucide="loader-circle" class="w-8 h-8 sm:w-10 sm:h-10 text-blue-500 animate-spin"></i>
       <p class="mt-3 sm:mt-4 text-gray-600 font-semibold text-sm sm:text-base">Carregando dados e autenticando...</p>
     </div>
 
+    <!-- PCP -->
     <div id="pcp-view" class="space-y-4 sm:space-y-6 hidden">
       <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
         <i data-lucide="bar-chart-3" class="w-5 h-5 sm:w-6 sm:h-6 mr-2"></i>
         Painel PCP: Acompanhamento de OFs
       </h2>
+      <!-- Campo de busca por OF (injetado por JS; deixo um placeholder caso JS falhe) -->
+      <div id="pcp-of-search-wrap" class="mb-2 hidden">
+        <input id="pcp-of-search" type="text"
+               placeholder="Pesquisar OF..."
+               class="w-full sm:w-64 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
       <div id="kpis-container" class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4"></div>
-      <div id="ofs-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6"></div>
+      <div id="ofs-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6"></div>
     </div>
 
+    <!-- Operador -->
     <div id="operator-view" class="space-y-4 sm:space-y-6 hidden">
       <div class="bg-white p-3 sm:p-4 rounded-xl shadow-lg mb-4 sm:mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
         <h2 class="text-lg sm:text-xl font-bold text-gray-800 flex items-center">
@@ -118,10 +109,18 @@
           <select id="sector-filter" onchange="updateSectorFilter(this.value)"
                   class="p-2 border border-blue-300 rounded-lg bg-blue-50 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48"></select>
         </div>
+        <!-- Campo de filtro de OF no Operador (injetado por JS; placeholder) -->
+        <div id="operator-of-search-wrap" class="flex items-center gap-2 w-full sm:w-auto hidden">
+          <label class="text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">OF:</label>
+          <input id="operator-of-search" type="text"
+                 placeholder="Filtrar por OF..."
+                 class="p-2 border border-blue-300 rounded-lg bg-blue-50 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48">
+        </div>
       </div>
       <div id="tasks-list-container" class="space-y-3 sm:space-y-4"></div>
     </div>
 
+    <!-- Relatório -->
     <div id="report-view" class="space-y-4 sm:space-y-6 hidden">
       <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
         <i data-lucide="file-text" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-purple-600"></i>
@@ -155,6 +154,7 @@
     </div>
   </main>
 
+  <!-- Modal de ação (pausa/finalizar) -->
   <div id="action-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
     <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-md modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
       <h3 id="modal-title" class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2"></h3>
@@ -179,6 +179,7 @@
     </div>
   </div>
 
+  <!-- Modal de instrução -->
   <div id="instruction-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
     <div class="bg-white rounded-xl shadow-2xl p-5 sm:p-8 w-full max-w-2xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
       <h3 class="text-xl sm:text-2xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2 flex items-center">
@@ -194,6 +195,7 @@
     </div>
   </div>
 
+  <!-- Modal criar OF -->
   <div id="create-of-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
     <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-lg modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
       <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Criar Nova Ordem de Fabricação (OF)</h3>
@@ -223,9 +225,9 @@
     </div>
   </div>
 
+  <!-- Modal setup roteiro -->
   <div id="setup-roteiro-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
-    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-2xl modal-panel mx-0 sm:mx-4" 
-    onclick="event.stopPropagation()">
+    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-2xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
       <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Setup: Cadastro de Roteiros Mestres</h3>
       <div id="roteiro-list" class="space-y-4 h-[50vh] sm:h-64 overflow-y-auto mb-4 p-2 border rounded-lg bg-gray-50 modal-body-scroll"></div>
       <div class="border-t pt-4 space-y-4">
@@ -256,6 +258,7 @@
     </div>
   </div>
 
+  <!-- Modal detalhes OF -->
   <div id="of-details-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal('of-details-modal')">
     <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-3xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
       <div class="flex items-center justify-between mb-2">
@@ -281,6 +284,7 @@
     </div>
   </div>
 
+  <!-- Modal login/usuário -->
   <div id="user-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="event.stopPropagation()">
     <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-md modal-panel mx-0 sm:mx-4">
       <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Acesso</h3>
@@ -309,1396 +313,1128 @@
     </div>
   </div>
 
-  <script>
-    // =================================================================================================
-    // CONFIGURAÇÃO FIREBASE: 
-    // =================================================================================================
-    const firebaseConfig = {
-      // Estas são as credenciais do seu arquivo mycode.txt (placeholder)
-      apiKey: "AIzaSyDIJJIe4WIVj5OKYTtR-HQscrxIzxNK9eY",
-      authDomain: "pcp-app-24c56.firebaseapp.com",
-      projectId: "pcp-app-24c56",
-      storageBucket: "pcp-app-24c56.firebasestorage.app",
-      messagingSenderId: "675295958467",
-      appId: "1:675295958467:web:9d79700af6fc1c28db5976",
-      measurementId: "G-DH06WDCKJY"
-    };
+<script>
+/* ============================
+   FIREBASE CONFIG
+   ============================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyDIJJIe4WIVj5OKYTtR-HQscrxIzxNK9eY",
+  authDomain: "pcp-app-24c56.firebaseapp.com",
+  projectId: "pcp-app-24c56",
+  storageBucket: "pcp-app-24c56.firebasestorage.app",
+  messagingSenderId: "675295958467",
+  appId: "1:675295958467:web:9d79700af6fc1c28db5976",
+  measurementId: "G-DH06WDCKJY"
+};
 
-    // Inicialização do Firebase (se a config não estiver vazia)
-    if (Object.keys(firebaseConfig).length > 0 && firebaseConfig.projectId) {
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        // Coleções
-        const OF_COLLECTION = 'ofs';
-        const TASK_COLLECTION = 'tasks';
-        const ROTEIRO_COLLECTION = 'roteiros';
-        const OCORRENCIA_COLLECTION = 'ocorrencias';
+// Inicialização do Firebase (se houver config)
+if (Object.keys(firebaseConfig).length > 0 && firebaseConfig.projectId) {
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  // Coleções
+  const OF_COLLECTION = 'ofs';
+  const TASK_COLLECTION = 'tasks';
+  const ROTEIRO_COLLECTION = 'roteiros';
+  const OCORRENCIA_COLLECTION = 'ocorrencias';
 
-        window.db = db;
-        window.OF_COLLECTION = OF_COLLECTION;
-        window.TASK_COLLECTION = TASK_COLLECTION;
-        window.ROTEIRO_COLLECTION = ROTEIRO_COLLECTION;
-        window.OCORRENCIA_COLLECTION = OCORRENCIA_COLLECTION;
+  window.db = db;
+  window.OF_COLLECTION = OF_COLLECTION;
+  window.TASK_COLLECTION = TASK_COLLECTION;
+  window.ROTEIRO_COLLECTION = ROTEIRO_COLLECTION;
+  window.OCORRENCIA_COLLECTION = OCORRENCIA_COLLECTION;
+} else {
+  alert("AVISO: Configurações do Firebase ausentes. O sistema usará dados iniciais e não salvará no banco de dados.");
+  window.db = null;
+}
+
+/* ============================
+   VARIÁVEIS GLOBAIS
+   ============================ */
+const MASTER_PIN = "7889";
+const SECTORS = [
+  'Corte','Corte de Revestimentos','Pré-Montagem','Preparação','Pré Conexão',
+  'Conexão','Pré Grampeação','Grampeação','Acabamento','Embalagem','Montagem','Cabo de Bateria 1','Cabo de Bateria 2'
+];
+const PAUSE_REASONS = [
+  "Falta de material na bancada","Manutenção/Ajuste de máquina","Instrução de trabalho confusa/ausente",
+  "Necessidade de assistência técnica","Troca de turno/intervalo programado","Outro (Detalhar abaixo)"
+];
+const DELAY_REASONS = [
+  "Complexidade inesperada da peça","Problema de qualidade na etapa anterior","Falta de treinamento/experiência",
+  "Tempo padrão calculado incorretamente","Quebra/defeito de ferramenta","Outro (Detalhar abaixo)"
+];
+
+let allOFs = {};
+let allTasks = {};
+let allRoteiros = {};
+let allOcurrencesLog = [];
+let currentAction = {};
+let currentSectorFilter = SECTORS[0];
+let currentUser = null;
+
+// Busca por OF nas telas
+let pcpSearchOF = "";
+let operatorSearchOF = "";
+
+// Simulação
+let taskCounter = 1;
+let roteiroCounter = 7;
+
+const DEFAULT_ROTEIROS = {
+  "r1": { id:"r1", chicote_nome:"CHICOTE-001", setor:"Corte", nome_atividade:"Corte dos Fios", tempo_setup:5, tempo_ciclo:0.2,
+    instrucao_trabalho:"<b>1. Preparação:</b> Verifique se a faca está calibrada para o fio 1.0mm.<br><b>2. Medição:</b> Corte 50 peças com 150mm cada.<br><b>3. Conferência:</b> Faça uma conferência visual."
+  },
+  "r2": { id:"r2", chicote_nome:"CHICOTE-001", setor:"Pré-Montagem", nome_atividade:"Crimpagem de Terminais", tempo_setup:8, tempo_ciclo:0.5,
+    instrucao_trabalho:"<b>1. Fio Preto:</b> ...<br><b>2. Fio Vermelho:</b> ...<br><b>3. Teste:</b> > 10Kgf."
+  },
+  "r3": { id:"r3", chicote_nome:"CHICOTE-001", setor:"Montagem Final", nome_atividade:"Montagem de Conectores", tempo_setup:15, tempo_ciclo:1.0,
+    instrucao_trabalho:"<b>Atenção:</b> Conectar posições 35 e 33. Proibido forçar."
+  },
+  "r4": { id:"r4", chicote_nome:"CHICOTE-001", setor:"Qualidade", nome_atividade:"Teste de Continuidade", tempo_setup:3, tempo_ciclo:0.1,
+    instrucao_trabalho:"Usar jig JIG-10B. 100% devem passar."
+  },
+  "r5": { id:"r5", chicote_nome:"CHICOTE-B", setor:"Corte", nome_atividade:"Corte Fios Reforçados", tempo_setup:10, tempo_ciclo:0.3, instrucao_trabalho:"Instrução básica B."},
+  "r6": { id:"r6", chicote_nome:"CHICOTE-B", setor:"Montagem Final", nome_atividade:"Montagem Simples", tempo_setup:5, tempo_ciclo:0.8, instrucao_trabalho:"Conectar 4 vias."},
+};
+
+/* ============================
+   ELEMENTOS UI
+   ============================ */
+const pcpView = document.getElementById("pcp-view");
+const operatorView = document.getElementById("operator-view");
+const reportView = document.getElementById("report-view");
+const loadingIndicator = document.getElementById("loading-indicator");
+const ofsListContainer = document.getElementById("ofs-list-container");
+const tasksListContainer = document.getElementById("tasks-list-container");
+const userViewSelect = document.getElementById("user-view-select");
+const btnCreateOF = document.getElementById("btn-create-of");
+const btnSetupRoteiro = document.getElementById("btn-setup-roteiro");
+const btnProfile = document.getElementById("btn-profile");
+const btnExportReport = document.getElementById("btn-export-report");
+const btnDeleteOF = document.getElementById("btn-delete-of");
+
+/* ============================
+   HELPERS & PERMISSÕES
+   ============================ */
+function msToMinutes(ms){ 
+  if (typeof ms !== 'number' || ms < 0) return 0;
+  return parseFloat((ms / (1000*60)).toFixed(2));
+}
+function formatMinutes(v){ return `${Number(v||0).toFixed(2)} min`; }
+
+function setUser(u){ 
+  currentUser = u; 
+  localStorage.setItem("pcp_current_user", JSON.stringify(u)); 
+}
+function getUser(){ 
+  try{ return JSON.parse(localStorage.getItem("pcp_current_user")||"null"); }
+  catch(e){ return null; }
+}
+function isMaster(){ return currentUser && currentUser.role === "MASTER"; }
+function isOperador(){ return currentUser && currentUser.role === "OPERADOR"; }
+
+function getDBTimestamp(timestampField) {
+  if (!timestampField) return null;
+  if (typeof timestampField.toDate === 'function') {
+    return timestampField.toDate().getTime();
+  }
+  if (timestampField instanceof Date) {
+    return timestampField.getTime();
+  }
+  return timestampField;
+}
+
+/* ============================
+   CÁLCULOS DE TEMPO
+   ============================ */
+function calculateTempoReal(task){
+  let tempoReal = task.tempo_real_acumulado || 0;
+  const now = Date.now();
+  if (task.status === 'Em Processo' && task.timestamp_inicio){
+    let inicioMs = getDBTimestamp(task.timestamp_inicio);
+    if (inicioMs) {
+      let tempoTrabalhadoDesdeInicio = msToMinutes(now - inicioMs);
+      tempoReal += tempoTrabalhadoDesdeInicio;
+    }
+  }
+  return parseFloat(tempoReal.toFixed(2));
+}
+function calculateDesvio(task){
+  const tempoReal = calculateTempoReal(task);
+  const desvio = (task.tempo_planejado||0) - tempoReal; 
+  return parseFloat(desvio.toFixed(2));
+}
+function calculateTotalPauseMinutes(task){
+  let totalMs = task.total_pause_time_ms || 0;
+  if (task.status === 'Pausada' && task.pause_start_timestamp){
+    let pauseStartMs = getDBTimestamp(task.pause_start_timestamp);
+    if (pauseStartMs) totalMs += Date.now() - pauseStartMs;
+  }
+  return msToMinutes(totalMs);
+}
+function calculateTotalPauseMinutesFinal(task){
+  return msToMinutes(task.total_pause_time_ms || 0);
+}
+
+/* ============================
+   INICIALIZAÇÃO & LISTENERS
+   ============================ */
+function setupSectorDropdowns(){
+  const roteiroSetorSelect = document.getElementById('roteiro-setor');
+  const sectorFilterSelect = document.getElementById('sector-filter');
+  const userSectorSelect = document.getElementById('user-sector');
+  [roteiroSetorSelect, sectorFilterSelect, userSectorSelect].forEach(sel => { if (sel) sel.innerHTML = ''; });
+
+  SECTORS.forEach(sector=>{
+    const o1 = document.createElement('option'); o1.value=sector; o1.textContent=sector; 
+    const o2 = o1.cloneNode(true);
+    if (roteiroSetorSelect) roteiroSetorSelect.appendChild(o1);
+    if (userSectorSelect) userSectorSelect.appendChild(o2);
+  });
+
+  if (sectorFilterSelect){
+    if (isOperador()){
+      const o = document.createElement('option');
+      o.value=currentUser.sector; o.textContent=currentUser.sector; sectorFilterSelect.appendChild(o);
+      sectorFilterSelect.value=currentUser.sector;
+      sectorFilterSelect.disabled = true;
+      currentSectorFilter = currentUser.sector;
+    }else{
+      SECTORS.forEach(sector=>{
+        const o2 = document.createElement('option'); o2.value=sector; o2.textContent=sector; sectorFilterSelect.appendChild(o2);
+      });
+      currentSectorFilter = SECTORS[0];
+      sectorFilterSelect.value = SECTORS[0];
+      sectorFilterSelect.disabled = false;
+    }
+  }
+}
+function updateSectorFilter(sector){
+  currentSectorFilter = sector;
+  renderTasks();
+}
+
+function loadRoteiroDropdowns() {
+  const select = document.getElementById('of-chicote');
+  if (!select) return;
+  const roteiros = Object.values(allRoteiros);
+  const chicotes = [...new Set(roteiros.map(r => r.chicote_nome))];
+  select.innerHTML = '<option value="">-- Selecione um Modelo --</option>';
+  chicotes.forEach(chicote => {
+    const option = document.createElement('option');
+    option.value = chicote;
+    option.textContent = chicote;
+    select.appendChild(option);
+  });
+  if (chicotes.length === 0) {
+    select.innerHTML = '<option value="">Nenhum roteiro mestre cadastrado.</option>';
+  }
+}
+
+async function initializeApp(){
+  loadingIndicator.classList.remove('hidden');
+  // Esconde tudo enquanto não loga
+  pcpView.classList.add('hidden');
+  operatorView.classList.add('hidden');
+  reportView.classList.add('hidden');
+
+  const savedUser = getUser();
+  if (savedUser){ setUser(savedUser); }
+
+  if (window.db) {
+    setupFirebaseListeners();
+  } else {
+    // SIMULAÇÃO
+    document.getElementById('loading-indicator').innerHTML = `
+      <div class="p-3 sm:p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg shadow-md" role="alert">
+        <p class="font-bold">Aviso: Modo de Simulação (Sem Firebase)</p>
+        <p class="text-xs sm:text-sm">Os dados serão voláteis e não persistirão entre sessões. Use a configuração do Firebase para persistência.</p>
+      </div>`;
+    allRoteiros = { ...DEFAULT_ROTEIROS };
+    if (!localStorage.getItem('sim_data_initialized')) {
+      await createOF('OF-001', 10, 'CHICOTE-001', true);
+      await createOF('OF-002', 20, 'CHICOTE-B', true);
+      localStorage.setItem('sim_data_initialized', 'true');
     } else {
-        // Se as configurações não forem fornecidas, o código usará a versão Simulação/Default.
-        alert("AVISO: Configurações do Firebase ausentes. O sistema usará dados iniciais e não salvará no banco de dados.");
-        window.db = null;
+      allOFs = JSON.parse(localStorage.getItem('sim_ofs') || '{}');
+      allTasks = JSON.parse(localStorage.getItem('sim_tasks') || '{}');
+      allOcurrencesLog = JSON.parse(localStorage.getItem('sim_ocorrencias') || '[]');
     }
-    // =================================================================================================
+    setTimeout(()=>{
+      loadingIndicator.classList.add('hidden');
+      openUserModal(savedUser ? null : undefined);
+      setupUIRefresh();
+      loadRoteiroDropdowns();
+      // injeta os campos de busca
+      injectSearchInputs();
+    }, 300);
+  }
 
+  setupSectorDropdowns();
+  if (!savedUser) {
+    openUserModal();
+  } else {
+    updateView(userViewSelect.value);
+    injectSearchInputs();
+  }
+}
 
-    // ==========================
-    //  VARIÁVEIS E DADOS GLOBAIS
-    // ==========================
-    const MASTER_PIN = "7889";
-    const SECTORS = [
-      'Corte','Corte de Revestimentos','Pré-Montagem','Preparação','Pré Conexão',
-      'Conexão','Pré Grampeação','Grampeação','Acabamento','Embalagem','Montagem','Cabo de Bateria 1','Cabo de Bateria 2'
-    ];
-    const PAUSE_REASONS = [
-      "Falta de material na bancada","Manutenção/Ajuste de máquina","Instrução de trabalho confusa/ausente",
-      "Necessidade de assistência técnica","Troca de turno/intervalo programado","Outro (Detalhar abaixo)"
-    ];
-    const DELAY_REASONS = [
-      "Complexidade inesperada da peça","Problema de qualidade na etapa anterior","Falta de treinamento/experiência",
-      "Tempo padrão calculado incorretamente","Quebra/defeito de ferramenta","Outro (Detalhar abaixo)"
-    ];
-    // Dados que serão preenchidos pelos listeners do Firebase
-    let allOFs = {};
-    let allTasks = {};
-    let allRoteiros = {};
-    let allOcurrencesLog = [];
-    let currentAction = {}; // Armazena a ação pendente do modal
-    let currentSectorFilter = SECTORS[0];
-    let currentUser = null;
-    // Roteiro / Task Counters (para simulação ou inicialização)
-    let taskCounter = 1;
-    let roteiroCounter = 7;
-    // ==========================
-    //  ROTEIROS PRÉ-CARREGADOS (Fallback para inicialização ou Simulação)
-    // ==========================
-    const DEFAULT_ROTEIROS = {
-      "r1": { id:"r1", chicote_nome:"CHICOTE-001", setor:"Corte", nome_atividade:"Corte dos Fios", tempo_setup:5, tempo_ciclo:0.2,
-        instrucao_trabalho:"<b>1. Preparação:</b> Verifique se a faca está calibrada para o fio 1.0mm.<br><b>2. Medição:</b> Corte 50 peças com 150mm cada.<br><b>3. Conferência:</b> Faça uma conferência visual. <a href='https://upload.wikimedia.org/wikipedia/commons/4/4e/Sample_cut.png' target='_blank'>**Ver Imagem de Padrão**</a>."
-      },
-      "r2": { id:"r2", chicote_nome:"CHICOTE-001", setor:"Pré-Montagem", nome_atividade:"Crimpagem de Terminais", tempo_setup:8, tempo_ciclo:0.5,
-        instrucao_trabalho:"<b>1. Fio Preto:</b> ...<br><b>2. Fio Vermelho:</b> ...<br><b>3. Teste:</b> > 10Kgf. <a href='https://www.youtube.com/watch?v=dQw4w9WgXcQ' target='_blank'>**Assistir Vídeo**</a>"
-      },
-      "r3": { id:"r3", chicote_nome:"CHICOTE-001", setor:"Montagem Final", nome_atividade:"Montagem de Conectores", tempo_setup:15, tempo_ciclo:1.0,
-        instrucao_trabalho:"<b>Atenção:</b> Conectar posições 35 e 33. Proibido forçar."
-      },
-      "r4": { id:"r4", chicote_nome:"CHICOTE-001", setor:"Qualidade", nome_atividade:"Teste de Continuidade", tempo_setup:3, tempo_ciclo:0.1,
-        instrucao_trabalho:"Usar jig JIG-10B. 100% devem passar."
-      },
-      "r5": { id:"r5", chicote_nome:"CHICOTE-B", setor:"Corte", nome_atividade:"Corte Fios Reforçados", tempo_setup:10, tempo_ciclo:0.3, instrucao_trabalho:"Instrução básica B."},
-      "r6": { id:"r6", chicote_nome:"CHICOTE-B", setor:"Montagem Final", nome_atividade:"Montagem Simples", tempo_setup:5, tempo_ciclo:0.8, instrucao_trabalho:"Conectar 4 vias."},
+function setupFirebaseListeners() {
+  if (!window.db) return;
+
+  db.collection(OF_COLLECTION).onSnapshot(snapshot => {
+    snapshot.docChanges().forEach(change => {
+      const ofData = { id: change.doc.id, ...change.doc.data() };
+      if (change.type === 'removed') delete allOFs[ofData.id];
+      else allOFs[ofData.id] = ofData;
+    });
+    updateView(userViewSelect.value);
+    loadRoteiroDropdowns();
+  });
+
+  db.collection(TASK_COLLECTION).onSnapshot(snapshot => {
+    snapshot.docChanges().forEach(change => {
+      const taskData = { id: change.doc.id, ...change.doc.data() };
+      if (change.type === 'removed') delete allTasks[taskData.id];
+      else allTasks[taskData.id] = taskData;
+    });
+    updateView(userViewSelect.value);
+  });
+
+  db.collection(ROTEIRO_COLLECTION).onSnapshot(snapshot => {
+    allRoteiros = {};
+    snapshot.forEach(doc => {
+      const roteiroData = { id: doc.id, ...doc.data() };
+      allRoteiros[roteiroData.id] = roteiroData;
+    });
+    loadRoteiroDropdowns();
+    renderRoteiros();
+  });
+
+  db.collection(OCORRENCIA_COLLECTION).onSnapshot(snapshot => {
+    allOcurrencesLog = [];
+    snapshot.forEach(doc => {
+      allOcurrencesLog.push({ id: doc.id, ...doc.data() });
+    });
+    allOcurrencesLog.sort((a,b) => getDBTimestamp(b.timestamp) - getDBTimestamp(a.timestamp));
+    updateView(userViewSelect.value);
+    loadingIndicator.classList.add('hidden');
+    injectSearchInputs();
+  });
+}
+
+/* ============================
+   CRUD
+   ============================ */
+async function addRoteiroActivity(){
+  const chicote_name = document.getElementById('roteiro-chicote-name').value.trim().toUpperCase();
+  const setor = document.getElementById('roteiro-setor').value;
+  const activity_name = document.getElementById('roteiro-activity-name').value.trim();
+  const setup_time = parseFloat(document.getElementById('roteiro-setup-time').value);
+  const cycle_time = parseFloat(document.getElementById('roteiro-cycle-time').value);
+  const instruction_text = document.getElementById('roteiro-instruction-text').value.trim();
+  const messageEl = document.getElementById('roteiro-message');
+  messageEl.textContent = '';
+  if (!chicote_name || !activity_name || isNaN(setup_time) || isNaN(cycle_time) || !setor){
+    messageEl.textContent = "Preencha todos os campos obrigatórios e use números para tempo.";
+    return;
+  }
+  if (window.db) {
+    try {
+      const newRoteiro = {
+        chicote_nome: chicote_name,
+        setor: setor,
+        nome_atividade: activity_name,
+        tempo_setup: setup_time,
+        tempo_ciclo: cycle_time,
+        instrucao_trabalho: instruction_text,
+        created_at: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await db.collection(ROTEIRO_COLLECTION).add(newRoteiro);
+      messageEl.textContent = `Etapa "${activity_name}" adicionada ao roteiro mestre ${chicote_name}.`;
+      messageEl.classList.remove('text-red-500');
+      messageEl.classList.add('text-green-600');
+    } catch(e) {
+      messageEl.textContent = "Erro ao salvar no Firebase: " + e.message;
+      messageEl.classList.add('text-red-500');
+    }
+  } else {
+    const newId = `r${roteiroCounter++}`;
+    allRoteiros[newId] = {
+      id: newId, chicote_nome: chicote_name, setor, 
+      nome_atividade: activity_name, tempo_setup: setup_time, tempo_ciclo: cycle_time, 
+      instrucao_trabalho: instruction_text
     };
-    // ==========================
-    //  ELEMENTOS UI
-    // ==========================
-    const pcpView = document.getElementById("pcp-view");
-    const operatorView = document.getElementById("operator-view");
-    const reportView = document.getElementById("report-view");
-    const loadingIndicator = document.getElementById("loading-indicator");
-    const ofsListContainer = document.getElementById("ofs-list-container");
-    const tasksListContainer = document.getElementById("tasks-list-container");
-    const userViewSelect = document.getElementById("user-view-select");
-    const btnCreateOF = document.getElementById("btn-create-of");
-    const btnSetupRoteiro = document.getElementById("btn-setup-roteiro");
-    const btnProfile = document.getElementById("btn-profile");
-    const btnExportReport = document.getElementById("btn-export-report");
-    const btnDeleteOF = document.getElementById("btn-delete-of");
+    messageEl.textContent = `Etapa "${activity_name}" adicionada ao roteiro mestre ${chicote_name} (Simulação).`;
+    messageEl.classList.remove('text-red-500');
+    messageEl.classList.add('text-green-600');
+    renderRoteiros();
+    loadRoteiroDropdowns();
+  }
+  document.getElementById('roteiro-activity-name').value = '';
+  document.getElementById('roteiro-setup-time').value = '';
+  document.getElementById('roteiro-cycle-time').value = '';
+  document.getElementById('roteiro-instruction-text').value = '';
+}
 
-    // ==========================
-    //  HELPERS & PERMISSÕES
-    // ==========================
-    function msToMinutes(ms){ 
-      if (typeof ms !== 'number' || ms < 0) return 0;
-      return parseFloat((ms / (1000*60)).toFixed(2));
-    }
-    function formatMinutes(v){ return `${Number(v||0).toFixed(2)} min`; }
-    function formatDateTime(timestamp) {
-        if (!timestamp) return 'N/A';
-        const date = new Date(getDBTimestamp(timestamp));
-        return date.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}) + ' - ' + date.toLocaleDateString('pt-BR');
-    }
-    
-    function setUser(u){ 
-      currentUser = u;
-      // Manter a sessão do usuário no localStorage
-      localStorage.setItem("pcp_current_user", JSON.stringify(u));
-    }
-    
-    function getUser(){ 
-      try{ 
-        return JSON.parse(localStorage.getItem("pcp_current_user")||"null");
-      }catch(e){ return null; }
-    }
-    function isMaster(){ return currentUser && currentUser.role === "MASTER"; }
-    function isOperador(){ return currentUser && currentUser.role === "OPERADOR"; }
+async function createOF(ofIdOverride, quantityOverride, chicoteOverride, isSimulated = false){
+  const of_id = ofIdOverride || document.getElementById('of-id').value.trim().toUpperCase();
+  const quantity = quantityOverride || parseInt(document.getElementById('of-quantity').value);
+  const chicote_name = chicoteOverride || document.getElementById('of-chicote').value;
+  const messageEl = document.getElementById('of-creation-message');
+  messageEl.textContent = '';
+  messageEl.classList.add('hidden');
 
-    function getDBTimestamp(timestampField) {
-      if (!timestampField) return null;
-      // Verifica se é um objeto Timestamp do Firebase (pode ser um Date se vier do mock)
-      if (typeof timestampField.toDate === 'function') {
-          return timestampField.toDate().getTime();
+  if (!of_id || isNaN(quantity) || quantity <= 0 || !chicote_name){
+    messageEl.textContent = "Preencha todos os campos corretamente. A quantidade deve ser um número positivo.";
+    messageEl.classList.remove('hidden');
+    return;
+  }
+  if (Object.values(allOFs).find(of => of.id === of_id)) {
+    messageEl.textContent = `OF "${of_id}" já existe.`;
+    messageEl.classList.remove('hidden');
+    return;
+  }
+
+  const roteiroEtapas = Object.values(allRoteiros).filter(r => r.chicote_nome === chicote_name);
+  if (roteiroEtapas.length === 0){
+    messageEl.textContent = `Nenhuma etapa encontrada para o chicote "${chicote_name}". Cadastre o roteiro mestre primeiro.`;
+    messageEl.classList.remove('hidden');
+    return;
+  }
+
+  const newOF = {
+    id: of_id,
+    chicote: chicote_name,
+    quantidade: quantity,
+    status: 'Pendente',
+    data_criacao: window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date(),
+    task_count: roteiroEtapas.length,
+    concluded_tasks: 0,
+  };
+
+  try {
+    if (window.db) {
+      await db.collection(OF_COLLECTION).doc(of_id).set(newOF);
+    } else {
+      allOFs[of_id] = newOF;
+    }
+
+    const batch = window.db ? db.batch() : null;
+    let order = 1;
+    for (const etapa of roteiroEtapas) {
+      const tempo_planejado = etapa.tempo_setup + (etapa.tempo_ciclo * quantity);
+      const newTask = {
+        id_of: of_id,
+        id_roteiro: etapa.id,
+        chicote: chicote_name,
+        nome_atividade: etapa.nome_atividade,
+        setor: etapa.setor,
+        tempo_setup: etapa.tempo_setup,
+        tempo_ciclo: etapa.tempo_ciclo,
+        tempo_planejado: parseFloat(tempo_planejado.toFixed(2)),
+        instrucao_trabalho: etapa.instrucao_trabalho,
+        quantidade_pecas: quantity,
+        // 🔓 Execução paralela: todas em "Em Espera"
+        status: 'Em Espera',
+        ordem: order++,
+        timestamp_inicio: null,
+        timestamp_fim: null,
+        tempo_real_acumulado: 0,
+        total_pause_time_ms: 0,
+        pause_start_timestamp: null,
+        search_index: of_id.toLowerCase() + '-' + etapa.nome_atividade.toLowerCase() + '-' + etapa.setor.toLowerCase()
+      };
+      if (window.db) {
+        const newTaskDocRef = db.collection(TASK_COLLECTION).doc();
+        batch.set(newTaskDocRef, newTask);
+      } else {
+        const simTaskId = `t${taskCounter++}`;
+        newTask.id = simTaskId;
+        allTasks[simTaskId] = newTask;
       }
-      // Se for um número (milliseconds) ou um Date object
-      if (timestampField instanceof Date) {
-          return timestampField.getTime();
+    }
+    if (batch) await batch.commit();
+
+    if (!isSimulated) {
+      closeModal('create-of-modal');
+      alert(`OF ${of_id} criada com sucesso!`);
+      if (!window.db) {
+        localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
+        localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
       }
-      return timestampField; // Assume que já é o número de milissegundos
+    }
+  } catch(e) {
+    messageEl.textContent = "Erro ao criar OF: " + (e.message || e);
+    messageEl.classList.remove('hidden');
+    console.error("Erro na criação da OF:", e);
+  }
+}
+
+async function updateTaskStatus(taskId, newStatus, logType = null, justification = null, justificationText = null) {
+  const task = allTasks[taskId];
+  if (!task) return;
+
+  const updateData = { status: newStatus };
+  const now = window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date();
+
+  if (newStatus === 'Em Processo') {
+    if (task.status === 'Pausada' && task.pause_start_timestamp) {
+      const pauseStartMs = getDBTimestamp(task.pause_start_timestamp);
+      const currentPauseTimeMs = Date.now() - pauseStartMs;
+      updateData.total_pause_time_ms = (task.total_pause_time_ms || 0) + currentPauseTimeMs;
+      updateData.pause_start_timestamp = null;
+    }
+    if (task.status === 'Em Espera') {
+      updateData.timestamp_inicio = now;
+    }
+  } 
+  else if (newStatus === 'Pausada') {
+    const currentTempoReal = calculateTempoReal(task);
+    updateData.tempo_real_acumulado = currentTempoReal;
+    updateData.pause_start_timestamp = now;
+    if (logType === 'PAUSA' && (justification || justificationText)) {
+      await createOcorrenciaLog(task, 'PAUSA', justification, justificationText);
+    }
+  } 
+  else if (newStatus === 'Concluído') {
+    const finalTempoReal = calculateTempoReal(task);
+    const desvio = calculateDesvio(task);
+    updateData.tempo_real_acumulado = finalTempoReal;
+    updateData.timestamp_fim = now;
+    updateData.pause_start_timestamp = null;
+
+    if (desvio < 0 || logType === 'FIM_ATRASO') {
+      await createOcorrenciaLog(task, 'FIM_ATRASO', justification, justificationText);
     }
 
-    function createOFCardHTML(of) {
-      const progress = calculateProgress(of);
-      const isAtrasada = of.status === 'Atrasada';
-      const statusClass = of.status.replace(/\s/g, '-');
-      const latestTask = Object.values(allTasks).filter(t => t.of_id === of.id).sort((a,b) => (b.seq||0) - (a.seq||0))[0];
-      const nextTask = Object.values(allTasks).find(t => t.of_id === of.id && t.status === 'Pendente');
+    if (window.db) {
+      const ofRef = db.collection(OF_COLLECTION).doc(task.id_of);
 
-      const nextActivity = nextTask ? `<span class="font-semibold text-gray-700">${nextTask.nome_atividade} (${nextTask.setor})</span>` : 'N/A';
-      const latestActivity = latestTask ? latestTask.nome_atividade : 'N/A';
-      
-      let statusColor = 'text-gray-500';
-      if (isAtrasada) statusColor = 'text-red-600';
-      else if (of.status === 'Em Processo') statusColor = 'text-blue-600';
-      else if (of.status === 'Finalizada') statusColor = 'text-green-600';
-      else if (of.status === 'Pausada') statusColor = 'text-yellow-600';
+      // Verifica conclusão da OF (todas as tasks concluídas)
+      const tasksDaOF = Object.values(allTasks).filter(t => t.id_of === task.id_of);
+      const totalConcluidas = tasksDaOF.filter(t => (t.id === taskId) ? true : t.status === 'Concluído').length;
+      const ofConcluida = totalConcluidas >= tasksDaOF.length;
+
+      const batch = db.batch();
+      batch.update(db.collection(TASK_COLLECTION).doc(taskId), updateData);
+      batch.update(ofRef, {
+        concluded_tasks: firebase.firestore.FieldValue.increment(1),
+        status: ofConcluida ? 'Concluído' : 'Em Andamento'
+      });
+      // ❌ Não libera “próxima” — paralelismo total
+      await batch.commit();
+    } else {
+      const of = allOFs[task.id_of];
+      of.concluded_tasks = (of.concluded_tasks || 0) + 1;
+      Object.assign(task, updateData);
+      const tasksDaOF = Object.values(allTasks).filter(t => t.id_of === task.id_of);
+      const totalConcluidas = tasksDaOF.filter(t => t.status === 'Concluído').length;
+      of.status = (totalConcluidas >= tasksDaOF.length) ? 'Concluído' : 'Em Andamento';
+      localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
+      localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
+    }
+    renderTasks();
+    return;
+  }
+
+  if (window.db) {
+    await db.collection(TASK_COLLECTION).doc(taskId).update(updateData);
+  } else {
+    Object.assign(task, updateData);
+    localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
+  }
+  renderTasks();
+}
+
+async function createOcorrenciaLog(task, type, justification, justificationText) {
+  const logData = {
+    ID_TASK: task.id,
+    OF: task.id_of,
+    CHICOTE: task.chicote,
+    ATIVIDADE: task.nome_atividade,
+    OPERADOR: currentUser?.name || currentUser?.sector || '',
+    SECTOR: task.setor,
+    MOTIVO_PRINCIPAL: justification,
+    MOTIVO_DETALHES: justificationText,
+    timestamp: window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date()
+  };
+  if (type === 'PAUSA') {
+    const pauseTimeMs = Date.now() - getDBTimestamp(task.pause_start_timestamp);
+    logData.TIPO = 'PAUSA';
+    logData.TEMPO_PAUSA = msToMinutes(pauseTimeMs);
+    logData.TEMPO_ATRASO = 0;
+    logData.MOTIVO_PAUSA = justification;
+    logData.MOTIVO_ATRASO = null;
+  } else if (type === 'FIM_ATRASO') {
+    const desvio = calculateDesvio(task);
+    logData.TIPO = 'ATRASO';
+    logData.TEMPO_PAUSA = calculateTotalPauseMinutesFinal(task);
+    logData.TEMPO_ATRASO = parseFloat(Math.abs(desvio).toFixed(2));
+    logData.MOTIVO_PAUSA = null;
+    logData.MOTIVO_ATRASO = justification;
+  }
+  if (window.db) {
+    await db.collection(OCORRENCIA_COLLECTION).add(logData);
+  } else {
+    logData.id = `log${allOcurrencesLog.length + 1}`;
+    allOcurrencesLog.push(logData);
+    localStorage.setItem('sim_ocorrencias', JSON.stringify(allOcurrencesLog));
+  }
+}
+
+/* ============================
+   AÇÕES DE BOTÃO
+   ============================ */
+function startTask(taskId){ updateTaskStatus(taskId, 'Em Processo'); }
+function finishTask(taskId){ showActionModal(taskId, 'Finalizar', DELAY_REASONS); }
+function pauseTask(taskId){ showActionModal(taskId, 'Pausar', PAUSE_REASONS); }
+
+async function deleteRoteiroActivity(roteiroId) {
+  if (!confirm("Tem certeza que deseja EXCLUIR esta etapa de roteiro?")) return;
+  if (window.db) {
+    try { await db.collection(ROTEIRO_COLLECTION).doc(roteiroId).delete(); alert("Etapa de roteiro excluída."); }
+    catch(e) { alert("Erro ao excluir etapa: " + e.message); }
+  } else {
+    delete allRoteiros[roteiroId];
+    renderRoteiros();
+    loadRoteiroDropdowns();
+    alert("Etapa de roteiro excluída (Simulação).");
+  }
+}
+
+async function deleteOF(ofId) {
+  if (!isMaster() || !ofId) return;
+  if (!confirm(`Tem certeza que deseja EXCLUIR a OF ${ofId} e TODAS as suas tarefas e logs? Esta ação é irreversível.`)) return;
+
+  try {
+    if (window.db) {
+      const batch = db.batch();
+      const ofRef = db.collection(OF_COLLECTION).doc(ofId);
+      batch.delete(ofRef);
+
+      const tasksSnapshot = await db.collection(TASK_COLLECTION).where('id_of', '==', ofId).get();
+      tasksSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+
+      const ocorrenciasSnapshot = await db.collection(OCORRENCIA_COLLECTION).where('OF', '==', ofId).get();
+      ocorrenciasSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+
+      await batch.commit();
+    } else {
+      delete allOFs[ofId];
+      Object.keys(allTasks).forEach(taskId => {
+        if (allTasks[taskId].id_of === ofId) delete allTasks[taskId];
+      });
+      allOcurrencesLog = allOcurrencesLog.filter(log => log.OF !== ofId);
+      localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
+      localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
+      localStorage.setItem('sim_ocorrencias', JSON.stringify(allOcurrencesLog));
+    }
+    closeModal('of-details-modal');
+    alert(`OF ${ofId} excluída com sucesso.`);
+    renderOFs();
+  } catch(e) {
+    alert("Erro ao excluir OF: " + (e.message || e));
+    console.error(e);
+  }
+}
+
+/* ============================
+   MODAIS
+   ============================ */
+function openModal(id){
+  const modal = document.getElementById(id);
+  if(modal) modal.style.display = 'flex';
+  if(id === 'setup-roteiro-modal') renderRoteiros();
+}
+function closeModal(id){
+  const modalId = id || 'action-modal';
+  const modal = document.getElementById(modalId);
+  if(modal) {
+    modal.style.display = 'none';
+    if (modalId === 'action-modal') {
+      currentAction = {};
+      const jsSel = document.getElementById('justification-select');
+      const jsTxt = document.getElementById('justification-text');
+      const jsReq = document.getElementById('justification-required-text');
+      if (jsSel) jsSel.value = '';
+      if (jsTxt) jsTxt.value = '';
+      if (jsReq) jsReq.classList.add('hidden');
+    }
+  }
+}
+function showActionModal(taskId, type, reasons){
+  const task = allTasks[taskId];
+  if (!task) return;
+  currentAction = { taskId, type };
+  const title = document.getElementById('modal-title');
+  const message = document.getElementById('modal-message');
+  const justificationSelect = document.getElementById('justification-select');
+  const justificationRequired = document.getElementById('justification-required-text');
+
+  title.textContent = `${type} Atividade: ${task.nome_atividade}`;
+  message.textContent = `OF ${task.id_of} - Chicote ${task.chicote}`;
+  justificationSelect.innerHTML = '<option value="">-- Selecione uma opção --</option>';
+  reasons.forEach(reason => {
+    const option = document.createElement('option');
+    option.value = reason;
+    option.textContent = reason;
+    justificationSelect.appendChild(option);
+  });
+
+  let isRequired = false;
+  if (type === 'Finalizar') {
+    const desvio = calculateDesvio(task);
+    if (desvio < 0) {
+      justificationRequired.textContent = `🚨 Justificativa obrigatória devido ao ATRASO de ${formatMinutes(Math.abs(desvio))}!`;
+      isRequired = true;
+    } else {
+      justificationRequired.textContent = `Justificativa opcional. Tempo restante: ${formatMinutes(desvio)}.`;
+      if (isMaster() && desvio < 1) { isRequired = true; } 
+    }
+  } else if (type === 'Pausar') {
+    justificationRequired.textContent = `Motivo da pausa é altamente recomendado.`;
+  }
+  justificationRequired.classList.toggle('hidden', !isRequired && type !== 'Pausar');
+  currentAction.isRequired = isRequired;
+
+  openModal('action-modal');
+}
+async function handleConfirmedAction(){
+  const { taskId, type, isRequired } = currentAction;
+  const justificationSelect = document.getElementById('justification-select');
+  const justificationText = document.getElementById('justification-text').value.trim();
+  const justification = justificationSelect.value;
+  const justificationRequired = document.getElementById('justification-required-text');
+  if (isRequired && !justification) {
+    justificationRequired.textContent = "🚨 Você deve selecionar um motivo principal!";
+    justificationRequired.classList.remove('hidden');
+    return;
+  }
+  justificationRequired.classList.add('hidden');
+
+  if (type === 'Finalizar') {
+    await updateTaskStatus(taskId, 'Concluído', 'FIM_ATRASO', justification, justificationText);
+    updateView(userViewSelect.value);
+  } else if (type === 'Pausar') {
+    await updateTaskStatus(taskId, 'Pausada', 'PAUSA', justification, justificationText);
+  }
+  closeModal();
+}
+function openInstructionModal(taskId) {
+  const task = allTasks[taskId];
+  if (!task) return;
+  document.getElementById('instruction-modal-header').textContent =
+    `OF ${task.id_of} - Chicote ${task.chicote} - Setor: ${task.setor}`;
+  document.getElementById('instruction-modal-content').innerHTML =
+    task.instrucao_trabalho || 'Nenhuma instrução de trabalho cadastrada para esta etapa.';
+  openModal('instruction-modal');
+  lucide.createIcons();
+}
+
+/* ============================
+   RENDERIZAÇÃO
+   ============================ */
+function setupUIRefresh(){
+  // Atualização leve a cada 10s (ex.: cronômetro de tempo real)
+  setInterval(()=>{
+    if (!pcpView.classList.contains('hidden')) renderOFs();
+    if (!operatorView.classList.contains('hidden')) renderTasks();
+  }, 10000);
+}
+function injectSearchInputs(){
+  // PCP search
+  const kpis = document.getElementById('kpis-container');
+  const wrap = document.getElementById('pcp-of-search-wrap');
+  if (kpis && wrap && !wrap.dataset.ready){
+    wrap.classList.remove('hidden');
+    wrap.dataset.ready = "1";
+    const input = document.getElementById('pcp-of-search');
+    if (input) {
+      input.addEventListener('input', (e)=>{
+        pcpSearchOF = (e.target.value || "").trim().toUpperCase();
+        renderOFs();
+      });
+    }
+  }
+  // Operator search
+  const opHeader = document.querySelector('#operator-view .bg-white');
+  const opWrap = document.getElementById('operator-of-search-wrap');
+  if (opHeader && opWrap && !opWrap.dataset.ready){
+    opWrap.classList.remove('hidden');
+    opWrap.dataset.ready = "1";
+    const input = document.getElementById('operator-of-search');
+    if (input) {
+      input.addEventListener('input', (e)=>{
+        operatorSearchOF = (e.target.value || "").trim().toUpperCase();
+        renderTasks();
+      });
+    }
+  }
+}
+
+function renderKPIs(){
+  const kpisContainer = document.getElementById('kpis-container');
+  if (!kpisContainer) return;
+
+  const totalOFs = Object.keys(allOFs).filter(k=> allOFs[k]?.status !== 'Concluído').length;
+  const concludedTasks = Object.values(allTasks).filter(t=>t.status==='Concluído').length;
+  const totalTasks = Object.values(allTasks).length;
+
+  const logsAtraso = allOcurrencesLog.filter(l => l.TIPO === 'ATRASO');
+  const totalPause = allOcurrencesLog.reduce((s,l)=> s + (l.TEMPO_PAUSA||0), 0);
+  const totalAtraso = logsAtraso.reduce((s,l)=> s + (l.TEMPO_ATRASO||0), 0);
+
+  const kpiData = [
+    { title:"OFs Ativas", value: totalOFs, icon:"package", color:"bg-blue-600" },
+    { title:"Tarefas Concluídas", value: `${concludedTasks} / ${totalTasks}`, icon:"check-circle", color:"bg-green-600" },
+    { title:"Pausas Totais (min)", value: totalPause.toFixed(1), icon:"pause-circle", color:"bg-yellow-600" },
+    { title:"Atraso Total (min)", value: totalAtraso.toFixed(1), icon:"alert-triangle", color:"bg-red-600" },
+  ];
+
+  kpisContainer.innerHTML = kpiData.map(k=>`
+    <div class="${k.color} text-white p-3 sm:p-4 rounded-xl shadow-md flex items-center justify-between">
+      <div>
+        <p class="text-xs sm:text-sm font-medium opacity-80">${k.title}</p>
+        <p class="text-2xl sm:text-3xl font-bold">${k.value}</p>
+      </div>
+      <i data-lucide="${k.icon}" class="w-7 h-7 sm:w-8 sm:h-8 opacity-70"></i>
+    </div>`).join('');
+  lucide.createIcons();
+}
+
+function updateView(view){
+  // 🔒 Bloqueia qualquer visão enquanto não houver usuário logado
+  if (!currentUser) { 
+    pcpView.classList.add('hidden');
+    operatorView.classList.add('hidden');
+    reportView.classList.add('hidden');
+    openUserModal();
+    return; 
+  }
+
+  if (isOperador() && view !== 'Operador'){ view = 'Operador'; }
+
+  const isPCP = view === 'PCP';
+  const isReport = view === 'Relatorio';
+
+  pcpView.classList.toggle('hidden', !isPCP);
+  operatorView.classList.toggle('hidden', (isPCP || isReport));
+  reportView.classList.toggle('hidden', !isReport);
+  userViewSelect.value = view;
+
+  btnCreateOF.classList.toggle('hidden', !isMaster());
+  btnSetupRoteiro.classList.toggle('hidden', !isMaster());
+  btnProfile.classList.remove('hidden');
+  userViewSelect.disabled = isOperador();
+  if (btnExportReport) btnExportReport.classList.toggle('hidden', !isMaster());
+
+  if (isPCP){ 
+    renderKPIs(); 
+    renderOFs(); 
+  } else if (view === 'Operador'){
+    renderTasks(); 
+  } else if (isReport){ 
+    renderReport(); 
+  }
+  injectSearchInputs();
+  lucide.createIcons();
+}
+window.updateView = updateView;
+
+function renderReport(){
+  const body = document.getElementById('report-table-body');
+  if (allOcurrencesLog.length === 0){
+    body.innerHTML = `<tr><td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">Nenhuma ocorrência registrada.</td></tr>`;
+    return;
+  }
+  const html = allOcurrencesLog.map(log=>{
+    const atrasoClass = (log.TEMPO_ATRASO||0) > 0 ? 'highlight-red' : 'text-gray-600';
+    const pausaClass = (log.TEMPO_PAUSA||0) > 0 ? 'text-yellow-700 font-semibold' : 'text-gray-600';
+    return `
+      <tr>
+        <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm font-medium text-gray-900">${log.OF}</td>
+        <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm text-gray-600">${log.CHICOTE}</td>
+        <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm text-gray-600">${log.ATIVIDADE}</td>
+        <td class="px-3 sm:px-6 py-2 text-sm text-gray-700">${log.MOTIVO_PAUSA || '-'}</td>
+        <td class="px-3 sm:px-6 py-2 text-sm text-gray-700">${log.MOTIVO_ATRASO || '-'}</td>
+        <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm ${pausaClass}">${(log.TEMPO_PAUSA||0).toFixed(2)}</td>
+        <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm ${atrasoClass}">${(log.TEMPO_ATRASO||0).toFixed(2)}</td>
+      </tr>`;
+  }).join('');
+  body.innerHTML = html;
+}
+
+function renderOFs(){
+  if (!pcpView.classList.contains('hidden')) {
+    let ofs = Object.values(allOFs).filter(of => of.status !== 'Concluído');
+
+    // 🔎 filtro por OF na tela PCP
+    if (pcpSearchOF) {
+      ofs = ofs.filter(of => (of.id || "").toUpperCase().includes(pcpSearchOF));
+    }
+
+    const ofsHtml = ofs.map(of=>{
+      const tasks = Object.values(allTasks).filter(t=> t.id_of === of.id);
+      // ✅ progresso sempre pela contagem real de tasks concluídas
+      const completed = tasks.filter(t => t.status === 'Concluído').length;
+      const nextTask = tasks.find(t=> t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada');
+
+      let statusColor = 'bg-gray-100 border-gray-300';
+      let progress = 0;
+
+      if (tasks.length > 0){
+        progress = Math.floor((completed / tasks.length) * 100);
+        if (progress === 0) statusColor = 'bg-gray-200 border-gray-400';
+        else if (progress < 100) statusColor = 'bg-blue-100 border-blue-400';
+        const anyTaskDelayed = tasks.some(t => calculateDesvio(t) < -5); 
+        if (anyTaskDelayed) statusColor = 'bg-red-100 border-red-500';
+      }
 
       return `
-        <div class="of-status-bg-${statusClass} p-4 rounded-xl shadow-lg cursor-pointer transition hover:shadow-xl card-tap-big" onclick="openOFDetails('${of.id}')">
-          <div class="flex items-center justify-between mb-3 border-b pb-2">
-            <h3 class="text-xl font-bold text-gray-800">OF: ${of.id}</h3>
-            <span class="text-sm font-bold p-1 rounded-md ${statusColor}">${of.status.toUpperCase()}</span>
-          </div>
-          
-          <p class="text-sm text-gray-700 mb-1">
-            <i data-lucide="zap" class="w-4 h-4 inline-block mr-1 text-blue-500"></i>
-            Chicote: <span class="font-semibold">${of.chicote_nome}</span>
-          </p>
-          <p class="text-sm text-gray-700 mb-3">
-            <i data-lucide="box" class="w-4 h-4 inline-block mr-1 text-green-500"></i>
-            Qtde: <span class="font-semibold">${of.quantidade} pçs</span>
-          </p>
-          
-          <div class="mb-3">
-            <p class="text-xs font-semibold text-gray-600 mb-1">Progresso Total:</p>
-            <div class="w-full bg-gray-300 rounded-full h-2">
-              <div class="h-2 rounded-full bg-blue-600 transition-all duration-500" style="width:${progress}%"></div>
-            </div>
-            <p class="text-right text-xs font-bold mt-1 text-blue-700">${progress}%</p>
-          </div>
-          
-          <div class="bg-white p-3 rounded-lg shadow-inner space-y-2">
-            <p class="text-sm text-gray-700 flex justify-between items-center">
-              <i data-lucide="step-back" class="w-4 h-4 mr-1 text-indigo-500"></i>
-              Última Atividade: <span class="font-semibold text-gray-700">${latestActivity}</span>
-            </p>
-            <p class="text-sm text-gray-700 flex justify-between items-center">
-              <i data-lucide="step-forward" class="w-4 h-4 mr-1 text-indigo-500"></i>
-              Próxima Etapa: ${nextActivity}
-            </p>
-          </div>
+        <div class="${statusColor} p-4 rounded-xl shadow-lg border-l-4 ${statusColor.replace('bg-', 'border-')}" 
+             onclick="openOFDetails('${of.id}')">
+          <h3 class="text-lg font-bold text-gray-800 mb-1 flex justify-between items-center">
+            ${of.id}
+            ${of.status === 'Concluído' ? '<i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>' : (nextTask ? '<i data-lucide="play-circle" class="w-5 h-5 text-blue-600"></i>' : '<i data-lucide="pause-circle" class="w-5 h-5 text-yellow-600"></i>')}
+          </h3>
+          <p class="text-sm text-gray-600 mb-3">${of.chicote} | Qtd: ${of.quantidade}</p>
 
-          ${isAtrasada ? `<div class="mt-3 p-2 bg-red-100 rounded-lg text-sm font-semibold text-red-700 flex items-center">
-            <i data-lucide="alert-triangle" class="w-4 h-4 mr-2"></i>
-            Atraso Identificado!
-          </div>` : ''}
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs font-semibold text-gray-600">${progress}% Concluído</span>
+            <span class="text-xs font-medium text-gray-500">${completed} / ${tasks.length} etapas</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-1.5">
+            <div class="h-1.5 rounded-full bg-blue-500" style="width:${progress}%"></div>
+          </div>
+          <p class="text-xs mt-2 text-gray-700 font-medium">Próxima Etapa: ${nextTask ? nextTask.nome_atividade : (of.status === 'Concluído' ? 'Finalizada' : 'N/A')}</p>
         </div>
       `;
-    }
+    }).join('');
 
-    // ==========================
-    //  CÁLCULOS DE TEMPO
-    // ==========================
-    function calculateTempoReal(task){ 
-      let tempoReal = task.tempo_real_acumulado || 0; 
-      const now = Date.now();
-      if (task.status === 'Em Processo' && task.timestamp_inicio){
-          let inicioMs = getDBTimestamp(task.timestamp_inicio);
-          if (inicioMs) {
-              // Tempo desde o início, subtraído do tempo de pausa
-              let tempoTrabalhadoDesdeInicio = msToMinutes(now - inicioMs);
-              let totalPausa = calculateTotalPauseMinutes(task);
-              tempoReal += (tempoTrabalhadoDesdeInicio - totalPausa);
-          }
-      }
-      return parseFloat(tempoReal.toFixed(2));
-    }
-    
-    function calculateDesvio(task){ 
+    ofsListContainer.innerHTML = ofsHtml.length > 0 ? ofsHtml : '<div class="col-span-3 p-6 text-center text-gray-500 bg-white rounded-xl shadow-lg">Nenhuma OF ativa.</div>';
+    lucide.createIcons();
+  }
+}
+
+function renderTasks(){
+  if (!operatorView.classList.contains('hidden')) {
+    const tasks = Object.values(allTasks)
+      .filter(t =>
+        t.setor === currentSectorFilter &&
+        (t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada') &&
+        (!operatorSearchOF || (t.id_of || "").toUpperCase().includes(operatorSearchOF))
+      )
+      .sort((a,b) => (a.status === 'Em Processo' ? -1 : 1) || a.ordem - b.ordem);
+
+    const tasksHtml = tasks.map(task=>{
       const tempoReal = calculateTempoReal(task);
-      // Desvio = Tempo Planejado - Tempo Real (Negativo = Atraso)
-      const desvio = (task.tempo_planejado||0) - tempoReal;
-      return parseFloat(desvio.toFixed(2));
-    }
+      const desvio = calculateDesvio(task);
+      const totalPauseMinutes = calculateTotalPauseMinutes(task);
 
-    function calculateTotalPauseMinutes(task){ 
-      let totalMs = task.total_pause_time_ms || 0;
-      if (task.status === 'Pausada' && task.pause_start_timestamp){
-          let pauseStartMs = getDBTimestamp(task.pause_start_timestamp);
-          if (pauseStartMs) {
-              totalMs += Date.now() - pauseStartMs;
-          }
-      }
-      return msToMinutes(totalMs);
-    }
-    
-    function calculateTotalPauseMinutesFinal(task){ 
-      // Usado para o relatório, não considera a pausa em andamento
-      return msToMinutes(task.total_pause_time_ms || 0);
-    }
-
-    function calculateProgress(of) {
-      const allTasksArray = Object.values(allTasks).filter(t => t.of_id === of.id);
-      if (allTasksArray.length === 0) return 0;
-
-      const totalTasks = allTasksArray.length;
-      const completedTasks = allTasksArray.filter(t => t.status === 'Finalizada').length;
-
-      return Math.round((completedTasks / totalTasks) * 100);
-    }
-
-    // ==========================
-    //  INICIALIZAÇÃO & DADOS
-    // ==========================
-    function setupSectorDropdowns(){ 
-      const roteiroSetorSelect = document.getElementById('roteiro-setor');
-      const sectorFilterSelect = document.getElementById('sector-filter');
-      const userSectorSelect = document.getElementById('user-sector');
-
-      // Limpa todos
-      [roteiroSetorSelect, sectorFilterSelect, userSectorSelect].forEach(sel => {
-          if (sel) sel.innerHTML = '';
-      });
-
-      // Adiciona opção padrão para 'user-sector'
-      const defaultOption = document.createElement('option');
-      defaultOption.value = "";
-      defaultOption.textContent = "-- Selecione um Setor --";
-      if (userSectorSelect) userSectorSelect.appendChild(defaultOption);
-
-      // 1. Dropdown de Setup Roteiro e User Sector
-      SECTORS.forEach(sector=>{
-          const o1 = document.createElement('option');
-          o1.value=sector; o1.textContent=sector;
-          const o2 = o1.cloneNode(true);
-          if (roteiroSetorSelect) roteiroSetorSelect.appendChild(o1);
-          if (userSectorSelect && sector !== currentUser?.sector) userSectorSelect.appendChild(o2); 
-      });
-
-      // 2. Dropdown de Filtro do Operador
-      if (sectorFilterSelect){
-          if (isOperador()){
-              const o = document.createElement('option');
-              o.value=currentUser.sector; o.textContent=currentUser.sector;
-              sectorFilterSelect.appendChild(o);
-              sectorFilterSelect.value=currentUser.sector;
-              sectorFilterSelect.disabled = true;
-              currentSectorFilter = currentUser.sector;
-          }else{
-              SECTORS.forEach(sector=>{
-                  const o2 = document.createElement('option');
-                  o2.value=sector; o2.textContent=sector;
-                  sectorFilterSelect.appendChild(o2);
-              });
-              currentSectorFilter = SECTORS[0];
-              sectorFilterSelect.value = SECTORS[0];
-              sectorFilterSelect.disabled = false;
-          }
-      }
-    }
-
-    function updateSectorFilter(sector){ 
-      currentSectorFilter = sector;
-      renderTasks(); // Renderiza tarefas do novo setor
-    }
-
-    function loadRoteiroDropdowns() {
-      const select = document.getElementById('of-chicote');
-      if (!select) return;
-
-      const roteiros = Object.values(allRoteiros);
-      const chicotes = [...new Set(roteiros.map(r => r.chicote_nome))];
-      
-      select.innerHTML = '<option value="">-- Selecione um Modelo --</option>';
-      chicotes.forEach(chicote => {
-          const option = document.createElement('option');
-          option.value = chicote;
-          option.textContent = chicote;
-          select.appendChild(option);
-      });
-
-      if (chicotes.length === 0) {
-          select.innerHTML = '<option value="">Nenhum roteiro mestre cadastrado.</option>';
-      }
-    }
-
-    async function setupFirebaseListeners(){
-        if (!window.db) return;
-
-        // Listener de Roteiros
-        db.collection(window.ROTEIRO_COLLECTION).onSnapshot(snapshot => {
-            allRoteiros = {};
-            snapshot.forEach(doc => { allRoteiros[doc.id] = doc.data(); });
-            loadRoteiroDropdowns();
-            renderRoteiros(); 
-        }, err => console.error("Erro ao ouvir Roteiros:", err));
-        
-        // Listener de OFs
-        db.collection(window.OF_COLLECTION).onSnapshot(snapshot => {
-            allOFs = {};
-            snapshot.forEach(doc => { allOFs[doc.id] = doc.data(); });
-            renderOFs();
-            renderKPIs();
-        }, err => console.error("Erro ao ouvir OFs:", err));
-
-        // Listener de Tasks
-        db.collection(window.TASK_COLLECTION).onSnapshot(snapshot => {
-            allTasks = {};
-            snapshot.forEach(doc => { allTasks[doc.id] = doc.data(); });
-            // Re-renderiza views que dependem de tasks
-            renderTasks();
-            renderOFs(); 
-            renderKPIs();
-        }, err => console.error("Erro ao ouvir Tasks:", err));
-
-        // Listener de Ocorrências
-        db.collection(window.OCORRENCIA_COLLECTION).onSnapshot(snapshot => {
-          allOcurrencesLog = [];
-          snapshot.forEach(doc => { allOcurrencesLog.push(doc.data()); });
-          renderReport();
-        }, err => console.error("Erro ao ouvir Ocorrências:", err));
-    }
-
-    async function initializeApp(){
-      loadingIndicator.classList.remove('hidden');
-
-      // 1. Tenta carregar usuário
-      const savedUser = getUser();
-      if (savedUser){
-          setUser(savedUser);
-      }
-      
-      // 2. Setup Firebase Listeners ou Fallback (Simulação)
-      if (window.db) {
-          await setupFirebaseListeners(); // Espera a primeira carga
-      } else {
-          // MODO SIMULAÇÃO
-          document.getElementById('loading-indicator').innerHTML = `
-              <div class="p-3 sm:p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg shadow-md" role="alert">
-                  <p class="font-bold">Aviso: Modo de Simulação (Sem Firebase)</p>
-                  <p class="text-xs sm:text-sm">Os dados não serão persistidos. Algumas funções de Setup/Criação podem não funcionar.</p>
-              </div>`;
-          allRoteiros = DEFAULT_ROTEIROS;
-          loadRoteiroDropdowns();
-          renderRoteiros();
-          // Simula dados iniciais de OFs se necessário (omitido para simplificar, focar no Firebase)
-      }
-      
-      // 3. Verifica o usuário e abre a tela de login se necessário
-      if (!currentUser) {
-          // CORREÇÃO SOLICITADA: Abre o modal de login se não houver usuário
-          openUserModal();
-      } else {
-          setupSectorDropdowns(); // Garante que os dropdowns de filtro/setup estão populados
-          updateView(currentUser.role === 'MASTER' ? 'PCP' : 'Operador');
+      let statusColor = 'bg-gray-100 border-gray-300';
+      let statusText = task.status;
+      let actions = '';
+      if (task.status === 'Em Espera'){
+        statusColor = 'bg-green-100 border-green-500';
+        statusText = 'Aguardando Início';
+        actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">Iniciar</button>`;
+      } else if (task.status === 'Em Processo'){
+        statusColor = 'bg-blue-100 border-blue-500';
+        statusText = 'Em Processo';
+        actions = `
+          <button onclick="pauseTask('${task.id}')" class="px-3 py-1.5 text-sm bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">Pausar</button>
+          <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">Concluir</button>`;
+      } else if (task.status === 'Pausada'){
+        statusColor = 'bg-yellow-100 border-yellow-500';
+        statusText = 'Pausada';
+        actions = `
+          <button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">Retomar</button>
+          <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">Concluir</button>`;
       }
 
-      loadingIndicator.classList.add('hidden');
-    }
-
-    // ==========================
-    //  RENDERIZAÇÃO DE VIEWS
-    // ==========================
-    function updateView(view){
-      userViewSelect.value = view;
-      
-      // Esconde tudo
-      [pcpView, operatorView, reportView].forEach(el => el.classList.add('hidden'));
-      [btnCreateOF, btnSetupRoteiro, btnProfile].forEach(el => el.classList.add('hidden'));
-
-      // Mostra a view correta
-      if (view === 'PCP') {
-          pcpView.classList.remove('hidden');
-          renderOFs();
-          renderKPIs();
-      } else if (view === 'Operador') {
-          operatorView.classList.remove('hidden');
-          renderTasks();
-      } else if (view === 'Relatorio') {
-          reportView.classList.remove('hidden');
-          renderReport();
-      }
-      
-      // Habilita botões de controle
-      btnProfile.classList.remove('hidden');
-      if (isMaster()) {
-          btnCreateOF.classList.remove('hidden');
-          btnSetupRoteiro.classList.remove('hidden');
-      }
-    }
-
-    function renderOFs(){
-        const ofsArray = Object.values(allOFs).sort((a,b) => b.timestamp_criacao - a.timestamp_criacao); // Ordem decrescente de criação
-        ofsListContainer.innerHTML = '';
-        if (ofsArray.length === 0) {
-            ofsListContainer.innerHTML = `<p class="text-gray-500 col-span-full">Nenhuma Ordem de Fabricação (OF) encontrada.</p>`;
-            return;
-        }
-
-        ofsArray.forEach(of => {
-            const cardHtml = createOFCardHTML(of); // Usa o novo layout de card
-            ofsListContainer.innerHTML += cardHtml;
-        });
-
-        lucide.createIcons();
-    }
-
-    function renderTasks(){
-      const tasksArray = Object.values(allTasks)
-          .filter(t => t.setor === currentSectorFilter && t.status !== 'Finalizada')
-          .sort((a,b) => (a.seq || 0) - (b.seq || 0)); 
-          
-      tasksListContainer.innerHTML = '';
-
-      if (tasksArray.length === 0) {
-          tasksListContainer.innerHTML = `<div class="p-6 text-center bg-white rounded-xl shadow-lg">
-              <i data-lucide="check-circle" class="w-8 h-8 text-green-500 mx-auto mb-2"></i>
-              <p class="text-lg font-semibold text-gray-700">Setor ${currentSectorFilter} livre de tarefas pendentes!</p>
-              <p class="text-sm text-gray-500">Aguardando a liberação de novas OFs.</p>
-          </div>`;
-          lucide.createIcons();
-          return;
-      }
-      
-      tasksArray.forEach(task => {
-          const desvio = calculateDesvio(task);
-          const desvioColor = desvio < 0 ? 'text-red-500' : (desvio > 0 ? 'text-green-500' : 'text-gray-500');
-          const desvioIcon = desvio < 0 ? 'arrow-down' : (desvio > 0 ? 'arrow-up' : 'minus');
-          const desvioText = desvio < 0 ? `${formatMinutes(Math.abs(desvio))} de Atraso` : `${formatMinutes(desvio)} de Folga`;
-
-          let actionButton = '';
-          let actionColor = '';
-          let actionText = '';
-          let actionIcon = '';
-          let onClickAction = '';
-
-          switch(task.status) {
-              case 'Pendente':
-                  actionColor = 'bg-blue-600 hover:bg-blue-700';
-                  actionText = 'Iniciar Tarefa';
-                  actionIcon = 'play-circle';
-                  onClickAction = `startTask('${task.id}')`;
-                  break;
-              case 'Em Processo':
-                  actionColor = 'bg-yellow-600 hover:bg-yellow-700';
-                  actionText = 'Pausar';
-                  actionIcon = 'pause-circle';
-                  onClickAction = `pauseTask('${task.id}')`;
-                  break;
-              case 'Pausada':
-                  actionColor = 'bg-green-600 hover:bg-green-700';
-                  actionText = 'Retomar';
-                  actionIcon = 'play-circle';
-                  onClickAction = `startTask('${task.id}', true)`; // isResuming = true
-                  break;
-              default:
-                  // Finalizada não deve aparecer no filtro de pendentes
-                  return; 
-          }
-
-          const taskHtml = `
-              <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                  <div class="flex-grow">
-                      <div class="flex items-center gap-2 mb-2">
-                          <h3 class="text-lg font-bold text-gray-800">${task.nome_atividade} (OF: ${task.of_id})</h3>
-                          <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${task.status === 'Em Processo' ? 'bg-blue-100 text-blue-800' : (task.status === 'Pausada' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600')}">${task.status}</span>
-                      </div>
-                      <p class="text-sm text-gray-600 mb-2">Chicote: <span class="font-semibold">${task.chicote_nome}</span> | Qtde: <span class="font-semibold">${allOFs[task.of_id]?.quantidade || 0} pçs</span></p>
-                      <div class="grid grid-cols-2 text-xs sm:text-sm gap-y-1">
-                          <p class="text-gray-500 flex items-center">
-                              <i data-lucide="clock" class="w-4 h-4 mr-1 text-indigo-500"></i>
-                              T. Planejado: ${formatMinutes(task.tempo_planejado)}
-                          </p>
-                          <p class="text-gray-500 flex items-center">
-                              <i data-lucide="gauge" class="w-4 h-4 mr-1 text-gray-500"></i>
-                              T. Setup: ${formatMinutes(task.tempo_setup)}
-                          </p>
-                          <p class="text-gray-500 flex items-center">
-                              <i data-lucide="activity" class="w-4 h-4 mr-1 text-gray-500"></i>
-                              T. Ciclo: ${formatMinutes(task.tempo_ciclo)}/pç
-                          </p>
-                          <p class="${desvioColor} font-semibold flex items-center">
-                              <i data-lucide="${desvioIcon}" class="w-4 h-4 mr-1"></i>
-                              Desvio: ${desvioText}
-                          </p>
-                      </div>
-                  </div>
-                  <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto flex-shrink-0">
-                      <button onclick="openInstructionModal('${task.id}')"
-                              class="w-full sm:w-auto px-3 py-2 bg-indigo-500 text-white text-sm font-semibold rounded-lg hover:bg-indigo-600 transition flex items-center justify-center">
-                          <i data-lucide="book-open-text" class="w-4 h-4 mr-1"></i> Instrução
-                      </button>
-                      <button onclick="${onClickAction}"
-                              class="w-full sm:w-auto px-3 py-2 text-white text-sm font-semibold rounded-lg transition flex items-center justify-center ${actionColor}">
-                          <i data-lucide="${actionIcon}" class="w-4 h-4 mr-1"></i> ${actionText}
-                      </button>
-                      ${task.status === 'Em Processo' ? `
-                      <button onclick="finishTask('${task.id}')"
-                              class="w-full sm:w-auto px-3 py-2 bg-green-700 text-white text-sm font-semibold rounded-lg hover:bg-green-800 transition flex items-center justify-center">
-                          <i data-lucide="flag-checkered" class="w-4 h-4 mr-1"></i> Finalizar
-                      </button>` : ''}
-                  </div>
-              </div>
-          `;
-          tasksListContainer.innerHTML += taskHtml;
-      });
-      lucide.createIcons();
-    }
-
-    function renderRoteiros() {
-      const roteiroList = document.getElementById('roteiro-list');
-      if (!roteiroList) return;
-      roteiroList.innerHTML = '';
-      
-      const chicotes = {};
-      Object.values(allRoteiros).forEach(r => {
-          if (!chicotes[r.chicote_nome]) {
-              chicotes[r.chicote_nome] = [];
-          }
-          chicotes[r.chicote_nome].push(r);
-      });
-
-      const chicoteNames = Object.keys(chicotes).sort();
-      if (chicoteNames.length === 0) {
-          roteiroList.innerHTML = `<p class="text-gray-500 p-4">Nenhum roteiro mestre cadastrado.</p>`;
-          return;
-      }
-
-      chicoteNames.forEach(chicoteName => {
-          const activities = chicotes[chicoteName].sort((a,b) => (a.seq || 0) - (b.seq || 0));
-          
-          let html = `<div class="bg-white border-2 border-indigo-200 rounded-xl shadow-md p-4 mb-4">
-              <h4 class="text-lg font-bold text-indigo-800 mb-3 flex justify-between items-center">
-                  <span><i data-lucide="zap" class="w-5 h-5 inline-block mr-1"></i> Roteiro Mestre: ${chicoteName}</span>
-              </h4>`;
-
-          activities.forEach((r, index) => {
-              html += `
-                  <div class="flex justify-between items-center border-b last:border-b-0 py-2">
-                      <div class="text-sm">
-                          <span class="font-bold text-gray-800">${index + 1}. ${r.nome_atividade} (${r.setor})</span>
-                          <p class="text-xs text-gray-500">Setup: ${formatMinutes(r.tempo_setup)} | Ciclo: ${formatMinutes(r.tempo_ciclo)}/pç</p>
-                      </div>
-                      <button onclick="deleteRoteiroActivity('${r.id}')" class="text-red-500 hover:text-red-700 transition p-1">
-                          <i data-lucide="trash-2" class="w-4 h-4"></i>
-                      </button>
-                  </div>
-              `;
-          });
-
-          html += `</div>`;
-          roteiroList.innerHTML += html;
-      });
-      lucide.createIcons();
-    }
-
-    function renderKPIs() {
-      const kpisContainer = document.getElementById('kpis-container');
-      const ofsArray = Object.values(allOFs);
-      
-      const totalOFs = ofsArray.length;
-      const ofsFinalizadas = ofsArray.filter(of => of.status === 'Finalizada').length;
-      const ofsAtrasadas = ofsArray.filter(of => of.status === 'Atrasada').length;
-      const ofsEmProcesso = ofsArray.filter(of => of.status === 'Em Processo').length;
-      
-      const totalTempoPlanejado = Object.values(allTasks).reduce((sum, task) => sum + (task.tempo_planejado || 0), 0);
-      const totalTempoReal = Object.values(allTasks).reduce((sum, task) => sum + calculateTempoReal(task), 0);
-      const desvioTotal = totalTempoPlanejado - totalTempoReal;
-
-      const kpis = [
-        { label: "OFs Totais", value: totalOFs, icon: "package", color: "blue" },
-        { label: "OFs Finalizadas", value: ofsFinalizadas, icon: "check-circle", color: "green" },
-        { label: "OFs Atrasadas", value: ofsAtrasadas, icon: "alert-triangle", color: "red" },
-        { label: "Desvio Total (min)", value: formatMinutes(desvioTotal), icon: desvioTotal < 0 ? "trending-down" : "trending-up", color: desvioTotal < 0 ? "red" : "green" },
-      ];
-
-      kpisContainer.innerHTML = kpis.map(kpi => `
-        <div class="bg-white p-4 rounded-xl shadow-md flex items-center justify-between transition hover:shadow-lg">
-          <div>
-            <p class="text-sm font-semibold text-gray-500">${kpi.label}</p>
-            <p class="text-2xl font-bold text-gray-800 text-${kpi.color}-600 mt-1">${kpi.value}</p>
+      return `
+        <div class="${statusColor} border p-3 sm:p-4 rounded-xl shadow">
+          <div class="flex justify-between items-center mb-2">
+            <div>
+              <p class="text-sm font-bold text-gray-800">${task.nome_atividade}</p>
+              <p class="text-xs text-gray-600">OF <span class="font-semibold">${task.id_of}</span> • Setor ${task.setor}</p>
+            </div>
+            <button class="p-2 rounded-lg hover:bg-gray-100" title="Instrução de Trabalho" onclick="openInstructionModal('${task.id}')">
+              <i data-lucide="book" class="w-5 h-5"></i>
+            </button>
           </div>
-          <i data-lucide="${kpi.icon}" class="w-8 h-8 text-${kpi.color}-400"></i>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm">
+            <div><span class="text-gray-500">Setup:</span> <span class="font-semibold">${formatMinutes(task.tempo_setup)}</span></div>
+            <div><span class="text-gray-500">Ciclo (min/pç):</span> <span class="font-semibold">${Number(task.tempo_ciclo).toFixed(2)}</span></div>
+            <div><span class="text-gray-500">Planejado:</span> <span class="font-semibold">${formatMinutes(task.tempo_planejado)}</span></div>
+            <div><span class="text-gray-500">Pausa:</span> <span class="font-semibold">${formatMinutes(totalPauseMinutes)}</span></div>
+          </div>
+          <div class="mt-2 flex justify-between items-center">
+            <span class="text-xs font-semibold ${desvio < 0 ? 'text-red-600' : 'text-gray-700'}">
+              Desvio: ${desvio < 0 ? '-' : ''}${formatMinutes(Math.abs(desvio))}
+            </span>
+            <span class="text-xs font-medium text-gray-600">${statusText}</span>
+          </div>
+          <div class="mt-3 flex gap-2">${actions}</div>
         </div>
-      `).join('');
-      lucide.createIcons();
-    }
-    
-    // Funções de CRUD (simplificadas para o propósito)
-    
-    function generateNewRoteiroId() {
-        roteiroCounter++;
-        return `r${roteiroCounter}`;
-    }
+      `;
+    }).join('');
 
-    function generateNewOFId() {
-        const lastOFNumber = Math.max(0, ...Object.keys(allOFs).map(id => parseInt(id.replace('OF-', '') || 0)));
-        const newOFNumber = lastOFNumber + 1;
-        return `OF-${String(newOFNumber).padStart(3, '0')}`;
-    }
+    tasksListContainer.innerHTML = tasksHtml || '<div class="p-6 text-center text-gray-500 bg-white rounded-xl shadow-lg">Sem tarefas para este setor/OF.</div>';
+    lucide.createIcons();
+  }
+}
 
-    function generateTaskFromRoteiro(roteiro, of_id, quantidade) {
-        taskCounter++;
-        return {
-            id: `t${taskCounter}`,
-            of_id: of_id,
-            chicote_nome: roteiro.chicote_nome,
-            setor: roteiro.setor,
-            nome_atividade: roteiro.nome_atividade,
-            seq: roteiro.seq,
-            tempo_setup: roteiro.tempo_setup || 0,
-            tempo_ciclo: roteiro.tempo_ciclo || 0,
-            tempo_planejado: parseFloat(((roteiro.tempo_setup || 0) + (roteiro.tempo_ciclo || 0) * quantidade).toFixed(2)),
-            tempo_real_acumulado: 0,
-            status: 'Pendente',
-            instrucao_trabalho: roteiro.instrucao_trabalho || '',
-            timestamp_criacao: Date.now(),
-            total_pause_time_ms: 0,
-            // Campos de rastreamento de tempo
-            timestamp_inicio: null,
-            timestamp_fim: null,
-            pause_start_timestamp: null,
-            operador_id: null,
-        };
-    }
-    
-    // ==========================
-    //  MODAL / FLUXO DE AÇÃO
-    // ==========================
-    function openModal(modalId, ofId = null) {
-      const modal = document.getElementById(modalId);
-      if (!modal) return;
-      
-      if (modalId === 'setup-roteiro-modal') {
-        // CORREÇÃO SOLICITADA: Renderiza a lista de roteiros ao abrir o modal de setup
-        renderRoteiros();
-      } else if (modalId === 'create-of-modal') {
-        loadRoteiroDropdowns();
-      }
-      
-      modal.style.display = 'flex';
-    }
+/* ============================
+   DETALHES DA OF / EXPORTS
+   ============================ */
+function openOFDetails(ofId){
+  window.__ofDetailsOpenId = ofId;
+  const of = allOFs[ofId];
+  const tasks = Object.values(allTasks).filter(t=> t.id_of === ofId);
+  const completed = tasks.filter(t => t.status === 'Concluído').length;
+  const progress = tasks.length ? Math.floor((completed / tasks.length) * 100) : 0;
 
-    function closeModal(modalId = 'action-modal') {
-      const modal = document.getElementById(modalId);
-      if (modal) {
-          modal.style.display = 'none';
-      }
-      // Limpa estado da ação
-      currentAction = {};
-      document.getElementById('justification-select').innerHTML = '<option value="">-- Selecione uma opção --</option>';
-      document.getElementById('justification-text').value = '';
-      document.getElementById('justification-area').classList.remove('hidden');
-    }
+  document.getElementById('of-details-title').textContent = `OF ${ofId} — ${of.chicote}`;
+  document.getElementById('of-details-summary').innerHTML = `
+    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Quantidade</p><p class="font-semibold">${of.quantidade}</p></div>
+    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Etapas</p><p class="font-semibold">${tasks.length}</p></div>
+    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Concluídas</p><p class="font-semibold">${completed}</p></div>
+    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Status</p><p class="font-semibold">${of.status || '-'}</p></div>
+  `;
+  document.getElementById('of-details-progress').style.width = `${progress}%`;
 
-    function openUserModal(){
-      const modal = document.getElementById('user-modal');
-      const roleSel = document.getElementById('user-role');
-      const sectorSel = document.getElementById('user-sector');
-      const pinWrap = document.getElementById('user-pin-wrap');
-      const sectorWrap = document.getElementById('user-sector-wrap');
-      
-      // Popula os setores
-      setupSectorDropdowns();
+  const content = tasks.sort((a,b)=> a.ordem - b.ordem).map(task=>{
+    const tempoReal = calculateTempoReal(task);
+    const desvio = calculateDesvio(task);
+    return `
+      <div class="border rounded-lg p-3">
+        <div class="flex justify-between">
+          <p class="font-semibold">${task.ordem}. ${task.nome_atividade}</p>
+          <span class="text-xs ${task.status==='Concluído'?'text-green-700':'text-gray-600'}">${task.status}</span>
+        </div>
+        <p class="text-xs text-gray-600">Setor: ${task.setor}</p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm mt-2">
+          <div><span class="text-gray-500">Setup:</span> <span class="font-semibold">${formatMinutes(task.tempo_setup)}</span></div>
+          <div><span class="text-gray-500">Ciclo:</span> <span class="font-semibold">${Number(task.tempo_ciclo).toFixed(2)}</span></div>
+          <div><span class="text-gray-500">Planejado:</span> <span class="font-semibold">${formatMinutes(task.tempo_planejado)}</span></div>
+          <div><span class="text-gray-500">Real:</span> <span class="font-semibold">${formatMinutes(tempoReal)}</span></div>
+        </div>
+        <p class="mt-1 text-xs ${desvio<0?'text-red-600':'text-gray-700'}">Desvio: ${desvio<0?'-':''}${formatMinutes(Math.abs(desvio))}</p>
+      </div>
+    `;
+  }).join('');
+  document.getElementById('of-details-content').innerHTML = content;
 
-      roleSel.value = (currentUser?.role || 'OPERADOR');
-      if (currentUser?.sector) sectorSel.value = currentUser.sector;
+  btnDeleteOF.classList.toggle('hidden', !isMaster());
+  openModal('of-details-modal');
+}
 
-      roleSel.onchange = () => {
-          const isM = roleSel.value === 'MASTER';
-          pinWrap.classList.toggle('hidden', !isM);
-          sectorWrap.classList.toggle('hidden', isM);
-      };
-      roleSel.onchange();
-      modal.style.display='flex';
-    }
+function exportReportCSV(){
+  const rows = [
+    ["OF","CHICOTE","ATIVIDADE","MOTIVO_PAUSA","MOTIVO_ATRASO","T. PAUSA (min)","T. ATRASO (min)"]
+  ];
+  allOcurrencesLog.forEach(l => {
+    rows.push([
+      l.OF, l.CHICOTE, l.ATIVIDADE, l.MOTIVO_PAUSA||"", l.MOTIVO_ATRASO||"",
+      (l.TEMPO_PAUSA||0).toFixed(2), (l.TEMPO_ATRASO||0).toFixed(2)
+    ]);
+  });
+  downloadCSV(rows, `relatorio_ocorrencias_${new Date().toISOString().slice(0,10)}.csv`);
+}
+function exportOFTasksCSV(ofId){
+  const tasks = Object.values(allTasks).filter(t => t.id_of === ofId);
+  const rows = [["OF","ATIVIDADE","SETOR","STATUS","SETUP(min)","CICLO(min/pç)","PLANEJADO(min)","REAL(min)","DESVIO(min)"]];
+  tasks.forEach(t => {
+    rows.push([
+      t.id_of, t.nome_atividade, t.setor, t.status,
+      Number(t.tempo_setup).toFixed(2),
+      Number(t.tempo_ciclo).toFixed(2),
+      Number(t.tempo_planejado).toFixed(2),
+      calculateTempoReal(t).toFixed(2),
+      calculateDesvio(t).toFixed(2),
+    ]);
+  });
+  downloadCSV(rows, `of_${ofId}_tasks_${new Date().toISOString().slice(0,10)}.csv`);
+}
+function downloadCSV(rows, filename){
+  const csvContent = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csvContent], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
 
-    function confirmUser(){
-      const role = document.getElementById('user-role').value;
-      const sector = document.getElementById('user-sector').value;
-      const pin = document.getElementById('user-pin').value;
+/* ============================
+   ROTEIROS (lista no modal)
+   ============================ */
+function renderRoteiros(){
+  const list = document.getElementById('roteiro-list');
+  if (!list) return;
+  const items = Object.values(allRoteiros).sort((a,b)=> (a.chicote_nome||'').localeCompare(b.chicote_nome||'')).map(r=>`
+    <div class="bg-white border rounded-lg p-3 flex justify-between items-start gap-3">
+      <div>
+        <p class="text-sm font-semibold">${r.chicote_nome} — <span class="text-gray-700">${r.setor}</span></p>
+        <p class="text-xs text-gray-600">Atividade: ${r.nome_atividade}</p>
+        <p class="text-xs text-gray-600">Setup: ${Number(r.tempo_setup).toFixed(2)} | Ciclo: ${Number(r.tempo_ciclo).toFixed(2)}</p>
+      </div>
+      <button class="px-2 py-1 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700"
+              onclick="deleteRoteiroActivity('${r.id}')">Excluir</button>
+    </div>
+  `).join('');
+  list.innerHTML = items || '<div class="p-4 text-center text-gray-500 bg-white rounded-lg">Nenhum roteiro cadastrado.</div>';
+}
 
-      if (role==='MASTER'){
-          if (pin !== MASTER_PIN){ alert('PIN incorreto.'); return; }
-          setUser({ role:'MASTER', name:'Master' });
-          closeModal('user-modal');
-          setupSectorDropdowns();
-          updateView('PCP');
+/* ============================
+   LOGIN
+   ============================ */
+function openUserModal() {
+  const modal = document.getElementById('user-modal');
+  if(modal) modal.style.display = 'flex';
+  // Ajusta visibilidade do PIN conforme role
+  setTimeout(()=>{
+    const roleSel = document.getElementById('user-role');
+    const pinWrap = document.getElementById('user-pin-wrap');
+    const sectorWrap = document.getElementById('user-sector-wrap');
+    roleSel.onchange = () => {
+      const role = roleSel.value;
+      if (role === 'MASTER') {
+        pinWrap.classList.remove('hidden');
+        sectorWrap.classList.add('hidden');
       } else {
-          if (!sector){ alert('Selecione um setor.'); return; }
-          setUser({ role:'OPERADOR', sector, name:'Operador' });
-          closeModal('user-modal');
-          setupSectorDropdowns();
-          updateView('Operador');
+        pinWrap.classList.add('hidden');
+        sectorWrap.classList.remove('hidden');
       }
-    }
-    
-    function setupJustificationModal(taskId, action, title, message, reasons, isDelayCheck = false) {
-      const task = allTasks[taskId];
-      if (!task) return;
+    };
+    roleSel.dispatchEvent(new Event('change'));
+  }, 50);
+}
+function confirmUser(){
+  const role = document.getElementById('user-role').value;
+  const sector = document.getElementById('user-sector').value;
+  if (role === 'MASTER') {
+    const pin = document.getElementById('user-pin').value;
+    if (pin !== MASTER_PIN) { alert("PIN incorreto."); return; }
+    setUser({ role: 'MASTER', name: 'Master' });
+  } else {
+    if (!sector) { alert("Selecione o setor."); return; }
+    setUser({ role: 'OPERADOR', sector });
+  }
+  document.getElementById('user-modal').style.display = 'none';
+  setupSectorDropdowns();
+  updateView(userViewSelect.value);
+  injectSearchInputs();
+}
 
-      currentAction = { taskId, action };
-      
-      document.getElementById('modal-title').textContent = title;
-      document.getElementById('modal-message').textContent = message;
-      document.getElementById('modal-confirm-button').textContent = (action === 'pause' ? 'Pausar' : 'Confirmar');
-      document.getElementById('justification-area').classList.remove('hidden');
-      document.getElementById('justification-required-text').classList.add('hidden');
-
-      const select = document.getElementById('justification-select');
-      select.innerHTML = '<option value="">-- Selecione uma opção --</option>';
-      reasons.forEach(reason => {
-          const option = document.createElement('option');
-          option.value = reason;
-          option.textContent = reason;
-          select.appendChild(option);
-      });
-
-      if (isDelayCheck) {
-        const desvio = calculateDesvio(task);
-        if (desvio < -5) { // Atraso superior a 5 minutos
-          document.getElementById('justification-required-text').classList.remove('hidden');
-          select.setAttribute('required', 'required');
-        } else {
-          select.removeAttribute('required');
-        }
-      } else {
-        select.removeAttribute('required');
-      }
-
-      openModal('action-modal');
-    }
-
-    function handleConfirmedAction() {
-        const { taskId, action } = currentAction;
-        const task = allTasks[taskId];
-
-        if (!task) { closeModal(); return; }
-
-        const reason = document.getElementById('justification-select').value;
-        const details = document.getElementById('justification-text').value;
-
-        // Verifica se a justificativa é obrigatória (ex: grande atraso)
-        const isRequired = !document.getElementById('justification-required-text').classList.contains('hidden');
-        if (isRequired && !reason) {
-            alert('Por favor, selecione um motivo principal.');
-            return;
-        }
-
-        switch (action) {
-            case 'pause':
-                performPauseTask(task, reason, details);
-                break;
-            case 'finish':
-                performFinishTask(task, reason, details);
-                break;
-            default:
-                console.error("Ação desconhecida:", action);
-        }
-        closeModal();
-    }
-    
-    // ==========================
-    //  AÇÕES DO OPERADOR (Task)
-    // ==========================
-    async function startTask(taskId, isResuming = false){
-        const taskRef = window.db ? db.collection(window.TASK_COLLECTION).doc(taskId) : null;
-        const task = allTasks[taskId];
-
-        if (!task || task.status === 'Em Processo') return;
-        
-        const now = Date.now();
-        const updateData = {
-            status: 'Em Processo',
-            operador_id: currentUser.name || currentUser.sector,
-        };
-
-        if (isResuming) {
-            // Se estiver retomando, calcula o tempo de pausa e zera o marcador
-            const pauseDurationMs = now - getDBTimestamp(task.pause_start_timestamp);
-            updateData.total_pause_time_ms = firebase.firestore.FieldValue.increment(pauseDurationMs);
-            updateData.pause_start_timestamp = null;
-        } else {
-            // Se for a primeira vez que inicia, define o timestamp de início
-            if (!task.timestamp_inicio) {
-                updateData.timestamp_inicio = firebase.firestore.Timestamp.fromMillis(now);
-            }
-        }
-        
-        if (taskRef) {
-            await taskRef.update(updateData);
-        } else {
-            // Simulação
-            Object.assign(task, updateData);
-            if (isResuming) {
-                task.total_pause_time_ms = (task.total_pause_time_ms || 0) + (now - getDBTimestamp(task.pause_start_timestamp));
-                task.pause_start_timestamp = null;
-            } else if (!task.timestamp_inicio) {
-                task.timestamp_inicio = now;
-            }
-            task.status = 'Em Processo';
-            renderTasks();
-            renderOFs();
-        }
-    }
-
-    function pauseTask(taskId){
-        setupJustificationModal(
-            taskId, 
-            'pause', 
-            'Pausar Atividade', 
-            'Selecione o motivo da pausa. O cronômetro será interrompido.', 
-            PAUSE_REASONS
-        );
-    }
-    
-    async function performPauseTask(task, reason, details) {
-        const taskRef = window.db ? db.collection(window.TASK_COLLECTION).doc(task.id) : null;
-        const now = Date.now();
-        
-        // Acumula o tempo que a tarefa esteve "Em Processo"
-        const inicioMs = getDBTimestamp(task.timestamp_inicio);
-        const tempoTrabalhadoDesdeInicio = msToMinutes(now - inicioMs);
-        const tempoPausaAtual = calculateTotalPauseMinutes(task);
-        const tempoTrabalhadoNet = tempoTrabalhadoDesdeInicio - tempoPausaAtual;
-
-        const updateData = {
-            status: 'Pausada',
-            tempo_real_acumulado: firebase.firestore.FieldValue.increment(tempoTrabalhadoNet),
-            pause_start_timestamp: firebase.firestore.Timestamp.fromMillis(now),
-        };
-        
-        if (taskRef) {
-            await taskRef.update(updateData);
-        } else {
-            // Simulação
-            task.tempo_real_acumulado = (task.tempo_real_acumulado || 0) + tempoTrabalhadoNet;
-            task.pause_start_timestamp = now;
-            task.status = 'Pausada';
-            renderTasks();
-            renderOFs();
-        }
-
-        // Se houver motivo de pausa, registra a ocorrência
-        if (reason) {
-            logOcorrencia(task.id, 'Pausa', reason, details, tempoTrabalhadoNet);
-        }
-    }
-
-    function finishTask(taskId){
-        const task = allTasks[taskId];
-        if (!task || task.status !== 'Em Processo') return;
-        
-        // Checa se há desvio para acionar o modal de justificativa
-        const desvio = calculateDesvio(task);
-        if (desvio < -5) { // Atraso > 5 min
-            setupJustificationModal(
-                taskId, 
-                'finish', 
-                'Finalizar Atividade (Atraso)', 
-                'Foi detectado um atraso significativo. Por favor, justifique o motivo principal do desvio de tempo.', 
-                DELAY_REASONS,
-                true // isDelayCheck = true
-            );
-        } else {
-            // Finaliza sem modal de justificativa
-            performFinishTask(task, null, null);
-        }
-    }
-
-    async function performFinishTask(task, reason, details) {
-        const taskRef = window.db ? db.collection(window.TASK_COLLECTION).doc(task.id) : null;
-        const now = Date.now();
-
-        // 1. Calcula o tempo final
-        const inicioMs = getDBTimestamp(task.timestamp_inicio);
-        const tempoTrabalhadoDesdeInicio = msToMinutes(now - inicioMs);
-        const tempoPausaAtual = calculateTotalPauseMinutes(task);
-        const tempoTrabalhadoNet = tempoTrabalhadoDesdeInicio - tempoPausaAtual;
-        
-        // 2. Acumula o tempo real e finaliza
-        const finalTempoReal = (task.tempo_real_acumulado || 0) + tempoTrabalhadoNet;
-        
-        const updateData = {
-            status: 'Finalizada',
-            tempo_real_acumulado: parseFloat(finalTempoReal.toFixed(2)),
-            timestamp_fim: firebase.firestore.Timestamp.fromMillis(now),
-            pause_start_timestamp: null,
-        };
-
-        if (taskRef) {
-            await taskRef.update(updateData);
-            
-            // 3. Atualiza o status da OF se for a última tarefa
-            const tasksOfOF = Object.values(allTasks).filter(t => t.of_id === task.of_id);
-            const nextTask = tasksOfOF.find(t => t.seq === (task.seq + 1));
-            
-            if (!nextTask) {
-                const ofRef = db.collection(window.OF_COLLECTION).doc(task.of_id);
-                await ofRef.update({ 
-                    status: 'Finalizada',
-                    timestamp_fim: firebase.firestore.Timestamp.fromMillis(now)
-                });
-            } else {
-                 const ofRef = db.collection(window.OF_COLLECTION).doc(task.of_id);
-                await ofRef.update({ 
-                    status: 'Em Processo', // Mantém 'Em Processo' até a próxima rodada do listener
-                });
-            }
-        } else {
-            // Simulação
-            task.tempo_real_acumulado = finalTempoReal;
-            task.timestamp_fim = now;
-            task.status = 'Finalizada';
-            
-            // Simulação de próxima tarefa (para evitar chamadas separadas)
-            const tasksOfOF = Object.values(allTasks).filter(t => t.of_id === task.of_id);
-            const nextTask = tasksOfOF.find(t => t.seq === (task.seq + 1));
-            if (!nextTask) allOFs[task.of_id].status = 'Finalizada';
-
-            renderTasks();
-            renderOFs();
-        }
-
-        // 4. Se houver desvio/justificativa, registra a ocorrência
-        const desvioFinal = calculateDesvio({...task, tempo_real_acumulado: finalTempoReal});
-        if (reason && desvioFinal < 0) {
-            logOcorrencia(task.id, 'Atraso', reason, details, Math.abs(desvioFinal));
-        }
-    }
-
-    async function logOcorrencia(taskId, tipo, motivo, detalhes, tempoMin) {
-        if (!window.db) return;
-        const task = allTasks[taskId];
-        if (!task) return;
-
-        const ocorrencia = {
-            task_id: taskId,
-            of_id: task.of_id,
-            chicote_nome: task.chicote_nome,
-            atividade: task.nome_atividade,
-            tipo: tipo, // 'Pausa' ou 'Atraso'
-            motivo_principal: motivo,
-            detalhes: detalhes,
-            tempo_min: tempoMin, // Tempo total do desvio ou da pausa acumulada
-            timestamp: firebase.firestore.Timestamp.fromMillis(Date.now()),
-            operador: currentUser.name || currentUser.sector,
-        };
-        await db.collection(window.OCORRENCIA_COLLECTION).add(ocorrencia);
-    }
-    
-    // ==========================
-    //  AÇÕES DO MASTER (Setup/OF)
-    // ==========================
-    async function createOF() {
-      const ofId = document.getElementById('of-id').value.trim().toUpperCase();
-      const quantity = parseInt(document.getElementById('of-quantity').value);
-      const chicote = document.getElementById('of-chicote').value;
-      const messageEl = document.getElementById('of-creation-message');
-      messageEl.classList.add('hidden');
-
-      if (!ofId || !chicote || quantity <= 0 || !quantity) {
-          messageEl.textContent = "Preencha todos os campos corretamente (OF, Quantidade > 0, Chicote).";
-          messageEl.classList.remove('hidden');
-          return;
-      }
-      
-      if (allOFs[ofId]) {
-          messageEl.textContent = `A OF ${ofId} já existe. Escolha outro código.`;
-          messageEl.classList.remove('hidden');
-          return;
-      }
-
-      const roteiroMestre = Object.values(allRoteiros)
-          .filter(r => r.chicote_nome === chicote)
-          .sort((a,b) => (a.seq || 0) - (b.seq || 0));
-
-      if (roteiroMestre.length === 0) {
-          messageEl.textContent = `Nenhum roteiro encontrado para o chicote ${chicote}.`;
-          messageEl.classList.remove('hidden');
-          return;
-      }
-
-      const newOF = {
-          id: ofId,
-          chicote_nome: chicote,
-          quantidade: quantity,
-          status: 'Pendente',
-          timestamp_criacao: Date.now(),
-          tasks_count: roteiroMestre.length,
-      };
-
-      if (window.db) {
-        const batch = db.batch();
-        const ofRef = db.collection(window.OF_COLLECTION).doc(ofId);
-        batch.set(ofRef, newOF);
-        
-        // Cria as tasks baseadas no roteiro mestre
-        let seq = 1;
-        roteiroMestre.forEach(roteiro => {
-            const taskId = generateNewOFId() + '-' + seq; // ID temporário para a Task
-            const newTask = generateTaskFromRoteiro({...roteiro, seq}, ofId, quantity);
-            const taskRef = db.collection(window.TASK_COLLECTION).doc(newTask.id);
-            batch.set(taskRef, newTask);
-            seq++;
-        });
-
-        try {
-            await batch.commit();
-            alert(`OF ${ofId} criada com sucesso e tarefas geradas!`);
-            closeModal('create-of-modal');
-        } catch(e) {
-            console.error("Erro ao criar OF e Tasks:", e);
-            messageEl.textContent = `Erro ao salvar no banco de dados: ${e.message}`;
-            messageEl.classList.remove('hidden');
-        }
-
-      } else {
-        // Simulação: Criação simplificada
-        allOFs[ofId] = newOF;
-        let seq = 1;
-        roteiroMestre.forEach(roteiro => {
-            const newTask = generateTaskFromRoteiro({...roteiro, seq}, ofId, quantity);
-            allTasks[newTask.id] = newTask;
-            seq++;
-        });
-        alert(`OF ${ofId} criada em modo de simulação.`);
-        closeModal('create-of-modal');
-        renderOFs();
-      }
-    }
-
-    async function addRoteiroActivity() {
-      const chicoteName = document.getElementById('roteiro-chicote-name').value.trim().toUpperCase();
-      const setor = document.getElementById('roteiro-setor').value;
-      const activityName = document.getElementById('roteiro-activity-name').value.trim();
-      const setupTime = parseFloat(document.getElementById('roteiro-setup-time').value || 0);
-      const cycleTime = parseFloat(document.getElementById('roteiro-cycle-time').value || 0);
-      const instructionText = document.getElementById('roteiro-instruction-text').value.trim();
-      const messageEl = document.getElementById('roteiro-message');
-      messageEl.textContent = '';
-
-      if (!chicoteName || !setor || !activityName) {
-          messageEl.textContent = "Preencha o Nome do Chicote, Setor e Nome da Atividade.";
-          return;
-      }
-
-      // Encontrar a próxima sequência para este chicote
-      const existingActivities = Object.values(allRoteiros).filter(r => r.chicote_nome === chicoteName);
-      const nextSeq = existingActivities.length + 1;
-
-      const newRoteiro = {
-          id: window.db ? db.collection(window.ROTEIRO_COLLECTION).doc().id : generateNewRoteiroId(),
-          chicote_nome: chicoteName,
-          setor: setor,
-          nome_atividade: activityName,
-          tempo_setup: setupTime,
-          tempo_ciclo: cycleTime,
-          instrucao_trabalho: instructionText,
-          seq: nextSeq,
-          timestamp_criacao: Date.now(),
-      };
-
-      if (window.db) {
-          try {
-              await db.collection(window.ROTEIRO_COLLECTION).doc(newRoteiro.id).set(newRoteiro);
-              messageEl.textContent = "Etapa de roteiro adicionada com sucesso!";
-              messageEl.classList.add('text-green-600', 'font-semibold');
-              // Limpar campos após sucesso
-              document.getElementById('roteiro-activity-name').value = '';
-              document.getElementById('roteiro-setup-time').value = '';
-              document.getElementById('roteiro-cycle-time').value = '';
-              document.getElementById('roteiro-instruction-text').value = '';
-          } catch(e) {
-              messageEl.textContent = `Erro ao salvar: ${e.message}`;
-              messageEl.classList.remove('text-green-600', 'font-semibold');
-          }
-      } else {
-          // Simulação
-          allRoteiros[newRoteiro.id] = newRoteiro;
-          messageEl.textContent = "Etapa de roteiro adicionada (Simulação)!";
-          renderRoteiros();
-      }
-    }
-
-    async function deleteRoteiroActivity(roteiroId) {
-        if (!confirm("Tem certeza que deseja excluir esta etapa do roteiro mestre?")) return;
-
-        if (window.db) {
-            try {
-                await db.collection(window.ROTEIRO_COLLECTION).doc(roteiroId).delete();
-                alert("Etapa excluída com sucesso!");
-            } catch(e) {
-                alert(`Erro ao excluir: ${e.message}`);
-            }
-        } else {
-            // Simulação
-            delete allRoteiros[roteiroId];
-            alert("Etapa excluída (Simulação)!");
-            renderRoteiros();
-        }
-    }
-
-    async function deleteOF(ofId) {
-      if (!isMaster()) { alert("Apenas Master pode excluir OFs."); return; }
-      if (!confirm(`ATENÇÃO: Você está prestes a excluir a OF ${ofId} e todas as suas tarefas e ocorrências relacionadas. Deseja prosseguir?`)) return;
-
-      if (window.db) {
-          try {
-              const batch = db.batch();
-              
-              // 1. Exclui a OF
-              const ofRef = db.collection(window.OF_COLLECTION).doc(ofId);
-              batch.delete(ofRef);
-
-              // 2. Encontra e exclui as Tasks relacionadas
-              const tasksSnapshot = await db.collection(window.TASK_COLLECTION).where('of_id', '==', ofId).get();
-              tasksSnapshot.forEach(doc => {
-                  batch.delete(doc.ref);
-              });
-              
-              // 3. Encontra e exclui as Ocorrências relacionadas
-              const ocorrenciasSnapshot = await db.collection(window.OCORRENCIA_COLLECTION).where('of_id', '==', ofId).get();
-              ocorrenciasSnapshot.forEach(doc => {
-                  batch.delete(doc.ref);
-              });
-
-              await batch.commit();
-              alert(`OF ${ofId}, tarefas e ocorrências excluídas com sucesso.`);
-              closeModal('of-details-modal');
-          } catch (e) {
-              alert(`Erro ao excluir a OF: ${e.message}`);
-              console.error(e);
-          }
-      } else {
-          // Simulação
-          delete allOFs[ofId];
-          Object.keys(allTasks).forEach(id => {
-              if (allTasks[id].of_id === ofId) delete allTasks[id];
-          });
-          alert(`OF ${ofId} excluída (Simulação).`);
-          closeModal('of-details-modal');
-          renderOFs();
-      }
-    }
-
-    // ==========================
-    //  RELATÓRIOS / EXPORTAÇÃO
-    // ==========================
-
-    function renderReport() {
-        const reportTableBody = document.getElementById('report-table-body');
-        reportTableBody.innerHTML = '';
-        
-        const sortedOcorrences = allOcurrencesLog.sort((a, b) => getDBTimestamp(b.timestamp) - getDBTimestamp(a.timestamp));
-
-        if (sortedOcorrences.length === 0) {
-            reportTableBody.innerHTML = `<tr><td colspan="7" class="py-4 text-center text-gray-500">Nenhuma ocorrência (pausa ou atraso) registrada.</td></tr>`;
-            return;
-        }
-
-        sortedOcorrences.forEach(o => {
-            const isPausa = o.tipo === 'Pausa';
-            const row = `
-                <tr class="hover:bg-gray-50">
-                    <td class="px-3 sm:px-6 py-3">${o.of_id}</td>
-                    <td class="px-3 sm:px-6 py-3">${o.chicote_nome}</td>
-                    <td class="px-3 sm:px-6 py-3">${o.atividade}</td>
-                    <td class="px-3 sm:px-6 py-3 ${isPausa ? 'text-yellow-600 font-semibold' : 'text-gray-500'}">${isPausa ? o.motivo_principal : 'N/A'}</td>
-                    <td class="px-3 sm:px-6 py-3 ${!isPausa ? 'text-red-600 font-semibold' : 'text-gray-500'}">${!isPausa ? o.motivo_principal : 'N/A'}</td>
-                    <td class="px-3 sm:px-6 py-3">${isPausa ? formatMinutes(o.tempo_min) : '0.00 min'}</td>
-                    <td class="px-3 sm:px-6 py-3">${!isPausa ? formatMinutes(o.tempo_min) : '0.00 min'}</td>
-                </tr>
-            `;
-            reportTableBody.innerHTML += row;
-        });
-    }
-
-    function exportReportCSV() {
-        if (allOcurrencesLog.length === 0) {
-            alert("Não há dados de ocorrências para exportar.");
-            return;
-        }
-        
-        const headers = ["OF", "CHICOTE", "ATIVIDADE", "TIPO", "MOTIVO PRINCIPAL", "DETALHES", "TEMPO (min)", "OPERADOR", "DATA/HORA"];
-        const rows = allOcurrencesLog.map(o => [
-            o.of_id,
-            o.chicote_nome,
-            o.atividade,
-            o.tipo,
-            o.motivo_principal.replace(/,/g, ' -'), // Substitui vírgulas para não quebrar o CSV
-            o.detalhes ? o.detalhes.replace(/,/g, ' -') : 'N/A',
-            o.tempo_min.toFixed(2),
-            o.operador,
-            formatDateTime(o.timestamp),
-        ]);
-
-        createCSVFile(headers, rows, "relatorio_ocorrencias");
-    }
-
-    function exportOFTasksCSV(ofId) {
-        const of = allOFs[ofId];
-        if (!of) { alert("OF não encontrada."); return; }
-        
-        const tasks = Object.values(allTasks).filter(t => t.of_id === ofId).sort((a,b) => a.seq - b.seq);
-        
-        const headers = ["OF", "CHICOTE", "SEQUENCIA", "ATIVIDADE", "SETOR", "STATUS", "T. PLANEJADO (min)", "T. REAL (min)", "DESVIO (min)", "T. PAUSA TOTAL (min)", "INICIO", "FIM", "OPERADOR"];
-        const rows = tasks.map(t => [
-            t.of_id,
-            t.chicote_nome,
-            t.seq,
-            t.nome_atividade,
-            t.setor,
-            t.status,
-            t.tempo_planejado.toFixed(2),
-            calculateTempoReal(t).toFixed(2),
-            calculateDesvio(t).toFixed(2),
-            calculateTotalPauseMinutesFinal(t).toFixed(2),
-            t.timestamp_inicio ? formatDateTime(t.timestamp_inicio) : 'N/A',
-            t.timestamp_fim ? formatDateTime(t.timestamp_fim) : 'N/A',
-            t.operador_id || 'N/A',
-        ]);
-
-        createCSVFile(headers, rows, `detalhes_of_${ofId}`);
-    }
-
-    function createCSVFile(headers, rows, fileName) {
-        let csvContent = headers.join(";") + "\n";
-        rows.forEach(row => {
-            csvContent += row.join(";") + "\n";
-        });
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        
-        link.setAttribute("href", url);
-        link.setAttribute("download", `${fileName}_${new Date().toISOString().slice(0,10)}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-
-    // ==========================
-    //  DETALHES DA OF
-    // ==========================
-
-    function openOFDetails(ofId) {
-        const of = allOFs[ofId];
-        if (!of) return;
-        
-        window.__ofDetailsOpenId = ofId; // Armazena o ID globalmente para uso dos botões
-
-        document.getElementById('of-details-title').textContent = `Detalhes: OF ${ofId}`;
-        document.getElementById('btn-delete-of').classList.toggle('hidden', !isMaster());
-
-        const tasksOfOF = Object.values(allTasks).filter(t => t.of_id === ofId).sort((a, b) => a.seq - b.seq);
-        const totalTasks = tasksOfOF.length;
-        const completedTasks = tasksOfOF.filter(t => t.status === 'Finalizada').length;
-        const inProgressTask = tasksOfOF.find(t => t.status === 'Em Processo' || t.status === 'Pausada');
-
-        const progress = calculateProgress(of);
-        document.getElementById('of-details-progress').style.width = `${progress}%`;
-        
-        // Sumário
-        const summaryHtml = `
-            <div class="p-3 bg-gray-50 rounded-lg"><p class="text-xs text-gray-500">Chicote</p><p class="font-bold text-gray-800">${of.chicote_nome}</p></div>
-            <div class="p-3 bg-gray-50 rounded-lg"><p class="text-xs text-gray-500">Qtde</p><p class="font-bold text-gray-800">${of.quantidade} pçs</p></div>
-            <div class="p-3 bg-gray-50 rounded-lg"><p class="text-xs text-gray-500">Status</p><p class="font-bold text-blue-600">${of.status}</p></div>
-            <div class="p-3 bg-gray-50 rounded-lg"><p class="text-xs text-gray-500">Próxima Etapa</p><p class="font-bold text-gray-800">${inProgressTask ? inProgressTask.nome_atividade : (completedTasks === totalTasks ? 'FINALIZADA' : (tasksOfOF.find(t=>t.status==='Pendente')?.nome_atividade || 'N/A'))}</p></div>
-        `;
-        document.getElementById('of-details-summary').innerHTML = summaryHtml;
-
-        // Lista de Tarefas
-        const contentHtml = tasksOfOF.map(task => {
-            const desvio = calculateDesvio(task);
-            const desvioColor = desvio < 0 ? 'text-red-600' : (desvio > 0 ? 'text-green-600' : 'text-gray-500');
-            const desvioText = desvio < 0 ? `Atraso: ${formatMinutes(Math.abs(desvio))}` : (desvio > 0 ? `Folga: ${formatMinutes(desvio)}` : 'No Prazo');
-            const pauseMinutes = calculateTotalPauseMinutes(task);
-
-            return `
-                <div class="bg-white p-4 border rounded-xl shadow-sm flex justify-between items-center">
-                    <div>
-                        <p class="font-bold text-gray-800">${task.seq}. ${task.nome_atividade} (${task.setor})</p>
-                        <div class="text-xs text-gray-600 grid grid-cols-2 mt-1">
-                            <span>Status: <span class="font-semibold text-blue-700">${task.status}</span></span>
-                            <span>Operador: ${task.operador_id || 'N/A'}</span>
-                            <span>T. Planejado: ${formatMinutes(task.tempo_planejado)}</span>
-                            <span class="${desvioColor} font-semibold">${desvioText}</span>
-                            <span>T. Pausa: ${formatMinutes(pauseMinutes)}</span>
-                            <span>Início: ${task.timestamp_inicio ? formatDateTime(task.timestamp_inicio) : 'N/A'}</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        document.getElementById('of-details-content').innerHTML = contentHtml;
-        openModal('of-details-modal');
-        lucide.createIcons();
-    }
-
-    function openInstructionModal(taskId) {
-        const task = allTasks[taskId];
-        if (!task) return;
-
-        document.getElementById('instruction-modal-header').textContent = `OF: ${task.of_id} | Atividade: ${task.nome_atividade} (${task.setor})`;
-        document.getElementById('instruction-modal-content').innerHTML = task.instrucao_trabalho || '<p class="text-gray-500 italic">Nenhuma instrução de trabalho detalhada fornecida.</p>';
-        openModal('instruction-modal');
-    }
-
-    // ==========================
-    //  REFRESH E INÍCIO
-    // ==========================
-    function setupUIRefresh(){
-        // Atualiza a visualização a cada 10 segundos (para atualizar tempo real e desvio)
-        setInterval(() => {
-            const currentView = userViewSelect.value;
-            if (currentView === 'PCP') {
-                renderOFs();
-                renderKPIs();
-            } else if (currentView === 'Operador') {
-                renderTasks();
-            }
-        }, 10000); 
-    }
-
-    // Chamada inicial
-    document.addEventListener('DOMContentLoaded', () => {
-        initializeApp();
-        setupUIRefresh();
-    });
-
-    // Expõe funções para o HTML
-    window.startTask = startTask;
-    window.pauseTask = pauseTask;
-    window.finishTask = finishTask;
-    window.openOFDetails = openOFDetails;
-    window.openInstructionModal = openInstructionModal;
-    window.handleConfirmedAction = handleConfirmedAction;
-    window.openModal = openModal;
-    window.closeModal = closeModal;
-    window.createOF = createOF;
-    window.addRoteiroActivity = addRoteiroActivity;
-    window.deleteRoteiroActivity = deleteRoteiroActivity;
-    window.deleteOF = deleteOF;
-    window.exportReportCSV = exportReportCSV;
-    window.exportOFTasksCSV = exportOFTasksCSV;
-    window.openUserModal = openUserModal;
-  </script>
+/* ============================
+   BOOTSTRAP
+   ============================ */
+document.addEventListener('DOMContentLoaded', () => {
+  initializeApp();
+  lucide.createIcons();
+});
+</script>
 </body>
 </html>
