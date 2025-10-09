@@ -213,11 +213,10 @@
 
             <div class="flex items-center justify-between">
                 <p id="roteiro-message" class="text-sm text-red-600"></p>
-                <button class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold" onclick="addRoteiroActivity()">
+                <button id="btn-add-roteiro-activity" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">
                     Adicionar Atividade
                 </button>
             </div>
-
             <div id="roteiro-list" class="space-y-2 max-h-80 overflow-auto"></div>
         </div>
     </div>
@@ -429,7 +428,6 @@
             }
         }
 
-        // ⚠️ CORREÇÃO DE ORDEM DE EXECUÇÃO: A função initializeApp só usa elementos da UI depois de setupUIRefresh ser chamado
         async function initializeApp(){
             loadingIndicator.innerHTML = `
                 <div class="p-3 sm:p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg shadow-md" role="alert">
@@ -1020,7 +1018,8 @@
 
             if (!chicote || !setor || !atividade || isNaN(setupTime) || isNaN(cycleTime)){
                 message.textContent = "Preencha todos os campos corretamente (Nome, Atividade, Setor e Tempos).";
-                return;
+                // Este return é o que fazia o código "parar" silenciosamente se algum ID não fosse lido, pois a mensagem não era exibida ou o erro de null/undefined era engolido.
+                return; 
             }
             message.textContent = '';
             
@@ -1050,8 +1049,8 @@
             message.classList.add('text-green-600');
             setTimeout(() => { message.textContent = ''; message.classList.remove('text-green-600'); message.classList.add('text-red-600'); }, 3000);
         }
-        // ⚠️ CORREÇÃO: ADICIONANDO AO WINDOW PARA GARANTIR QUE O ONCLICK FUNCIONE
-        window.addRoteiroActivity = addRoteiroActivity; 
+        // REMOVEMOS A LINHA window.addRoteiroActivity = addRoteiroActivity; 
+        // e anexamos o listener no setupUIRefresh
 
         async function deleteRoteiroActivity(roteiroId){
             if (confirm("Tem certeza que deseja DELETAR esta atividade do roteiro mestre? Isso não afeta OFs existentes, mas afeta futuras OFs.") ){
@@ -1244,6 +1243,12 @@
             btnSetupRoteiro = document.getElementById('btn-setup-roteiro');
             btnProfile = document.getElementById('btn-profile');
             btnExportReport = document.getElementById('btn-export-report');
+            
+            // NOVO: Adiciona o Event Listener para o botão Adicionar Atividade
+            const btnAddRoteiro = document.getElementById('btn-add-roteiro-activity');
+            if (btnAddRoteiro) {
+                btnAddRoteiro.addEventListener('click', addRoteiroActivity);
+            }
 
             userViewSelect.addEventListener('change', (e) => updateView(e.target.value));
 
@@ -1260,9 +1265,8 @@
 
         // Inicia a aplicação quando o DOM estiver completamente carregado
         document.addEventListener('DOMContentLoaded', () => {
-            // CORREÇÃO DE ORDEM DE EXECUÇÃO: SETUP da UI ANTES do APP
+            // Ordem de execução:
             setupUIRefresh(); 
-            // PREENCHIMENTO DOS DROPDOWNS DE SETOR ANTES DO APP INICIALIZAR
             setupSectorDropdowns();
             initializeApp();
         });
