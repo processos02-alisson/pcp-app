@@ -418,9 +418,19 @@
                     sectorFilterSelect.disabled = false;
                 }
             }
+            
+            // Popula o setor no Modal de Login
+            const userSectorSelect = document.getElementById('user-sector');
+            if (userSectorSelect){
+                userSectorSelect.innerHTML = '';
+                SECTORS.forEach(sector => {
+                    const o = document.createElement('option'); o.value = sector; o.textContent = sector; userSectorSelect.appendChild(o);
+                });
+            }
         }
 
         async function initializeApp(){
+            // O loadingIndicator agora está definido graças à chamada no DOMContentLoaded
             loadingIndicator.innerHTML = `
                 <div class="p-3 sm:p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg shadow-md" role="alert">
                     <p class="font-bold">Aviso: Persistência em Nuvem (Firebase)</p>
@@ -445,7 +455,7 @@
             setTimeout(()=>{
                 loadingIndicator.classList.add('hidden');
                 openUserModal(savedUser ? null : undefined);
-                setupUIRefresh();
+                // setupUIRefresh(); // ⚠️ LINHA REMOVIDA
                 updateView(savedUser?.role === 'MASTER' ? 'PCP' : (savedUser ? 'Operador' : 'PCP'));
             }, 300);
         }
@@ -481,6 +491,7 @@
         }
 
         function updateView(view){
+            // ⚠️ CORREÇÃO: As variáveis globais (pcpView, operatorView, etc.) agora estão definidas antes de updateView ser chamada.
             if (isOperador() && view !== 'Operador'){ view = 'Operador'; }
 
             const isPCP = view === 'PCP';
@@ -701,7 +712,10 @@
             
             if (currentUser) {
                 roleSelect.value = currentUser.role;
-                document.getElementById('user-sector').value = currentUser.sector;
+                // Como setupSectorDropdowns já populou, tentamos definir o valor
+                if (document.getElementById('user-sector').querySelector(`option[value="${currentUser.sector}"]`)) {
+                    document.getElementById('user-sector').value = currentUser.sector;
+                }
             }
 
             // Exibe ou esconde o PIN e o Setor
@@ -730,6 +744,7 @@
                 if (pin === MASTER_PIN) {
                     setUser({ role: 'MASTER', sector: null });
                     closeModal('user-modal');
+                    // ⚠️ CORREÇÃO: updateView agora funciona sem erro
                     updateView('PCP');
                 } else {
                     alert("PIN Master Incorreto.");
@@ -737,6 +752,7 @@
             } else if (role === 'OPERADOR') {
                 setUser({ role: 'OPERADOR', sector: sector });
                 closeModal('user-modal');
+                // ⚠️ CORREÇÃO: updateView agora funciona sem erro
                 updateView('Operador');
             }
         }
@@ -1248,7 +1264,12 @@
         }
 
         // Inicia a aplicação quando o DOM estiver completamente carregado
-        document.addEventListener('DOMContentLoaded', initializeApp);
+        document.addEventListener('DOMContentLoaded', () => {
+            // ⚠️ CORREÇÃO DE ORDEM DE EXECUÇÃO: SETUP da UI ANTES do APP
+            // Isso garante que todas as variáveis globais da UI tenham valor antes de initializeApp tentar usá-las.
+            setupUIRefresh(); 
+            initializeApp();
+        });
     </script>
 </body>
 </html>
