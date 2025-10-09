@@ -1,957 +1,1178 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-    <title>PCP – Controle de Produção (Chicotes)</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons CDN -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        /* Estilização personalizada para o background e sombra */
-        .card-shadow {
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
-            border-radius: 0.75rem; /* rounded-xl */
-        }
-        .animated-entry {
-            animation: fadeIn 0.5s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Cores de status aprimoradas */
-        .status-badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-weight: 600;
-            font-size: 0.875rem;
-        }
-        .status-badge-pending { background-color: #e0f2fe; color: #0284c7; } /* Blue Light (Pendente/Aguardando) */
-        .status-badge-progress { background-color: #fef3c7; color: #d97706; } /* Yellow/Orange (Em Progresso) */
-        .status-badge-complete { background-color: #d1fae5; color: #059669; } /* Green (Concluído) */
-        
-        /* Modal Backdrop */
-        .modal-backdrop {
-            background-color: rgba(0, 0, 0, 0.6);
-        }
-
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PCP – Controle de Produção (Chicotes)</title>
+  <!-- Tailwind + Lucide -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Firebase compat -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+  <style>
+    .modal-backdrop { background-color: rgba(0,0,0,0.45); }
+  </style>
 </head>
-<body class="min-h-screen bg-gray-50 antialiased font-sans">
-    
-    <!-- Header (Controles ocultos por padrão, visíveis após login) -->
-    <header class="bg-white border-b sticky top-0 z-30 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
-            <h1 class="text-xl sm:text-3xl font-extrabold text-gray-800 tracking-tight">PCP – <span class="text-blue-700">Chicotes</span></h1>
-            
-            <!-- Controles do Header - Ocultos até o login -->
-            <div id="header-controls" class="ml-auto flex items-center gap-3 hidden transition duration-300">
-                <select id="user-view-select" class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-gray-50 shadow-inner focus:ring-blue-500 focus:border-blue-500">
-                    <option value="PCP">Visão PCP</option>
-                    <option value="Operador">Visão Operador</option>
-                    <option value="Relatórios">Relatórios</option>
-                </select>
-                <div id="user-profile" class="flex items-center gap-2 bg-blue-50 p-2 rounded-full cursor-pointer hover:bg-blue-100 transition">
-                    <button id="btn-profile" class="text-blue-700 w-8 h-8 flex items-center justify-center bg-blue-200 rounded-full">
-                        <i data-lucide="user" class="w-5 h-5"></i>
-                    </button>
-                    <span id="user-id-display" class="text-sm font-medium text-blue-800 truncate max-w-[120px]">Carregando...</span>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <main class="max-w-7xl mx-auto px-4 py-8">
-
-        <!-- Indicador de Carregamento -->
-        <div id="loading-indicator" class="fixed inset-0 bg-gray-50/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
-            <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span class="mt-3 text-lg font-medium text-gray-700">Iniciando sistema e autenticando...</span>
-        </div>
-
-        <!-- Tela de Login (Aparece após a autenticação inicial do Firebase) -->
-        <div id="login-view" class="hidden flex flex-col items-center justify-center min-h-[70vh] animated-entry">
-            <div class="bg-white p-8 sm:p-10 card-shadow max-w-lg w-full text-center border-t-4 border-blue-600">
-                <i data-lucide="shield-check" class="w-12 h-12 mx-auto mb-4 text-blue-600"></i>
-                <h2 class="text-3xl font-extrabold text-gray-800 mb-2">Entrar no Sistema PCP</h2>
-                <p class="text-sm text-gray-600 mb-6">ID de Sessão: <span id="auth-id-display" class="font-mono bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-xs break-all">...</span></p>
-
-                <div id="login-message" class="hidden text-left mb-4"></div>
-
-                <div class="space-y-6">
-                    <!-- Seletor de Perfil Aprimorado -->
-                    <div class="flex space-x-4 bg-gray-100 p-2 rounded-xl">
-                        <label class="flex-1">
-                            <input type="radio" name="role-select" value="PCP" checked class="hidden" id="radio-pcp">
-                            <div class="py-2 px-4 rounded-lg cursor-pointer text-center font-semibold text-gray-700 transition hover:bg-white border-2 border-transparent" id="label-pcp-master">
-                                <i data-lucide="monitor" class="w-5 h-5 inline-block mr-2"></i> PCP Master
-                            </div>
-                        </label>
-                        <label class="flex-1">
-                            <input type="radio" name="role-select" value="Operador" class="hidden" id="radio-operator">
-                            <div class="py-2 px-4 rounded-lg cursor-pointer text-center font-semibold text-gray-700 transition hover:bg-white border-2 border-transparent" id="label-operator">
-                                <i data-lucide="plug-zap" class="w-5 h-5 inline-block mr-2"></i> Operador
-                            </div>
-                        </label>
-                    </div>
-
-                    <!-- Formulário de Login (Conteúdo Dinâmico) -->
-                    <div id="login-form-pcp" class="space-y-4 text-left">
-                        <p class="text-sm text-gray-500">Acesso total ao Painel de Controle. (Senha: **admin123**)</p>
-                        <input type="password" id="pcp-password-input" placeholder="Digite a Senha Master" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                        <button id="btn-login" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition transform hover:scale-[1.005] shadow-lg shadow-blue-500/50">
-                            <i data-lucide="lock" class="w-5 h-5 inline-block mr-2"></i> Entrar como PCP
-                        </button>
-                    </div>
-
-                    <div id="login-form-operator" class="space-y-4 text-left hidden">
-                        <p class="text-sm text-gray-500">Visualização de tarefas de produção e registro de tempo.</p>
-                        <select id="operator-sector-select" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 bg-white">
-                            <option value="">-- Selecione o Setor --</option>
-                            <option value="Corte">Corte e Descasque</option>
-                            <option value="Montagem">Montagem e Prensagem</option>
-                            <option value="Teste">Teste e Acabamento</option>
-                            <option value="Embalagem">Embalagem</option>
-                        </select>
-                        <button id="btn-login-operator-start" class="w-full bg-yellow-500 text-gray-900 font-bold py-3 rounded-xl hover:bg-yellow-600 transition transform hover:scale-[1.005] shadow-lg shadow-yellow-500/50">
-                            <i data-lucide="wrench" class="w-5 h-5 inline-block mr-2"></i> Iniciar Produção
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Conteúdo Principal do Aplicativo (Oculto no início) -->
-        <div id="app-content" class="hidden">
-            <!-- Visão PCP -->
-            <div id="pcp-view" class="space-y-8 animated-entry">
-                <div class="flex flex-wrap gap-4 justify-between items-start">
-                    <h2 class="text-3xl font-bold text-gray-800">Painel de Controle da Produção</h2>
-                    <div class="flex gap-3">
-                        <button id="btn-export-report" class="bg-gray-100 text-gray-700 hover:bg-gray-200 transition px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 border border-gray-300">
-                            <i data-lucide="file-text" class="w-4 h-4"></i> Exportar Relatório
-                        </button>
-                        <button id="btn-setup-roteiro" class="bg-blue-50 text-blue-700 hover:bg-blue-100 transition px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 border border-blue-300">
-                            <i data-lucide="settings" class="w-4 h-4"></i> Configurar Roteiro
-                        </button>
-                        <button id="btn-create-of" class="bg-blue-600 text-white hover:bg-blue-700 transition px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-md shadow-blue-500/50">
-                            <i data-lucide="plus" class="w-4 h-4"></i> Criar OF
-                        </button>
-                    </div>
-                </div>
-
-                <!-- KPIs -->
-                <div id="kpis-container" class="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                    <!-- KPI Total de OFs -->
-                    <div class="bg-white p-6 card-shadow border-l-4 border-blue-600">
-                        <p class="text-sm font-medium text-gray-500">Total de OFs</p>
-                        <p id="kpi-total-ofs" class="mt-1 text-4xl font-extrabold text-gray-900">0</p>
-                    </div>
-                    <!-- KPI Em Progresso -->
-                    <div class="bg-white p-6 card-shadow border-l-4 border-yellow-500">
-                        <p class="text-sm font-medium text-gray-500">Em Progresso</p>
-                        <p id="kpi-in-progress" class="mt-1 text-4xl font-extrabold text-yellow-600">0</p>
-                    </div>
-                    <!-- KPI Concluídas (Hoje) -->
-                    <div class="bg-white p-6 card-shadow border-l-4 border-green-600">
-                        <p class="text-sm font-medium text-gray-500">Concluídas (Hoje)</p>
-                        <p id="kpi-completed-today" class="mt-1 text-4xl font-extrabold text-green-600">0</p>
-                    </div>
-                </div>
-
-                <!-- Lista de Ordens de Fabricação (OFs) -->
-                <div class="space-y-4">
-                    <h3 class="text-2xl font-semibold text-gray-800 border-b pb-2">Ordens de Fabricação (OFs)</h3>
-                    <div id="ofs-list-container" class="space-y-3">
-                        <div class="p-6 text-center text-sm text-gray-500 bg-white card-shadow">Carregando dados...</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Visão Operador -->
-            <div id="operator-view" class="hidden space-y-6 animated-entry">
-                <h2 class="text-3xl font-bold text-gray-800">Minhas Tarefas de Produção</h2>
-                <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-300">
-                    <p class="text-gray-700">Setor Ativo: <span id="operator-sector-display" class="font-mono bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded text-sm font-semibold">N/A</span>. Visualizando tarefas para o ID: <span id="operator-user-id" class="font-mono bg-gray-200 text-gray-800 px-2 py-0.5 rounded text-sm"></span></p>
-                </div>
-
-                <div class="space-y-4">
-                    <h3 class="text-2xl font-semibold text-gray-800 border-b pb-2">Tarefas Atuais</h3>
-                    <div id="tasks-list-container" class="space-y-3">
-                        <div class="p-6 text-center text-sm text-gray-500 bg-white card-shadow">Buscando tarefas para o operador...</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Visão Relatórios -->
-            <div id="reports-view" class="hidden space-y-6 animated-entry">
-                <h2 class="text-3xl font-bold text-gray-800">Relatórios e Análise de Produção</h2>
-                <div class="bg-white p-6 rounded-xl shadow border-l-4 border-gray-400">
-                    <p class="text-gray-600">Aqui você pode gerar relatórios detalhados de produção, eficiência e utilização de recursos.</p>
-                    <p class="mt-2 text-sm text-gray-500">Funcionalidade pendente de implementação.</p>
-                </div>
-            </div>
-        </div>
-
-    </main>
-    
-    <!-- Modais -->
-
-    <!-- Modal Base (Global) - Para Alertas/Confirmações (Substitui alert/confirm) -->
-    <div id="global-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50 p-4" onclick="if(event.target.id === 'global-modal') hideModal('global-modal')">
-        <div id="modal-content-container" class="bg-white p-6 rounded-xl card-shadow max-w-lg w-full transform transition-all duration-300 scale-100">
-            <h3 id="modal-title" class="text-xl font-bold mb-3 text-gray-900 border-b pb-2"></h3>
-            <p id="modal-body" class="text-gray-600 mb-6"></p>
-            <div id="modal-footer" class="flex justify-end space-x-3 mt-4">
-                <button type="button" id="modal-btn-cancel" class="bg-gray-300 text-gray-800 hover:bg-gray-400 font-semibold px-4 py-2 rounded-lg transition">Cancelar</button>
-                <button type="button" id="modal-btn-confirm" class="bg-blue-600 text-white hover:bg-blue-700 font-semibold px-4 py-2 rounded-lg transition">Confirmar</button>
-            </div>
-        </div>
+<body class="min-h-screen bg-gray-100 antialiased">
+  <!-- Cabeçalho / Navegação -->
+  <header class="bg-white border-b sticky top-0 z-30">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+      <h1 class="text-lg sm:text-2xl font-bold text-gray-900">PCP – Chicotes</h1>
+      <div class="ml-auto flex items-center gap-2">
+        <select id="user-view-select" class="border rounded-lg px-3 py-1.5 text-sm">
+          <option value="PCP">PCP</option>
+          <option value="Operador">Operador</option>
+          <option value="Relatorio">Relatório</option>
+        </select>
+        <button id="btn-profile" class="px-3 py-1.5 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-semibold" onclick="openUserModal(true)">
+          Trocar Usuário
+        </button>
+        <button id="btn-setup-roteiro" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold hidden" onclick="openModal('setup-roteiro-modal')">
+          Setup Roteiro
+        </button>
+        <button id="btn-create-of" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold hidden" onclick="openModal('create-of-modal')">
+          Criar OF
+        </button>
+        <button id="btn-export-report" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold hidden" onclick="exportReportCSV()">
+          Exportar Relatório
+        </button>
+      </div>
     </div>
+  </header>
 
-    <!-- Modal de Configuração de Roteiro Padrão -->
-    <div id="setup-roteiro-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50 p-4" onclick="if(event.target.id === 'setup-roteiro-modal') hideModal('setup-roteiro-modal')">
-        <div class="bg-white p-6 rounded-xl card-shadow max-w-xl w-full">
-            <h3 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center gap-2">
-                <i data-lucide="settings" class="w-6 h-6 text-blue-600"></i> Configurar Roteiro Padrão
-            </h3>
-            
-            <p class="text-sm text-gray-600 mb-4">Defina a sequência padrão de etapas para a fabricação dos chicotes.</p>
+  <div id="loading-indicator" class="max-w-6xl mx-auto px-4 pt-4 hidden"></div>
 
-            <div id="roteiro-steps-container" class="space-y-3 p-4 bg-gray-50 rounded-lg border">
-                <!-- Etapas do roteiro serão injetadas/manipuladas via JS -->
+  <main class="max-w-6xl mx-auto px-4 py-4 space-y-6">
+    <!-- PCP View -->
+    <section id="pcp-view" class="space-y-4">
+      <div id="kpis-container" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
+      <div>
+        <h2 class="text-base font-semibold text-gray-800 mb-2">Ordens de Fabricação</h2>
+        <div id="ofs-list-container" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </div>
+    </section>
+    <!-- Operador View -->
+    <section id="operator-view" class="hidden space-y-4">
+      <div class="flex items-center gap-2">
+        <label class="text-sm text-gray-600">Setor:</label>
+        <select id="sector-filter" class="border rounded-lg px-3 py-1.5 text-sm" onchange="updateSectorFilter(this.value)"></select>
+      </div>
+      <div id="tasks-list-container" class="grid lg:grid-cols-2 gap-4"></div>
+    </section>
+    <!-- Relatório View -->
+    <section id="report-view" class="hidden space-y-3">
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-semibold text-gray-800">Relatório de Ocorrências</h2>
+        <button class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold" onclick="exportReportCSV()">
+          Exportar CSV
+        </button>
+      </div>
+      <div class="overflow-x-auto bg-white rounded-xl shadow">
+        <table class="min-w-full divide-y divide-gray-200 text-sm">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left font-semibold text-gray-700">OF</th>
+              <th class="px-6 py-3 text-left font-semibold text-gray-700">Chicote</th>
+              <th class="px-6 py-3 text-left font-semibold text-gray-700">Atividade</th>
+              <th class="px-6 py-3 text-left font-semibold text-gray-700">Motivo Pausa</th>
+              <th class="px-6 py-3 text-left font-semibold text-gray-700">Motivo Atraso</th>
+              <th class="px-6 py-3 text-left font-semibold text-gray-700">Pausa (min)</th>
+              <th class="px-6 py-3 text-left font-semibold text-gray-700">Atraso (min)</th>
+            </tr>
+          </thead>
+          <tbody id="report-table-body" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modais -->
+  <!-- Modal Usuário -->
+  <div id="user-modal" class="hidden fixed inset-0 modal-backdrop items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-5">
+      <h3 class="text-lg font-bold text-gray-900 mb-3">Entrar</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="text-sm text-gray-700 block mb-1">Perfil</label>
+          <select id="user-role" class="w-full border rounded-lg px-3 py-2 text-sm">
+            <option value="OPERADOR">Operador</option>
+            <option value="MASTER">Master (PCP)</option>
+          </select>
+        </div>
+        <div id="user-pin-wrap" class="hidden">
+          <label class="text-sm text-gray-700 block mb-1">PIN Master</label>
+          <input id="user-pin" type="password" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="PIN" />
+        </div>
+        <div id="user-sector-wrap">
+          <label class="text-sm text-gray-700 block mb-1">Setor</label>
+          <select id="user-sector" class="w-full border rounded-lg px-3 py-2 text-sm"></select>
+        </div>
+        <div class="pt-2 flex items-center justify-end gap-2">
+          <button class="px-3 py-1.5 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-semibold" onclick="closeModal('user-modal')">Cancelar</button>
+          <button class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold" onclick="confirmUser()">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ação (Pausar / Concluir) -->
+  <div id="action-modal" class="hidden fixed inset-0 modal-backdrop items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-5">
+      <h3 id="modal-title" class="text-lg font-bold text-gray-900 mb-2">Ação</h3>
+      <p id="modal-message" class="text-sm text-gray-700 mb-3"></p>
+      <div id="justification-area" class="space-y-2">
+        <label class="text-sm text-gray-700 block">Motivo</label>
+        <select id="justification-select" class="w-full border rounded-lg px-3 py-2 text-sm"></select>
+        <textarea id="justification-text" class="w-full border rounded-lg px-3 py-2 text-sm" rows="2" placeholder="Detalhes (opcional)"></textarea>
+        <p id="justification-required-text" class="text-sm text-red-600 hidden"></p>
+      </div>
+      <div class="pt-3 flex items-center justify-end gap-2">
+        <button class="px-3 py-1.5 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-semibold" onclick="closeModal('action-modal')">Cancelar</button>
+        <button id="modal-confirm-button" class="px-3 py-1.5 rounded-lg text-white text-sm font-semibold" onclick="handleConfirmedAction()">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Instrução -->
+  <div id="instruction-modal" class="hidden fixed inset-0 modal-backdrop items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-5">
+      <div class="flex items-center justify-between mb-2">
+        <h3 id="instruction-modal-header" class="text-lg font-bold text-gray-900">Instrução</h3>
+        <button class="text-gray-600 hover:text-gray-800" onclick="closeModal('instruction-modal')">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="instruction-modal-content" class="prose prose-sm max-w-none"></div>
+    </div>
+  </div>
+
+  <!-- Modal Detalhes OF -->
+  <div id="of-details-modal" class="hidden fixed inset-0 modal-backdrop items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 id="of-details-title" class="text-lg font-bold text-gray-900">OF</h3>
+        <div class="flex items-center gap-2">
+          <button class="px-2.5 py-1.5 rounded-lg bg-gray-200 hover:bg-gray-300 text-xs font-semibold" onclick="exportOFTasksCSV(window.__ofDetailsOpenId)">
+            Exportar CSV
+          </button>
+          <button class="text-gray-600 hover:text-gray-800" onclick="closeModal('of-details-modal')">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+      <div class="bg-gray-100 w-full h-2 rounded-full overflow-hidden">
+        <div id="of-details-progress" class="h-2 rounded-full bg-blue-500" style="width:0%"></div>
+      </div>
+      <div id="of-details-summary" class="flex items-center gap-2"></div>
+      <div id="of-details-content" class="space-y-2"></div>
+    </div>
+  </div>
+
+  <!-- Modal Setup Roteiro -->
+  <div id="setup-roteiro-modal" class="hidden fixed inset-0 modal-backdrop items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-bold text-gray-900">Roteiro – Mestre</h3>
+        <button class="text-gray-600 hover:text-gray-800" onclick="closeModal('setup-roteiro-modal')">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="grid md:grid-cols-2 gap-3">
+        <div>
+          <label class="text-sm text-gray-700">Chicote (nome)</label>
+          <input id="roteiro-chicote-name" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Ex.: CHICOTE-001" />
+        </div>
+        <div>
+          <label class="text-sm text-gray-700">Setor</label>
+          <select id="roteiro-setor" class="w-full border rounded-lg px-3 py-2 text-sm"></select>
+        </div>
+        <div>
+          <label class="text-sm text-gray-700">Atividade</label>
+          <input id="roteiro-activity-name" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Ex.: Corte dos Fios" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-sm text-gray-700">Tempo Setup (min)</label>
+            <input id="roteiro-setup-time" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="text-sm text-gray-700">Tempo Ciclo (min)</label>
+            <input id="roteiro-cycle-time" type="number" step="0.01" class="w-full border rounded-lg px-3 py-2 text-sm" />
+          </div>
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-sm text-gray-700">Instrução de Trabalho (HTML permitido)</label>
+          <textarea id="roteiro-instruction-text" rows="3" class="w-full border rounded-lg px-3 py-2 text-sm" placeholder="<b>1.</b> ..."></textarea>
+        </div>
+      </div>
+      <div class="flex items-center justify-between">
+        <p id="roteiro-message" class="text-sm text-red-600"></p>
+        <button id="btn-add-roteiro-activity" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">
+          Adicionar Atividade
+        </button>
+      </div>
+      <div id="roteiro-list" class="space-y-2 max-h-80 overflow-auto"></div>
+    </div>
+  </div>
+
+  <script>
+    // =========================
+    // CONFIG + PERSISTÊNCIA
+    // =========================
+    // Seu projeto Firebase (inclui databaseURL correto)
+    const firebaseConfig = {
+      apiKey: "AIzaSyDIJJIe4WIVj5OKYTtR-HQscrxIzxNK9eY",
+      authDomain: "pcp-app-24c56.firebaseapp.com",
+      projectId: "pcp-app-24c56",
+      databaseURL: "https://pcp-app-24c56-default-rtdb.firebaseio.com",
+      storageBucket: "pcp-app-24c56.firebasestorage.app",
+      messagingSenderId: "675295958467",
+      appId: "1:675295958467:web:9d79700af6fc1c28db5976",
+      measurementId: "G-DH06WDCKJY"
+    };
+
+    const DB_ROOT = 'pcp_system_data';
+    function hasValidFirebaseConfig(cfg){
+      return cfg && typeof cfg.databaseURL === 'string' && cfg.databaseURL.startsWith('https://');
+    }
+
+    let database = null;
+    try {
+      if (hasValidFirebaseConfig(firebaseConfig) && typeof firebase !== 'undefined') {
+        const app = firebase.initializeApp(firebaseConfig);
+        database = firebase.database();
+        console.log('[PCP] Firebase habilitado.');
+      }
+    } catch(e){
+      console.warn('[PCP] Falha ao iniciar Firebase. Usando LOCAL mode.', e);
+      database = null;
+    }
+
+    // Fallback Local (localStorage)
+    function readLocal(){ try { return JSON.parse(localStorage.getItem(DB_ROOT) || '{}'); } catch(e){ return {}; } }
+    function writeLocal(obj){ try { localStorage.setItem(DB_ROOT, JSON.stringify(obj)); } catch(e){} }
+
+    async function saveStateToFirebase(data, path = DB_ROOT) {
+      if (database) {
+        try { await database.ref(path).set(data); return; } catch(e){ console.warn('[PCP] Falha salvar Firebase, LOCAL mode.', e); }
+      }
+      if (path === DB_ROOT) writeLocal(data);
+      else {
+        const root = readLocal();
+        const sub = path.replace(DB_ROOT + '/', '');
+        const [top, ...rest] = sub.split('/');
+        root[top] = root[top] || {};
+        let cursor = root[top];
+        for (let i = 0; i < rest.length - 1; i++){
+          const k = rest[i];
+          cursor[k] = cursor[k] || {};
+          cursor = cursor[k];
+        }
+        cursor[rest[rest.length - 1]] = data;
+        writeLocal(root);
+      }
+    }
+    async function saveEntity(entityType, key, data) {
+      if (database) {
+        try { await database.ref(`${DB_ROOT}/${entityType}/${key}`).set(data); return; } catch(e){ console.warn('[PCP] Falha salvar entidade Firebase, LOCAL.', e); }
+      }
+      const root = readLocal();
+      root[entityType] = root[entityType] || {};
+      root[entityType][key] = data;
+      writeLocal(root);
+    }
+    async function loadAllData() {
+      if (database) {
+        try {
+          const snapshot = await database.ref(DB_ROOT).once('value');
+          return snapshot.val() || {};
+        } catch(e){
+          console.warn('[PCP] Falha carregar Firebase, lendo LOCAL.', e);
+        }
+      }
+      return readLocal();
+    }
+
+    // =========================
+    // VARIÁVEIS E LISTAS
+    // =========================
+    const MASTER_PIN = "7889";
+    const SECTORS = [
+      'Corte','Corte de Revestimentos','Pré-Montagem','Preparação','Pré Conexão',
+      'Conexão','Pré Grampeação','Grampeação','Acabamento','Embalagem','Montagem','Cabo de Bateria 1','Cabo de Bateria 2'
+    ];
+    const PAUSE_REASONS = [
+      "Falta de material na bancada","Manutenção/Ajuste de máquina","Instrução de trabalho confusa/ausente",
+      "Necessidade de assistência técnica","Troca de turno/intervalo programado","Outro (Detalhar abaixo)"
+    ];
+    const DELAY_REASONS = [
+      "Complexidade inesperada da peça","Problema de qualidade na etapa anterior","Falta de treinamento/experiência",
+      "Tempo padrão calculado incorretamente","Quebra/defeito de ferramenta","Outro (Detalhar abaixo)"
+    ];
+
+    let allOFs = {};
+    let allTasks = {};
+    let allRoteiros = {};
+    let allOcurrencesLog = [];
+    let currentAction = {};
+    let currentSectorFilter = SECTORS[0];
+    let currentUser = null;
+    let roteiroCounter = 7;
+
+    // =========================
+    // ELEMENTOS
+    // =========================
+    let pcpView, operatorView, reportView, loadingIndicator;
+    let ofsListContainer, tasksListContainer;
+    let userViewSelect, btnCreateOF, btnSetupRoteiro, btnProfile, btnExportReport;
+
+    // =========================
+    // HELPERS
+    // =========================
+    function msToMinutes(ms){ return parseFloat((ms / (1000*60)).toFixed(2)); }
+    function formatMinutes(v){ return `${Number(v||0).toFixed(2)} min`; }
+    function isMaster(){ return currentUser && currentUser.role === "MASTER"; }
+    function isOperador(){ return currentUser && currentUser.role === "OPERADOR"; }
+
+    function calculateTempoReal(task){
+      let tempoReal = task.tempo_real_acumulado || 0;
+      const now = Date.now();
+      if (task.status === 'Em Processo' && task.timestamp_inicio){
+        const inicioMs = (task.timestamp_inicio instanceof Date) ? task.timestamp_inicio.getTime() : task.timestamp_inicio;
+        tempoReal += msToMinutes(now - inicioMs);
+      }
+      return parseFloat(tempoReal.toFixed(2));
+    }
+    function calculateDesvio(task){
+      const tempoReal = calculateTempoReal(task);
+      const desvio = (task.tempo_planejado||0) - tempoReal;
+      return parseFloat(desvio.toFixed(2));
+    }
+    function calculateTotalPauseMinutes(task){
+      let totalMs = task.total_pause_time_ms || 0;
+      if (task.status === 'Pausada' && task.pause_start_timestamp){
+        totalMs += Date.now() - task.pause_start_timestamp;
+      }
+      return msToMinutes(totalMs);
+    }
+
+    // =========================
+    // UI E NAVEGAÇÃO
+    // =========================
+    function setupSectorDropdowns(){
+      const roteiroSetorSelect = document.getElementById('roteiro-setor');
+      const sectorFilterSelect = document.getElementById('sector-filter');
+      if (roteiroSetorSelect) roteiroSetorSelect.innerHTML = '';
+      if (sectorFilterSelect) sectorFilterSelect.innerHTML = '';
+      if (roteiroSetorSelect) {
+        SECTORS.forEach(sector=>{
+          const o1 = document.createElement('option'); o1.value = sector; o1.textContent = sector; roteiroSetorSelect.appendChild(o1);
+        });
+      }
+      if (sectorFilterSelect) {
+        if (isOperador()) {
+          const o = document.createElement('option'); o.value = currentUser.sector; o.textContent = currentUser.sector;
+          sectorFilterSelect.appendChild(o);
+          sectorFilterSelect.value = currentUser.sector;
+          sectorFilterSelect.disabled = true;
+          currentSectorFilter = currentUser.sector;
+        } else {
+          SECTORS.forEach(sector=>{
+            const o2 = document.createElement('option'); o2.value = sector; o2.textContent = sector; sectorFilterSelect.appendChild(o2);
+          });
+          currentSectorFilter = SECTORS[0];
+          sectorFilterSelect.value = SECTORS[0];
+          sectorFilterSelect.disabled = false;
+        }
+      }
+    }
+
+    async function initializeApp(){
+      loadingIndicator.innerHTML = `
+        <div class="p-3 sm:p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg shadow-md" role="alert">
+          <p class="font-bold">Aviso: Persistência em Nuvem (Firebase)</p>
+          <p class="text-xs sm:text-sm">Credenciais do Firebase configuradas para o projeto pcp-app-24c56.</p>
+        </div>`;
+      loadingIndicator.classList.remove('hidden');
+
+      const restored = await loadAllData();
+      const data = restored || {};
+      allOFs = data.allOFs || {};
+      allTasks = data.allTasks || {};
+      allRoteiros = data.allRoteiros || {};
+      allOcurrencesLog = data.allOcurrencesLog || [];
+
+      if (Object.keys(allRoteiros).length === 0){
+        const DEFAULT_ROTEIROS = {
+          "r1": { id:"r1", chicote_nome:"CHICOTE-001", setor:"Corte", nome_atividade:"Corte dos Fios", tempo_setup:5, tempo_ciclo:0.2,
+            instrucao_trabalho:"<b>1. Preparação:</b> Verifique a faca. <br><b>2. Medição:</b> Corte 50 peças de 150mm. <br><b>3. Conferência:</b> Inspeção visual."
+          },
+          "r2": { id:"r2", chicote_nome:"CHICOTE-001", setor:"Pré-Montagem", nome_atividade:"Crimpagem de Terminais", tempo_setup:8, tempo_ciclo:0.5,
+            instrucao_trabalho:"<b>1. Fio Preto:</b> ... <br><b>2. Fio Vermelho:</b> ... <br><b>3. Teste:</b> > 10Kgf."
+          },
+          "r3": { id:"r3", chicote_nome:"CHICOTE-001", setor:"Montagem Final", nome_atividade:"Montagem de Conectores", tempo_setup:15, tempo_ciclo:1.0,
+            instrucao_trabalho:"<b>Atenção:</b> Conectar posições corretas. Proibido forçar."
+          },
+          "r5": { id:"r5", chicote_nome:"CHICOTE-B", setor:"Corte", nome_atividade:"Corte Fios Reforçados", tempo_setup:10, tempo_ciclo:0.3, instrucao_trabalho:"Instrução básica B."},
+          "r6": { id:"r6", chicote_nome:"CHICOTE-B", setor:"Montagem Final", nome_atividade:"Montagem Simples", tempo_setup:5, tempo_ciclo:0.8, instrucao_trabalho:"Conectar 4 vias."}
+        };
+        allRoteiros = { ...DEFAULT_ROTEIROS };
+        if (Object.keys(allOFs).length === 0){
+          createOF('OF-001', 10, 'CHICOTE-001', true);
+          createOF('OF-002', 20, 'CHICOTE-B', true);
+        }
+        await saveStateToFirebase({ allRoteiros, allOFs, allTasks, allOcurrencesLog });
+      }
+
+      const savedUser = JSON.parse(localStorage.getItem("pcp_current_user") || "null");
+      if (savedUser) setUser(savedUser);
+
+      setTimeout(()=>{
+        loadingIndicator.classList.add('hidden');
+        openUserModal(savedUser ? null : undefined);
+        setupUIRefresh();
+        updateView(savedUser?.role === 'MASTER' ? 'PCP' : (savedUser ? 'Operador' : 'PCP'));
+      }, 300);
+    }
+
+    function reloadActiveFilter(){}
+
+    function renderKPIs(){
+      const kpisContainer = document.getElementById('kpis-container');
+      if (!kpisContainer) return;
+      const totalOFs = Object.keys(allOFs).filter(k=> allOFs[k]?.status !== 'Concluído').length;
+      const concludedTasks = Object.values(allTasks).filter(t=>t.status==='Concluído').length;
+      const totalTasks = Object.values(allTasks).length;
+      const totalPause = allOcurrencesLog.reduce((s,l)=> s + (l.TEMPO_PAUSA||0), 0);
+
+      const kpiData = [
+        { title:"OFs Ativas", value: totalOFs, icon:"package", color:"bg-blue-600" },
+        { title:"Tarefas Concluídas", value: `${concludedTasks} / ${totalTasks}`, icon:"check-circle", color:"bg-green-600" },
+        { title:"Pausas (min)", value: totalPause.toFixed(1), icon:"pause-circle", color:"bg-yellow-600" },
+        { title:"Ocorrências", value: allOcurrencesLog.length, icon:"alert-triangle", color:"bg-red-600" },
+      ];
+      kpisContainer.innerHTML = kpiData.map(k => `
+        <div class="${k.color} text-white p-3 sm:p-4 rounded-xl shadow-md flex items-center justify-between">
+          <div>
+            <p class="text-xs sm:text-sm font-medium opacity-80">${k.title}</p>
+            <p class="text-2xl sm:text-3xl font-bold">${k.value}</p>
+          </div>
+          <i data-lucide="${k.icon}" class="w-7 h-7 sm:w-8 sm:h-8 opacity-70"></i>
+        </div>`).join('');
+      lucide.createIcons();
+    }
+
+    function updateView(view){
+      if (isOperador() && view !== 'Operador') view = 'Operador';
+      const isPCP = (view === 'PCP');
+      const isReport = (view === 'Relatorio');
+      pcpView.classList.toggle('hidden', !isPCP);
+      operatorView.classList.toggle('hidden', (isPCP || isReport));
+      reportView.classList.toggle('hidden', !isReport);
+      userViewSelect.value = view;
+      btnCreateOF.classList.toggle('hidden', !isMaster());
+      btnSetupRoteiro.classList.toggle('hidden', !isMaster());
+      btnProfile.classList.remove('hidden');
+      userViewSelect.disabled = isOperador();
+      if (btnExportReport) btnExportReport.classList.toggle('hidden', !isMaster());
+
+      if (isPCP){
+        renderKPIs();
+        renderOFs();
+        reloadActiveFilter();
+      } else if (view === 'Operador'){
+        renderTasks();
+      } else if (isReport){
+        renderReport();
+      }
+      lucide.createIcons();
+    }
+    window.updateView = updateView;
+
+    function renderReport(){
+      const body = document.getElementById('report-table-body');
+      if (allOcurrencesLog.length === 0){
+        body.innerHTML = `<tr><td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">Nenhuma ocorrência registrada.</td></tr>`;
+        return;
+      }
+      const html = allOcurrencesLog.map(log => {
+        const atrasoClass = (log.TEMPO_ATRASO||0) > 0 ? 'text-red-600 font-semibold' : 'text-gray-600';
+        const pausaClass = (log.TEMPO_PAUSA||0) > 0 ? 'text-yellow-700 font-semibold' : 'text-gray-600';
+        return `
+          <tr>
+            <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm font-medium text-gray-900">${log.OF}</td>
+            <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm text-gray-600">${log.CHICOTE}</td>
+            <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm text-gray-600">${log.ATIVIDADE}</td>
+            <td class="px-3 sm:px-6 py-2 text-sm text-gray-800">${log.MOTIVO_PAUSA || '-'}</td>
+            <td class="px-3 sm:px-6 py-2 text-sm text-gray-800">${log.MOTIVO_ATRASO || '-'}</td>
+            <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm ${pausaClass}">${(log.TEMPO_PAUSA||0).toFixed(2)}</td>
+            <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm ${atrasoClass}">${(log.TEMPO_ATRASO||0).toFixed(2)}</td>
+          </tr>`;
+      }).join('');
+      body.innerHTML = html;
+      lucide.createIcons();
+    }
+
+    function renderOFs(){
+      const ofs = Object.values(allOFs).sort((a,b) => (a.status === 'Concluído' ? 1 : -1));
+      ofsListContainer.innerHTML = ofs.map(of => {
+        const tasks = Object.values(allTasks).filter(t => t.of_id === of.id);
+        const totalTasks = tasks.length;
+        const completedTasks = tasks.filter(t => t.status === 'Concluído').length;
+        const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        let statusClass = "bg-blue-500";
+        if (of.status === 'Concluído') statusClass = "bg-green-500";
+        else if (progress > 0) statusClass = "bg-yellow-500";
+
+        return `
+          <div class="bg-white p-4 rounded-xl shadow-lg hover:shadow-xl transition cursor-pointer" onclick="openOFDetailsModal('${of.id}')">
+            <div class="flex items-center justify-between mb-2 border-b pb-2">
+              <h3 class="text-lg font-bold text-gray-800">${of.id} (${of.chicote})</h3>
+              <span class="text-xs font-semibold px-2 py-1 rounded-full text-white ${statusClass}">${of.status}</span>
             </div>
-            
-            <button id="btn-add-step" class="mt-4 bg-gray-200 text-gray-700 hover:bg-gray-300 transition px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
-                <i data-lucide="plus" class="w-4 h-4"></i> Adicionar Etapa
+            <p class="text-sm text-gray-600 mb-3">Quantidade: <span class="font-semibold">${of.quantidade}</span> peças</p>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div class="h-2 rounded-full ${statusClass}" style="width:${progress}%"></div>
+            </div>
+            <p class="text-xs text-gray-500 mt-1 text-right">${progress}% Completo (${completedTasks}/${totalTasks} Etapas)</p>
+          </div>`;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    function updateSectorFilter(sector){
+      currentSectorFilter = sector;
+      renderTasks();
+    }
+    window.updateSectorFilter = updateSectorFilter;
+
+    function renderTasks(){
+      const tasks = Object.values(allTasks)
+        .filter(t => t.setor === currentSectorFilter && t.status !== 'Concluído')
+        .sort((a, b) => a.of_id.localeCompare(b.of_id));
+
+      tasksListContainer.innerHTML = '';
+      if (tasks.length === 0){
+        tasksListContainer.innerHTML = `
+          <div class="p-6 bg-white rounded-xl shadow-md text-center text-gray-500">
+            <i data-lucide="clipboard-check" class="w-6 h-6 mx-auto mb-2"></i>
+            <p class="font-semibold">Nenhuma tarefa pendente para o setor de ${currentSectorFilter}.</p>
+          </div>`;
+        lucide.createIcons();
+        return;
+      }
+
+      tasks.forEach(task => {
+        const tempoReal = calculateTempoReal(task);
+        const desvio = calculateDesvio(task);
+        const desvioText = desvio <= 0
+          ? `<span class="text-green-600 font-semibold">${formatMinutes(desvio * -1)} à frente</span>`
+          : `<span class="text-red-600 font-semibold">${formatMinutes(desvio)} de atraso</span>`;
+
+        let actionButton = '';
+        let cardClass = 'bg-white';
+        let statusColor = 'text-gray-500';
+
+        switch (task.status){
+          case 'Pendente':
+            cardClass = 'bg-blue-50 border-l-4 border-blue-500';
+            statusColor = 'text-blue-600';
+            actionButton = `
+              <button onclick="startTask('${task.id}')" class="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">
+                <i data-lucide="play" class="w-4 h-4 inline-block mr-1"></i> Iniciar
+              </button>`;
+            break;
+          case 'Em Processo':
+            cardClass = 'bg-yellow-50 border-l-4 border-yellow-500';
+            statusColor = 'text-yellow-600';
+            actionButton = `
+              <button onclick="openActionModal('${task.id}', 'pause')" class="w-full sm:w-auto px-4 py-2 bg-yellow-600 text-white font-semibold rounded-lg hover:bg-yellow-700 transition mb-2 sm:mb-0">
+                <i data-lucide="pause" class="w-4 h-4 inline-block mr-1"></i> Pausar
+              </button>
+              <button onclick="openActionModal('${task.id}', 'complete')" class="w-full sm:w-auto px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition">
+                <i data-lucide="check" class="w-4 h-4 inline-block mr-1"></i> Concluir
+              </button>`;
+            break;
+          case 'Pausada':
+            cardClass = 'bg-red-50 border-l-4 border-red-500';
+            statusColor = 'text-red-600';
+            actionButton = `
+              <button onclick="unpauseTask('${task.id}')" class="w-full sm:w-auto px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition">
+                <i data-lucide="play" class="w-4 h-4 inline-block mr-1"></i> Retomar
+              </button>`;
+            break;
+        }
+
+        const card = document.createElement('div');
+        card.className = `${cardClass} p-3 sm:p-5 rounded-xl shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3`;
+        card.innerHTML = `
+          <div class="flex-grow min-w-0">
+            <p class="text-xs font-semibold mb-1 ${statusColor}">${task.status} | OF: ${task.of_id} (${task.chicote})</p>
+            <h3 class="text-lg font-bold text-gray-800 truncate">${task.nome_atividade}</h3>
+            <div class="mt-2 text-xs sm:text-sm text-gray-700 space-y-1">
+              <p>Tempo Padrão: <span class="font-semibold">${formatMinutes(task.tempo_planejado)}</span></p>
+              <p>Tempo Real: <span class="font-semibold">${formatMinutes(tempoReal)}</span></p>
+              <p>Desvio: ${desvioText}</p>
+            </div>
+            <button onclick="openInstructionModal('${task.id}')" class="mt-2 text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center">
+              <i data-lucide="book-open-text" class="w-4 h-4 mr-1"></i> Ver Instrução de Trabalho
             </button>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto flex-shrink-0">
+            ${actionButton}
+          </div>`;
+        tasksListContainer.appendChild(card);
+      });
+      lucide.createIcons();
+    }
 
-            <div id="roteiro-message" class="mt-4 text-sm hidden"></div>
+    function openModal(id){
+      const el = document.getElementById(id);
+      el.classList.add('flex');
+      el.classList.remove('hidden');
+      if (id === 'setup-roteiro-modal') { renderRoteiroSetup(); }
+      if (id === 'create-of-modal') { populateOFChicoteDropdown(); }
+      if (id === 'action-modal'){
+        document.getElementById('justification-area').classList.remove('hidden');
+        document.getElementById('justification-required-text').classList.add('hidden');
+      }
+    }
 
-            <div class="flex justify-end gap-3 mt-6">
-                <button type="button" onclick="hideModal('setup-roteiro-modal')" class="bg-gray-300 text-gray-800 hover:bg-gray-400 font-semibold px-4 py-2 rounded-lg transition">Cancelar</button>
-                <button type="button" id="btn-save-roteiro" class="bg-blue-600 text-white hover:bg-blue-700 font-semibold px-4 py-2 rounded-lg transition">Salvar Roteiro</button>
+    function closeModal(id = 'action-modal'){
+      const el = document.getElementById(id);
+      el.classList.add('hidden');
+      el.classList.remove('flex');
+    }
+    window.closeModal = closeModal;
+
+    function openActionModal(taskId, actionType){
+      const task = allTasks[taskId];
+      if (!task) return;
+      currentAction = { taskId, actionType };
+      let title, message, justificationOptions, buttonText;
+      if (actionType === 'pause'){
+        title = 'Pausar Atividade';
+        message = `Você está pausando a atividade: <b>${task.nome_atividade}</b> (OF: ${task.of_id}). Selecione o motivo da pausa.`;
+        justificationOptions = PAUSE_REASONS;
+        buttonText = 'Confirmar Pausa';
+      } else {
+        title = 'Concluir Atividade';
+        message = `Você está concluindo a atividade: <b>${task.nome_atividade}</b> (OF: ${task.of_id}).`;
+        justificationOptions = DELAY_REASONS;
+        buttonText = 'Concluir e Próxima';
+      }
+      const desvio = calculateDesvio(task);
+      const justificationArea = document.getElementById('justification-area');
+      const requiredText = document.getElementById('justification-required-text');
+      if (actionType === 'complete' && desvio > 0) {
+        justificationArea.classList.remove('hidden');
+        requiredText.textContent = `🚨 Justificativa obrigatória: ${formatMinutes(desvio)} de atraso!`;
+        requiredText.classList.remove('hidden');
+      } else {
+        if (actionType === 'complete') justificationArea.classList.add('hidden');
+        else {
+          justificationArea.classList.remove('hidden');
+          requiredText.classList.add('hidden');
+        }
+      }
+      const select = document.getElementById('justification-select');
+      select.innerHTML = '<option value="">-- Selecione uma opção --</option>' + justificationOptions.map(r => `<option value="${r}">${r}</option>`).join('');
+      document.getElementById('justification-text').value = '';
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-message').innerHTML = message;
+      const confirmBtn = document.getElementById('modal-confirm-button');
+      confirmBtn.textContent = buttonText;
+      confirmBtn.classList.remove('bg-blue-600', 'bg-yellow-600', 'bg-green-600');
+      confirmBtn.classList.add(actionType === 'pause' ? 'bg-yellow-600' : 'bg-green-600');
+      openModal('action-modal');
+    }
+
+    async function handleConfirmedAction(){
+      const { taskId, actionType } = currentAction;
+      const task = allTasks[taskId];
+      const desvio = calculateDesvio(task);
+      const justificationSelect = document.getElementById('justification-select').value;
+      const justificationText = document.getElementById('justification-text').value.trim();
+      if (actionType === 'complete' && desvio > 0 && !justificationSelect){
+        alert('🚨 O motivo do atraso é obrigatório! Selecione uma opção ou adicione detalhes.');
+        return;
+      }
+      const fullJustification = justificationText ? `${justificationSelect} (${justificationText})` : justificationSelect;
+      if (actionType === 'pause') await pauseTask(task.id, fullJustification);
+      else await completeTask(task.id, fullJustification);
+      closeModal();
+      renderTasks();
+      updateView(userViewSelect.value);
+    }
+    window.handleConfirmedAction = handleConfirmedAction;
+
+    function openInstructionModal(taskId){
+      const task = allTasks[taskId];
+      if (!task) return;
+      document.getElementById('instruction-modal-header').textContent = `Instrução para: ${task.chicote} - ${task.nome_atividade}`;
+      document.getElementById('instruction-modal-content').innerHTML = task.instrucao_trabalho || "Nenhuma instrução detalhada fornecida para esta etapa.";
+      openModal('instruction-modal');
+    }
+
+    window.__ofDetailsOpenId = null;
+    function openOFDetailsModal(ofId){
+      const of = allOFs[ofId];
+      if (!of) return;
+      window.__ofDetailsOpenId = ofId;
+      const tasks = Object.values(allTasks).filter(t => t.of_id === ofId).sort((a, b) => (a.roteiro_id).localeCompare(b.roteiro_id));
+      const totalTasks = tasks.length;
+      const completedTasks = tasks.filter(t => t.status === 'Concluído').length;
+      const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+      let progressClass = (of.status === 'Concluído') ? "bg-green-500" : "bg-blue-500";
+      document.getElementById('of-details-title').textContent = `OF: ${of.id} (${of.chicote})`;
+      const bar = document.getElementById('of-details-progress');
+      bar.style.width = `${progress}%`;
+      bar.className = `h-2 rounded-full ${progressClass}`;
+      const totalPlannedTime = tasks.reduce((sum, t) => sum + (t.tempo_planejado || 0), 0).toFixed(2);
+      const totalRealTime = tasks.reduce((sum, t) => sum + calculateTempoReal(t), 0).toFixed(2);
+      document.getElementById('of-details-summary').innerHTML = `
+        <div class="p-2 bg-gray-100 rounded-lg"><p class="text-xs text-gray-500">Qtd.</p><p class="font-semibold text-sm">${of.quantidade}</p></div>
+        <div class="p-2 bg-gray-100 rounded-lg"><p class="text-xs text-gray-500">Progresso</p><p class="font-semibold text-sm">${progress}%</p></div>
+        <div class="p-2 bg-gray-100 rounded-lg"><p class="text-xs text-gray-500">T. Padrão</p><p class="font-semibold text-sm">${totalPlannedTime} min</p></div>
+        <div class="p-2 bg-gray-100 rounded-lg"><p class="text-xs text-gray-500">T. Real</p><p class="font-semibold text-sm">${totalRealTime} min</p></div>`;
+      document.getElementById('of-details-content').innerHTML = tasks.map(task => {
+        const tempoReal = calculateTempoReal(task);
+        const desvio = calculateDesvio(task);
+        const desvioColor = desvio <= 0 ? 'text-green-600' : 'text-red-600 font-semibold';
+        const desvioSign = (desvio <= 0) ? '' : '+';
+        const totalPause = calculateTotalPauseMinutes(task);
+        let statusColor = 'bg-gray-200 text-gray-600';
+        if (task.status === 'Concluído') statusColor = 'bg-green-500 text-white';
+        else if (task.status === 'Em Processo') statusColor = 'bg-yellow-500 text-white';
+        else if (task.status === 'Pausada') statusColor = 'bg-red-500 text-white';
+        else if (task.status === 'Pendente') statusColor = 'bg-blue-500 text-white';
+        return `
+          <div class="p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+            <div class="flex justify-between items-center mb-1">
+              <p class="text-base font-semibold text-gray-800">${task.nome_atividade} (<span class="font-normal text-sm text-gray-600">${task.setor}</span>)</p>
+              <span class="text-xs font-semibold px-2 py-1 rounded-full ${statusColor}">${task.status}</span>
             </div>
-        </div>
-    </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 text-xs mt-2 gap-2">
+              <div><p class="text-gray-500">T. Padrão</p><p class="font-semibold">${formatMinutes(task.tempo_planejado)}</p></div>
+              <div><p class="text-gray-500">T. Real</p><p class="font-semibold">${formatMinutes(tempoReal)}</p></div>
+              <div><p class="text-gray-500">Desvio</p><p class="font-semibold ${desvioColor}">${desvioSign}${formatMinutes(desvio)}</p></div>
+              <div><p class="text-gray-500">T. Pausa</p><p class="font-semibold text-yellow-700">${formatMinutes(totalPause)}</p></div>
+            </div>
+          </div>`;
+      }).join('');
+      openModal('of-details-modal');
+    }
+    window.openOFDetailsModal = openOFDetailsModal;
 
-    <!-- Modal de Criação de OF (Ordem de Fabricação) -->
-    <div id="create-of-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50 p-4" onclick="if(event.target.id === 'create-of-modal') hideModal('create-of-modal')">
-        <div class="bg-white p-6 rounded-xl card-shadow max-w-xl w-full">
-            <h3 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center gap-2">
-                <i data-lucide="file-plus" class="w-6 h-6 text-green-600"></i> Criar Nova Ordem de Fabricação (OF)
-            </h3>
-            <form id="form-create-of" class="space-y-4">
-                <div>
-                    <label for="of-product-code" class="block text-sm font-medium text-gray-700">Código do Produto / Projeto</label>
-                    <input type="text" id="of-product-code" required class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                </div>
-                <div>
-                    <label for="of-product-name" class="block text-sm font-medium text-gray-700">Nome / Descrição do Produto</label>
-                    <input type="text" id="of-product-name" required class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label for="of-quantity" class="block text-sm font-medium text-gray-700">Quantidade</label>
-                        <input type="number" id="of-quantity" required min="1" value="1" class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                    </div>
-                    <div>
-                        <label for="of-priority" class="block text-sm font-medium text-gray-700">Prioridade</label>
-                        <select id="of-priority" class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white">
-                            <option value="Média">Média</option>
-                            <option value="Alta">Alta</option>
-                            <option value="Baixa">Baixa</option>
-                        </select>
-                    </div>
-                </div>
-                <div>
-                    <label for="of-roteiro-select" class="block text-sm font-medium text-gray-700">Roteiro de Produção</label>
-                    <select id="of-roteiro-select" required class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white">
-                        <option value="default">Padrão</option>
-                        <!-- Opções dinâmicas do roteiro seriam carregadas aqui se houvesse múltiplos roteiros -->
-                    </select>
-                    <p id="roteiro-steps-summary" class="text-xs text-gray-500 mt-1">Etapas: Corte e Descasque, Montagem, Teste e Acabamento.</p>
-                </div>
-                
-                <div id="of-message" class="text-sm hidden"></div>
+    function populateOFChicoteDropdown(){
+      const chicoteSelect = document.getElementById('of-chicote');
+      chicoteSelect.innerHTML = '<option value="">-- Selecione o Chicote --</option>';
+      const chicotes = [...new Set(Object.values(allRoteiros).map(r => r.chicote_nome))];
+      chicotes.forEach(chicote => {
+        const option = document.createElement('option');
+        option.value = chicote;
+        option.textContent = chicote;
+        chicoteSelect.appendChild(option);
+      });
+    }
 
-                <div class="flex justify-end gap-3 pt-4">
-                    <button type="button" onclick="hideModal('create-of-modal')" class="bg-gray-300 text-gray-800 hover:bg-gray-400 font-semibold px-4 py-2 rounded-lg transition">Cancelar</button>
-                    <button type="submit" class="bg-green-600 text-white hover:bg-green-700 font-bold px-4 py-2 rounded-lg transition flex items-center gap-2">
-                        <i data-lucide="send" class="w-5 h-5"></i> Gerar OF
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
+    function renderRoteiroSetup(){
+      const roteiroListDiv = document.getElementById('roteiro-list');
+      roteiroListDiv.innerHTML = '';
+      const roteirosByChicote = Object.values(allRoteiros).reduce((acc, roteiro) => {
+        acc[roteiro.chicote_nome] = acc[roteiro.chicote_nome] || [];
+        acc[roteiro.chicote_nome].push(roteiro);
+        return acc;
+      }, {});
+      Object.keys(roteirosByChicote).sort().forEach(chicoteName => {
+        const chicoteGroup = document.createElement('div');
+        chicoteGroup.className = 'border p-3 rounded-lg bg-white shadow-sm';
+        chicoteGroup.innerHTML = `<h5 class="text-base font-bold text-blue-800 mb-2">${chicoteName}</h5>`;
+        roteirosByChicote[chicoteName].sort((a,b) => a.id.localeCompare(b.id)).forEach(r => {
+          const activityDiv = document.createElement('div');
+          activityDiv.className = 'flex justify-between items-center py-1 border-t text-sm';
+          activityDiv.innerHTML = `
+            <p class="text-gray-700">
+              <span class="font-semibold">${r.nome_atividade}</span>
+              <span class="text-xs text-gray-500">(${r.setor})</span>
+            </p>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-600">S: ${r.tempo_setup}m / C: ${r.tempo_ciclo}m</span>
+              <button onclick="deleteRoteiroActivity('${r.id}')" class="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-100 transition">
+                <i data-lucide="x" class="w-4 h-4"></i>
+              </button>
+            </div>`;
+          chicoteGroup.appendChild(activityDiv);
+        });
+        roteiroListDiv.appendChild(chicoteGroup);
+      });
+      lucide.createIcons();
+    }
 
+    async function addRoteiroActivity(){
+      const chicoteName = document.getElementById('roteiro-chicote-name').value.trim().toUpperCase();
+      const setor = document.getElementById('roteiro-setor').value;
+      const activityName = document.getElementById('roteiro-activity-name').value.trim();
+      const setupTime = parseFloat(document.getElementById('roteiro-setup-time').value);
+      const cycleTime = parseFloat(document.getElementById('roteiro-cycle-time').value);
+      const instructionText = document.getElementById('roteiro-instruction-text').value.trim();
+      const messageDiv = document.getElementById('roteiro-message');
+      messageDiv.textContent = '';
 
-    <script type="module">
-        // --- 1. IMPORTAÇÕES FIREBASE (v11.6.1) ---
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { 
-            getFirestore, 
-            collection, 
-            onSnapshot, 
-            query, 
-            setLogLevel,
-            where,
-            doc,
-            getDoc,
-            setDoc,
-            addDoc,
-            updateDoc
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+      if (!chicoteName || !setor || !activityName || isNaN(setupTime) || isNaN(cycleTime) || setupTime < 0 || cycleTime < 0) {
+        messageDiv.textContent = 'Preencha o nome do chicote, setor, nome da atividade e tempos válidos.';
+        return;
+      }
 
-        // --- 2. VARIÁVEIS GLOBAIS ---
-        let app, db, auth;
-        let userId = '';
-        let userRole = '';
-        let userSector = ''; 
-        let isAuthReady = false; 
-        
-        // Roteiro Padrão Inicial (Será carregado do Firestore)
-        let defaultRoteiro = [
-            { sector: "Corte", name: "Corte e Descasque" },
-            { sector: "Montagem", name: "Montagem e Prensagem" },
-            { sector: "Teste", name: "Teste e Acabamento" }
-        ];
+      const newId = 'r' + roteiroCounter++;
+      const newRoteiro = {
+        id: newId,
+        chicote_nome: chicoteName,
+        setor: setor,
+        nome_atividade: activityName,
+        tempo_setup: setupTime,
+        tempo_ciclo: cycleTime,
+        instrucao_trabalho: instructionText
+      };
+      allRoteiros[newId] = newRoteiro;
+      await saveEntity('allRoteiros', newId, newRoteiro);
+      renderRoteiroSetup();
 
-        // Variável de Ambiente (simplesmente para demonstração e teste de restrição)
-        const PCP_MASTER_PASSWORD = "admin123"; 
+      // Limpa campos após sucesso
+      document.getElementById('roteiro-activity-name').value = '';
+      document.getElementById('roteiro-setup-time').value = '';
+      document.getElementById('roteiro-cycle-time').value = '';
+      document.getElementById('roteiro-instruction-text').value = '';
+    }
+    window.addRoteiroActivity = addRoteiroActivity;
 
-        // Elementos DOM (Usados para evitar múltiplas buscas)
-        let loginView, appContent, pcpView, operatorView, reportsView, loadingIndicator, ofsListContainer, tasksListContainer, userViewSelect, btnCreateOF, btnSetupRoteiro, btnProfile, userIdDisplay, operatorUserId, authIdDisplay, headerControls, operatorSectorSelect, pcpPasswordInput, btnLoginPCP, btnLoginOperatorStart, loginMessage, operatorSectorDisplay;
-        let radioPCP, radioOperator, loginFormPCP, loginFormOperator, labelPCPMaster, labelOperator;
-        let roteiroStepsContainer, btnAddStep, btnSaveRoteiro, roteiroMessage, roteiroStepsSummary;
-        let formCreateOF, ofMessage;
-        let modalGlobal, modalTitle, modalBody, modalFooter, modalBtnCancel, modalBtnConfirm;
+    async function deleteRoteiroActivity(roteiroId){
+      if (!confirm(`Deletar roteiro mestre ${allRoteiros[roteiroId].chicote_nome} - ${allRoteiros[roteiroId].nome_atividade}? Isso não afeta OFs existentes.`)) return;
+      delete allRoteiros[roteiroId];
+      if (database) await database.ref(`${DB_ROOT}/allRoteiros/${roteiroId}`).remove();
+      renderRoteiroSetup();
+    }
+    window.deleteRoteiroActivity = deleteRoteiroActivity;
 
-        // Variáveis Globais de Ambiente (MANDATÓRIO usar)
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    function createOF(id, quantity, chicote, isInitial = false){
+      const ofId = id || document.getElementById('of-id').value.trim();
+      const quantityStr = quantity || document.getElementById('of-quantity').value;
+      const chicoteName = chicote || document.getElementById('of-chicote').value;
+      const quantityNum = parseInt(quantityStr);
+      const messageDiv = document.getElementById('of-creation-message');
+      if (messageDiv) messageDiv.classList.add('hidden');
+      if (!ofId || !quantityNum || !chicoteName) {
+        if (messageDiv) { messageDiv.textContent = 'Preencha todos os campos obrigatórios.'; messageDiv.classList.remove('hidden'); }
+        return;
+      }
+      if (allOFs[ofId]) {
+        if (messageDiv) { messageDiv.textContent = `OF com ID ${ofId} já existe.`; messageDiv.classList.remove('hidden'); }
+        return;
+      }
+      const roteiroMaster = Object.values(allRoteiros).filter(r => r.chicote_nome === chicoteName);
+      if (roteiroMaster.length === 0) {
+        if (messageDiv) { messageDiv.textContent = `Nenhum roteiro mestre encontrado para o chicote ${chicoteName}.`; messageDiv.classList.remove('hidden'); }
+        return;
+      }
+      const newOF = {
+        id: ofId,
+        chicote: chicoteName,
+        quantidade: quantityNum,
+        status: 'Pendente',
+        timestamp_criacao: Date.now()
+      };
+      allOFs[ofId] = newOF;
+      roteiroMaster.forEach(roteiro => {
+        const taskId = database ? database.ref('temp-task-id').push().key : ('task-' + Date.now() + Math.random().toString(36).substring(2));
+        const tempoPlanejado = roteiro.tempo_setup + (roteiro.tempo_ciclo * quantityNum);
+        const newTask = {
+          id: taskId,
+          of_id: ofId,
+          roteiro_id: roteiro.id,
+          chicote: chicoteName,
+          setor: roteiro.setor,
+          nome_atividade: roteiro.nome_atividade,
+          tempo_planejado: parseFloat(tempoPlanejado.toFixed(2)),
+          tempo_setup: roteiro.tempo_setup,
+          tempo_ciclo: roteiro.tempo_ciclo,
+          instrucao_trabalho: roteiro.instrucao_trabalho,
+          status: 'Pendente',
+          timestamp_inicio: null,
+          timestamp_fim: null,
+          tempo_real_acumulado: 0,
+          total_pause_time_ms: 0,
+          pause_start_timestamp: null
+        };
+        allTasks[taskId] = newTask;
+        saveEntity('allTasks', taskId, newTask);
+      });
+      if (!isInitial) {
+        closeModal('create-of-modal');
+        alert(`OF ${ofId} gerada com sucesso! ${roteiroMaster.length} tarefas criadas.`);
+      }
+      saveEntity('allOFs', ofId, newOF);
+      updateView('PCP');
+      return newOF;
+    }
+    window.createOF = createOF;
 
+    async function updateTaskAndOFStatus(taskId, updateData){
+      const task = allTasks[taskId];
+      if (!task) return;
+      Object.assign(task, updateData);
+      saveEntity('allTasks', taskId, task);
+      const of = allOFs[task.of_id];
+      if (!of) return;
+      const tasksOf = Object.values(allTasks).filter(t => t.of_id === of.id);
+      const totalTasks = tasksOf.length;
+      const inProcessTasks = tasksOf.filter(t => t.status === 'Em Processo').length;
+      const concludedTasks = tasksOf.filter(t => t.status === 'Concluído').length;
+      let newOFStatus = of.status;
+      if (concludedTasks === totalTasks && totalTasks > 0) newOFStatus = 'Concluído';
+      else if (inProcessTasks > 0 || concludedTasks > 0) newOFStatus = 'Em Andamento';
+      else newOFStatus = 'Pendente';
+      if (newOFStatus !== of.status) {
+        of.status = newOFStatus;
+        if (newOFStatus === 'Concluído') of.timestamp_fim = Date.now();
+        saveEntity('allOFs', of.id, of);
+      }
+    }
 
-        // --- 3. FUNÇÕES DE UI E MODAIS ---
-        
-        function showMessage(element, message, type = 'info') {
-            element.textContent = message;
-            element.className = `p-3 rounded-lg text-sm mt-2 transition duration-300 animated-entry ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
-            element.classList.remove('hidden');
+    async function startTask(taskId){
+      const task = allTasks[taskId];
+      if (!task || task.status !== 'Pendente') return;
+      await updateTaskAndOFStatus(taskId, { status: 'Em Processo', timestamp_inicio: Date.now() });
+      renderTasks();
+      updateView('PCP');
+    }
+    window.startTask = startTask;
+
+    async function unpauseTask(taskId){
+      const task = allTasks[taskId];
+      if (!task || task.status !== 'Pausada') return;
+      const pauseDurationMs = Date.now() - task.pause_start_timestamp;
+      const newTotalPauseMs = (task.total_pause_time_ms || 0) + pauseDurationMs;
+      await updateTaskAndOFStatus(taskId, { status: 'Em Processo', pause_start_timestamp: null, total_pause_time_ms: newTotalPauseMs });
+      renderTasks();
+      updateView('PCP');
+    }
+    window.unpauseTask = unpauseTask;
+
+    async function pauseTask(taskId, reason){
+      const task = allTasks[taskId];
+      if (!task || task.status !== 'Em Processo') return;
+      const tempoTrabalhadoAgora = msToMinutes(Date.now() - task.timestamp_inicio);
+      const newTempoRealAcumulado = (task.tempo_real_acumulado || 0) + tempoTrabalhadoAgora;
+      const totalPauseMinutes = calculateTotalPauseMinutes(task);
+      const newLog = {
+        TIMESTAMP: Date.now(),
+        TIPO: 'PAUSA',
+        OPERADOR_SETOR: currentUser ? currentUser.sector : '-',
+        OF: task.of_id,
+        CHICOTE: task.chicote,
+        ATIVIDADE: task.nome_atividade,
+        MOTIVO_PAUSA: reason || '-',
+        TEMPO_PAUSA: totalPauseMinutes,
+        TEMPO_ATRASO: 0
+      };
+      allOcurrencesLog.push(newLog);
+      saveEntity('allOcurrencesLog', allOcurrencesLog.length - 1, newLog);
+      await updateTaskAndOFStatus(taskId, {
+        status: 'Pausada',
+        timestamp_inicio: null,
+        pause_start_timestamp: Date.now(),
+        tempo_real_acumulado: parseFloat(newTempoRealAcumulado.toFixed(2))
+      });
+    }
+
+    async function completeTask(taskId, reason){
+      const task = allTasks[taskId];
+      if (!task || (task.status !== 'Em Processo' && task.status !== 'Pendente')) return;
+      let finalTempoReal = task.tempo_real_acumulado || 0;
+      if (task.status === 'Em Processo') {
+        finalTempoReal += msToMinutes(Date.now() - task.timestamp_inicio);
+      }
+      const desvio = (task.tempo_planejado || 0) - finalTempoReal;
+      const tempoAtraso = desvio < 0 ? parseFloat((desvio * -1).toFixed(2)) : 0;
+      if (tempoAtraso > 0 || task.total_pause_time_ms > 0) {
+        const totalPauseMinutes = calculateTotalPauseMinutes(task);
+        const newLog = {
+          TIMESTAMP: Date.now(),
+          TIPO: tempoAtraso > 0 ? 'ATRASO' : 'INFO',
+          OPERADOR_SETOR: currentUser ? currentUser.sector : '-',
+          OF: task.of_id,
+          CHICOTE: task.chicote,
+          ATIVIDADE: task.nome_atividade,
+          MOTIVO_ATRASO: tempoAtraso > 0 ? (reason || '-') : null,
+          MOTIVO_PAUSA: totalPauseMinutes > 0 ? 'Pausa registrada durante a tarefa' : null,
+          TEMPO_ATRASO: tempoAtraso,
+          TEMPO_PAUSA: totalPauseMinutes
+        };
+        allOcurrencesLog.push(newLog);
+        saveEntity('allOcurrencesLog', allOcurrencesLog.length - 1, newLog);
+      }
+      await updateTaskAndOFStatus(taskId, {
+        status: 'Concluído',
+        timestamp_inicio: null,
+        timestamp_fim: Date.now(),
+        tempo_real_acumulado: parseFloat(finalTempoReal.toFixed(2)),
+        pause_start_timestamp: null
+      });
+    }
+
+    function openUserModal(force = false){
+      const savedUser = JSON.parse(localStorage.getItem("pcp_current_user") || "null");
+      if (!force && savedUser) return;
+      const roleSelect = document.getElementById('user-role');
+      const sectorSelect = document.getElementById('user-sector');
+      const pinWrap = document.getElementById('user-pin-wrap');
+      const sectorWrap = document.getElementById('user-sector-wrap');
+      sectorSelect.innerHTML = SECTORS.map(s => `<option value="${s}">${s}</option>`).join('');
+      roleSelect.onchange = () => {
+        if (roleSelect.value === 'MASTER') {
+          pinWrap.classList.remove('hidden');
+          sectorWrap.classList.add('hidden');
+        } else {
+          pinWrap.classList.add('hidden');
+          sectorWrap.classList.remove('hidden');
         }
+      };
+      roleSelect.dispatchEvent(new Event('change'));
+      openModal('user-modal');
+    }
+    window.openUserModal = openUserModal;
 
-        function hideMessage(element) {
-            element.classList.add('hidden');
+    function setUser(u){ currentUser = u; localStorage.setItem("pcp_current_user", JSON.stringify(u)); }
+    function confirmUser(){
+      const role = document.getElementById('user-role').value;
+      const pin = document.getElementById('user-pin').value;
+      const sector = document.getElementById('user-sector').value;
+      if (role === 'MASTER') {
+        if (pin !== MASTER_PIN) {
+          alert('PIN Master incorreto.');
+          return;
         }
-        
-        // Modal genérico para substituir alert/confirm
-        function customAlert(title, message, type = 'info', onConfirm = null) {
-            modalTitle.textContent = title;
-            modalBody.textContent = message;
-            
-            modalBtnCancel.classList.add('hidden');
-            modalBtnConfirm.textContent = 'Ok';
-            modalBtnConfirm.onclick = () => hideModal('global-modal');
-            
-            if (onConfirm) {
-                modalBtnCancel.classList.remove('hidden');
-                modalBtnConfirm.textContent = 'Confirmar';
-                modalBtnConfirm.onclick = () => { onConfirm(); hideModal('global-modal'); };
-            }
+        setUser({ role: 'MASTER', sector: null });
+      } else {
+        setUser({ role: 'OPERADOR', sector: sector });
+      }
+      closeModal('user-modal');
+      setupSectorDropdowns();
+      updateView(role === 'MASTER' ? 'PCP' : 'Operador');
+    }
+    window.confirmUser = confirmUser;
 
-            modalGlobal.classList.remove('hidden');
-            modalGlobal.classList.add('flex');
-            lucide.createIcons();
+    function setupUIRefresh(){
+      setInterval(() => {
+        if (!operatorView.classList.contains('hidden')) renderTasks();
+        if (!pcpView.classList.contains('hidden')) {
+          renderOFs();
+          renderKPIs();
         }
-
-        function showModal(modalId) {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-            }
+        if (!document.getElementById('of-details-modal').classList.contains('hidden') && window.__ofDetailsOpenId) {
+          openOFDetailsModal(window.__ofDetailsOpenId);
         }
+      }, 5000);
+    }
 
-        function hideModal(modalId) {
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }
-            // Reset message elements
-            if (roteiroMessage) hideMessage(roteiroMessage);
-            if (ofMessage) hideMessage(ofMessage);
-        }
+    function arrayToCSV(arr){
+      if (arr.length === 0) return '';
+      const header = Object.keys(arr[0]).join(',');
+      const rows = arr.map(obj => Object.values(obj).map(val => {
+        if (typeof val === 'string') return '"' + val.replace(/"/g, '""') + '"';
+        return val;
+      }).join(','));
+      return [header, ...rows].join('\n');
+    }
 
-        function toggleLoginForm() {
-            const isPCP = radioPCP.checked;
-            
-            loginFormPCP.classList.toggle('hidden', !isPCP);
-            loginFormOperator.classList.toggle('hidden', isPCP);
+    function exportReportCSV(){
+      if (allOcurrencesLog.length === 0) {
+        alert("Nenhuma ocorrência para exportar.");
+        return;
+      }
+      const logData = allOcurrencesLog.map(log => ({
+        TIMESTAMP: new Date(log.TIMESTAMP).toLocaleString(),
+        TIPO: log.TIPO,
+        OPERADOR_SETOR: log.OPERADOR_SETOR,
+        OF: log.OF,
+        CHICOTE: log.CHICOTE,
+        ATIVIDADE: log.ATIVIDADE,
+        MOTIVO_PAUSA: log.MOTIVO_PAUSA || '-',
+        MOTIVO_ATRASO: log.MOTIVO_ATRASO || '-',
+        TEMPO_PAUSA_MIN: log.TEMPO_PAUSA || 0,
+        TEMPO_ATRASO_MIN: log.TEMPO_ATRASO || 0
+      }));
+      const csv = arrayToCSV(logData);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `relatorio_ocorrencias_${new Date().toISOString().slice(0,10)}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    }
+    window.exportReportCSV = exportReportCSV;
 
-            // Estilos do seletor
-            labelPCPMaster.classList.toggle('bg-white', isPCP);
-            labelPCPMaster.classList.toggle('shadow-md', isPCP);
-            labelPCPMaster.classList.toggle('border-blue-500', isPCP);
-            labelPCPMaster.classList.toggle('text-blue-700', isPCP);
-            
-            labelOperator.classList.toggle('bg-white', !isPCP);
-            labelOperator.classList.toggle('shadow-md', !isPCP);
-            labelOperator.classList.toggle('border-yellow-500', !isPCP);
-            labelOperator.classList.toggle('text-yellow-700', !isPCP);
-            
-            // Reset messages/inputs on form switch
-            hideMessage(loginMessage);
-            pcpPasswordInput.value = '';
-            lucide.createIcons();
-        }
+    function exportOFTasksCSV(ofId){
+      const tasks = Object.values(allTasks).filter(t => t.of_id === ofId).map(task => ({
+        OF: task.of_id,
+        CHICOTE: task.chicote,
+        ATIVIDADE: task.nome_atividade,
+        SETOR: task.setor,
+        STATUS: task.status,
+        T_PLANEJADO_MIN: task.tempo_planejado,
+        T_REAL_MIN: calculateTempoReal(task),
+        DESVIO_MIN: calculateDesvio(task) * -1,
+        T_SETUP_MIN: task.tempo_setup,
+        T_CICLO_MIN: task.tempo_ciclo,
+        TIMESTAMP_INICIO: task.timestamp_inicio ? new Date(task.timestamp_inicio).toLocaleString() : '-',
+        TIMESTAMP_FIM: task.timestamp_fim ? new Date(task.timestamp_fim).toLocaleString() : '-',
+        INSTRUCAO: (task.instrucao_trabalho || '').replace(/<[^>]*>?/gm, '')
+      }));
+      if (tasks.length === 0) {
+        alert("Nenhuma tarefa para esta OF.");
+        return;
+      }
+      const csv = arrayToCSV(tasks);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `detalhes_of_${ofId}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    }
+    window.exportOFTasksCSV = exportOFTasksCSV;
 
+    document.addEventListener('DOMContentLoaded', () => {
+      pcpView = document.getElementById("pcp-view");
+      operatorView = document.getElementById("operator-view");
+      reportView = document.getElementById("report-view");
+      loadingIndicator = document.getElementById("loading-indicator");
+      ofsListContainer = document.getElementById("ofs-list-container");
+      tasksListContainer = document.getElementById("tasks-list-container");
+      userViewSelect = document.getElementById("user-view-select");
+      btnCreateOF = document.getElementById("btn-create-of");
+      btnSetupRoteiro = document.getElementById("btn-setup-roteiro");
+      btnProfile = document.getElementById("btn-profile");
+      btnExportReport = document.getElementById("btn-export-report");
 
-        // --- 4. CONFIGURAÇÃO E AUTENTICAÇÃO FIREBASE ---
+      userViewSelect.addEventListener('change', e => updateView(e.target.value));
+      document.getElementById('btn-add-roteiro-activity').addEventListener('click', addRoteiroActivity);
 
-        async function initializeFirebase() {
-            console.log("Iniciando Firebase...");
-            loadingIndicator.classList.remove('hidden');
-
-            try {
-                // Inicializa App, Auth e Firestore
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-                setLogLevel('Debug'); 
-
-                // Tenta autenticar com token customizado (Canvas) ou Anonimamente
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-                // Listener para o estado de autenticação
-                onAuthStateChanged(auth, (user) => {
-                    loadingIndicator.classList.add('hidden'); 
-
-                    if (user) {
-                        userId = user.uid;
-                        userIdDisplay.textContent = userId.substring(0, 8) + '...';
-                        authIdDisplay.textContent = userId;
-                    } else {
-                        // Deve sempre haver um user (anônimo ou token)
-                        userId = crypto.randomUUID(); 
-                        userIdDisplay.textContent = 'Anônimo';
-                        authIdDisplay.textContent = userId;
-                    }
-
-                    isAuthReady = true;
-                    // Mostra a tela de login para escolha de função
-                    loginView.classList.remove('hidden');
-                    console.log("Firebase e Autenticação prontos. ID:", userId);
-                    loadRoteiroConfig(); // Carrega roteiro padrão para o modal de criação de OF
-                });
-                
-            } catch (error) {
-                console.error("Erro fatal durante a inicialização/autenticação do Firebase:", error);
-                customAlert('Erro Fatal', `Não foi possível conectar ao Firebase. Verifique as credenciais. Erro: ${error.message}`, 'error');
-                loadingIndicator.classList.add('hidden');
-            }
-        }
-        
-        // --- 5. LÓGICA DE LOGIN E NAVEGAÇÃO PRINCIPAL ---
-        
-        function handleLogin() {
-            const isPCP = radioPCP.checked;
-
-            if (isPCP) {
-                const password = pcpPasswordInput.value;
-                if (password === PCP_MASTER_PASSWORD) {
-                    userRole = 'PCP';
-                    userSector = '';
-                    proceedToApp('PCP');
-                    showMessage(loginMessage, 'Login PCP Master realizado com sucesso!', 'success');
-                } else {
-                    showMessage(loginMessage, 'Senha Master incorreta. (Dica: admin123)', 'error');
-                }
-            } else { // Operador
-                const sector = operatorSectorSelect.value;
-                if (sector && sector !== '') {
-                    userRole = 'Operador';
-                    userSector = sector;
-                    operatorSectorDisplay.textContent = userSector;
-                    proceedToApp('Operador');
-                    showMessage(loginMessage, `Login Operador no Setor ${userSector} realizado com sucesso!`, 'success');
-                } else {
-                    showMessage(loginMessage, 'Selecione um Setor para continuar.', 'error');
-                }
-            }
-        }
-
-        function proceedToApp(view) {
-            loginView.classList.add('hidden');
-            appContent.classList.remove('hidden');
-            headerControls.classList.remove('hidden');
-            userViewSelect.value = view; 
-            updateView(view);
-        }
-
-        function updateView(view) {
-            pcpView.classList.add('hidden');
-            operatorView.classList.add('hidden');
-            reportsView.classList.add('hidden');
-
-            // Garante que o usuário tem permissão para a view (simples checagem)
-            if (view === 'Operador' && userRole === 'PCP') view = 'PCP';
-            if (view === 'Relatórios' && userRole === 'Operador') view = 'Operador';
-            
-            switch (view) {
-                case 'PCP':
-                    pcpView.classList.remove('hidden');
-                    if (isAuthReady) {
-                        renderOFs(); 
-                        renderKPIs();
-                    }
-                    break;
-                case 'Operador':
-                    operatorView.classList.remove('hidden');
-                    if (isAuthReady) {
-                        renderTasks(); 
-                    }
-                    break;
-                case 'Relatórios':
-                    reportsView.classList.remove('hidden');
-                    break;
-            }
-            lucide.createIcons();
-        }
-        
-        // --- 6. LÓGICA DE DADOS (FIRESTORE) ---
-
-        // Função de Ação: Edição/Gerenciamento de OF
-        window.editOF = function(ofId) { 
-            customAlert('Gerenciar OF', `Abrindo painel para gerenciar as etapas da OF #${ofId.substring(0, 8)}. Funcionalidade em desenvolvimento.`, 'info'); 
-            console.log('Editar OF:', ofId); 
-        }
-
-        // Função de Ação: Iniciar/Pausar Tarefa
-        window.startTask = function(ofId, stepId) { 
-            customAlert('Controle de Tempo', `Iniciando/Pausando Tarefa ${stepId} da OF #${ofId.substring(0, 8)}. Lógica de cronometragem deve ser implementada no Firestore.`, 'info');
-            console.log('Iniciar/Pausar Tarefa:', ofId, stepId); 
-        }
-
-        // --- Roteiro ---
-
-        function renderRoteiroSteps(steps = defaultRoteiro) {
-            roteiroStepsContainer.innerHTML = '';
-            steps.forEach((step, index) => {
-                const div = document.createElement('div');
-                div.className = "flex items-center gap-3 bg-white p-3 rounded-lg border border-blue-200 shadow-sm";
-                div.innerHTML = `
-                    <span class="font-bold text-blue-600">${index + 1}</span>
-                    <input type="text" value="${step.name}" placeholder="Nome da Etapa" class="flex-1 p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" data-index="${index}" data-type="name" required>
-                    <select class="w-28 p-2 border rounded-lg bg-gray-50 text-sm" data-index="${index}" data-type="sector">
-                        <option value="Corte" ${step.sector === 'Corte' ? 'selected' : ''}>Corte</option>
-                        <option value="Montagem" ${step.sector === 'Montagem' ? 'selected' : ''}>Montagem</option>
-                        <option value="Teste" ${step.sector === 'Teste' ? 'selected' : ''}>Teste</option>
-                        <option value="Embalagem" ${step.sector === 'Embalagem' ? 'selected' : ''}>Embalagem</option>
-                        <option value="Outro" ${!['Corte', 'Montagem', 'Teste', 'Embalagem'].includes(step.sector) ? 'selected' : ''}>Outro</option>
-                    </select>
-                    <button type="button" class="text-red-500 hover:text-red-700 p-1" onclick="removeRoteiroStep(this)">
-                        <i data-lucide="x" class="w-5 h-5"></i>
-                    </button>
-                `;
-                roteiroStepsContainer.appendChild(div);
-            });
-            lucide.createIcons();
-            // Atualiza o resumo do roteiro na criação de OF
-            const stepNames = steps.map(s => s.name);
-            roteiroStepsSummary.textContent = `Etapas: ${stepNames.join(', ')}.`;
-        }
-        
-        window.removeRoteiroStep = function(button) {
-            button.closest('div').remove();
-            // Recria a lista de roteiro para reindexar e renderizar
-            const currentSteps = Array.from(roteiroStepsContainer.querySelectorAll('input[data-type="name"]')).map((input, index) => ({
-                sector: roteiroStepsContainer.querySelector(`select[data-index="${index}"]`).value,
-                name: input.value
-            }));
-            renderRoteiroSteps(currentSteps);
-        }
-
-        function addRoteiroStep() {
-            const steps = Array.from(roteiroStepsContainer.querySelectorAll('input[data-type="name"]')).map((input, index) => ({
-                sector: roteiroStepsContainer.querySelector(`select[data-index="${index}"]`).value,
-                name: input.value
-            }));
-            
-            steps.push({ sector: "Outro", name: `Nova Etapa ${steps.length + 1}` });
-            renderRoteiroSteps(steps);
-        }
-
-        async function loadRoteiroConfig() {
-            if (!isAuthReady || !db) return;
-
-            const docRef = doc(db, `artifacts/${appId}/public/data/config`, 'roteiro_padrao');
-            try {
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    defaultRoteiro = docSnap.data().steps || defaultRoteiro;
-                }
-                renderRoteiroSteps(defaultRoteiro);
-            } catch (e) {
-                console.error("Erro ao carregar roteiro padrão:", e);
-                renderRoteiroSteps(defaultRoteiro); 
-            }
-        }
-        
-        async function saveRoteiro(e) {
-            e.preventDefault();
-            const inputs = roteiroStepsContainer.querySelectorAll('input[data-type="name"]');
-            const selects = roteiroStepsContainer.querySelectorAll('select[data-type="sector"]');
-            const newRoteiro = [];
-            
-            inputs.forEach((input, index) => {
-                newRoteiro.push({
-                    sector: selects[index].value || 'Outro',
-                    name: input.value.trim()
-                });
-            });
-
-            if (newRoteiro.some(step => step.name === '')) {
-                showMessage(roteiroMessage, 'Todas as etapas devem ter um nome.', 'error');
-                return;
-            }
-
-            const docRef = doc(db, `artifacts/${appId}/public/data/config`, 'roteiro_padrao');
-            try {
-                await setDoc(docRef, { steps: newRoteiro, lastUpdated: new Date().toISOString() });
-                defaultRoteiro = newRoteiro; // Atualiza variável local
-                showMessage(roteiroMessage, 'Roteiro padrão salvo com sucesso!', 'success');
-                setTimeout(() => hideModal('setup-roteiro-modal'), 1500);
-
-            } catch (e) {
-                console.error("Erro ao salvar roteiro:", e);
-                showMessage(roteiroMessage, 'Erro ao salvar roteiro no Firestore.', 'error');
-            }
-        }
-
-        // --- Criação de OF ---
-
-        async function createOFInFirestore(e) {
-            e.preventDefault();
-            
-            const productCode = document.getElementById('of-product-code').value.trim();
-            const productName = document.getElementById('of-product-name').value.trim();
-            const quantity = parseInt(document.getElementById('of-quantity').value, 10);
-            const priority = document.getElementById('of-priority').value;
-            
-            if (!productCode || !productName || quantity < 1) {
-                showMessage(ofMessage, 'Preencha todos os campos obrigatórios.', 'error');
-                return;
-            }
-
-            // Cria as tarefas iniciais baseadas no roteiro Padrão
-            const initialTasks = defaultRoteiro.map((step, index) => ({
-                stepId: index + 1,
-                stepName: step.name,
-                sector: step.sector,
-                status: index === 0 ? 'Pendente' : 'Aguardando', 
-                timeElapsed: 0,
-                currentOperatorId: '',
-                startTime: null,
-                endTime: null,
-                isActive: false
-            }));
-
-            const newOF = {
-                productCode,
-                productName,
-                quantity,
-                priority,
-                status: 'Pendente', 
-                currentStepIndex: 0, // Índice da tarefa atual no array tasks
-                creationDate: new Date().toISOString(),
-                tasks: initialTasks, 
-                creationUserId: userId
-            };
-
-            const ofsColRef = collection(db, `artifacts/${appId}/public/data/ofs`);
-            
-            try {
-                const docRef = await addDoc(ofsColRef, newOF);
-                showMessage(ofMessage, `OF #${docRef.id.substring(0, 8)} criada com sucesso!`, 'success');
-                formCreateOF.reset();
-                setTimeout(() => hideModal('create-of-modal'), 1500);
-
-            } catch (error) {
-                console.error("Erro ao criar OF:", error);
-                showMessage(ofMessage, 'Erro ao salvar OF no Firestore.', 'error');
-            }
-        }
-
-
-        // --- Renderização de Dados (Lógica de Apresentação) ---
-
-        function renderStatusBadge(status) {
-            let className, text;
-            switch(status) {
-                case 'Em Progresso':
-                case 'Em Execução':
-                    className = 'status-badge-progress';
-                    text = status;
-                    break;
-                case 'Concluído':
-                    className = 'status-badge-complete';
-                    text = status;
-                    break;
-                case 'Pendente':
-                case 'Aguardando':
-                default:
-                    className = 'status-badge-pending';
-                    text = status || 'Pendente';
-            }
-            return `<span class="status-badge ${className}">${text}</span>`;
-        }
-
-        function renderKPIs(totalOfs = 0, inProgress = 0, completedToday = 0) {
-            document.getElementById('kpi-total-ofs').textContent = totalOfs.toString();
-            document.getElementById('kpi-in-progress').textContent = inProgress.toString();
-            document.getElementById('kpi-completed-today').textContent = completedToday.toString();
-        }
-
-
-        function renderOFs() {
-            if (!isAuthReady || !db) return;
-
-            const ofsCollectionPath = `artifacts/${appId}/public/data/ofs`;
-            const ofsColRef = collection(db, ofsCollectionPath);
-            const q = query(ofsColRef); // Sem orderBy para evitar erro de índice
-
-            ofsListContainer.innerHTML = `<div class="p-6 text-center text-sm text-gray-500 bg-white card-shadow">Carregando Ordens de Fabricação (Firestore)...</div>`;
-
-            onSnapshot(q, (snapshot) => {
-                let ofsHTML = '';
-                let totalOfs = 0;
-                let inProgress = 0;
-                let completedToday = 0;
-                const today = new Date().toDateString();
-
-                if (snapshot.empty) {
-                    ofsListContainer.innerHTML = `<div class="p-6 text-center text-sm text-gray-500 bg-white card-shadow">Nenhuma Ordem de Fabricação encontrada.</div>`;
-                    renderKPIs(0, 0, 0); 
-                    return;
-                }
-
-                snapshot.forEach(doc => {
-                    const of = doc.data();
-                    of.id = doc.id;
-                    totalOfs++;
-
-                    const currentTask = of.tasks[of.currentStepIndex] || null;
-                    const status = of.status || 'Pendente';
-
-                    if (status === 'Em Progresso') {
-                        inProgress++;
-                    }
-                    if (status === 'Concluído' && of.completionDate && new Date(of.completionDate).toDateString() === today) {
-                        completedToday++;
-                    }
-                    
-                    const currentStepName = currentTask ? `${currentTask.stepName} (${currentTask.sector})` : 'Completa';
-                    const listBorderColor = status === 'Concluído' ? 'border-green-500' : status === 'Em Progresso' ? 'border-yellow-500' : 'border-blue-500';
-
-                    ofsHTML += `
-                        <div class="bg-white p-4 rounded-xl shadow border-l-4 ${listBorderColor} flex flex-col sm:flex-row justify-between items-start sm:items-center hover:shadow-lg transition">
-                            <div class="space-y-1 mb-2 sm:mb-0">
-                                <p class="font-bold text-lg text-gray-800">OF #${of.id.substring(0, 8)}</p>
-                                <p class="text-sm text-gray-600">${of.productCode || 'N/A'} - ${of.productName || 'Sem descrição'}</p>
-                                <p class="text-xs text-gray-500">Etapa Atual: <span class="font-semibold text-blue-600">${currentStepName}</span> | Qtd: ${of.quantity || '0'}</p>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                ${renderStatusBadge(status)}
-                                <button onclick="editOF('${of.id}')" class="text-blue-500 hover:text-blue-700 p-2 rounded-full hover:bg-blue-50 transition">
-                                    <i data-lucide="edit" class="w-5 h-5"></i>
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                ofsListContainer.innerHTML = ofsHTML;
-                lucide.createIcons();
-                renderKPIs(totalOfs, inProgress, completedToday);
-
-            }, (error) => {
-                console.error("Erro ao carregar OFs (Firestore):", error);
-                ofsListContainer.innerHTML = `<div class="p-6 text-center text-red-700 text-sm bg-red-100 rounded-xl card-shadow">Erro ao carregar Ordens de Fabricação.</div>`;
-            });
-        }
-        
-        function renderTasks() {
-            if (!isAuthReady || !db || !userSector) return;
-            
-            // Exibe ID do usuário no painel do operador
-            document.getElementById('operator-id-display').textContent = userId.substring(0, 8) + '...';
-
-            const ofsCollectionPath = `artifacts/${appId}/public/data/ofs`;
-            const ofsColRef = collection(db, ofsCollectionPath);
-            // Query para buscar OFs que não estejam Concluídas
-            const q = query(ofsColRef, where("status", "!=", "Concluído"));
-            
-            tasksListContainer.innerHTML = `<div class="p-6 text-center text-sm text-gray-500 bg-white card-shadow">Buscando tarefas no setor ${userSector}...</div>`;
-            
-            onSnapshot(q, (snapshot) => {
-                let tasksHTML = '';
-                let tasksFound = false;
-
-                snapshot.forEach(doc => {
-                    const of = doc.data();
-                    of.id = doc.id;
-                    
-                    // Encontrar a tarefa (etapa) que está Pendente ou Em Execução e pertence ao setor do operador
-                    const task = of.tasks.find(t => 
-                        t.sector === userSector && 
-                        (t.status === 'Pendente' || t.status === 'Em Execução')
-                    );
-                    
-                    if (task) {
-                        tasksFound = true;
-                        
-                        // Lógica de status da tarefa em relação ao operador atual
-                        const isExecuting = task.status === 'Em Execução' && task.currentOperatorId === userId;
-                        const isBlocked = task.status === 'Em Execução' && task.currentOperatorId !== userId;
-                        
-                        const buttonText = isExecuting ? 'Pausar' : isBlocked ? 'Bloqueado' : 'Iniciar';
-                        const buttonIcon = isExecuting ? 'pause' : isBlocked ? 'lock' : 'play';
-                        const buttonColor = isExecuting ? 'bg-red-600 hover:bg-red-700' : isBlocked ? 'bg-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700';
-
-                        tasksHTML += `
-                            <div class="bg-white p-4 rounded-xl shadow border-l-4 ${isExecuting ? 'border-red-500' : 'border-blue-500'} flex flex-col sm:flex-row justify-between items-start sm:items-center hover:shadow-lg transition">
-                                <div class="space-y-1 mb-2 sm:mb-0">
-                                    <p class="font-bold text-lg text-gray-800">OF #${of.id.substring(0, 8)} - <span class="text-blue-600">${task.stepName}</span></p>
-                                    <p class="text-sm text-gray-600">Produto: ${of.productCode} | Qtd: ${of.quantity}</p>
-                                    <p class="text-xs text-gray-500">
-                                        Status: ${renderStatusBadge(task.status)} 
-                                        | Tempo Registrado: <span class="font-semibold">${(task.timeElapsed / 60).toFixed(1)} min</span>
-                                        ${isBlocked ? `| Em uso por: ${task.currentOperatorId.substring(0, 8)}...` : ''}
-                                    </p>
-                                </div>
-                                <button onclick="${isBlocked ? '' : `startTask('${of.id}', ${task.stepId})`}" ${isBlocked ? 'disabled' : ''} class="${buttonColor} text-white transition px-4 py-2 rounded-lg text-sm font-bold shadow-md flex items-center gap-1">
-                                    <i data-lucide="${buttonIcon}" class="w-4 h-4"></i>
-                                    ${buttonText}
-                                </button>
-                            </div>
-                        `;
-                    }
-                });
-
-                if (!tasksFound) {
-                    tasksListContainer.innerHTML = `<div class="p-6 text-center text-sm text-gray-500 bg-white card-shadow">Nenhuma tarefa ativa encontrada para o setor ${userSector}.</div>`;
-                } else {
-                    tasksListContainer.innerHTML = tasksHTML;
-                }
-                lucide.createIcons();
-            }, (error) => {
-                console.error("Erro ao carregar Tarefas (Firestore):", error);
-                tasksListContainer.innerHTML = `<div class="p-6 text-center text-red-700 text-sm bg-red-100 rounded-xl card-shadow">Erro ao carregar Tarefas.</div>`;
-            });
-        }
-        
-        // --- 7. FUNÇÃO DE SETUP E INICIALIZAÇÃO ---
-
-        function setupDomAndStart() {
-            // 1. Recupera elementos DOM dos Modais (Global)
-            modalGlobal = document.getElementById('global-modal');
-            modalTitle = document.getElementById('modal-title');
-            modalBody = document.getElementById('modal-body');
-            modalFooter = document.getElementById('modal-footer');
-            modalBtnCancel = document.getElementById('modal-btn-cancel');
-            modalBtnConfirm = document.getElementById('modal-btn-confirm');
-
-            // 2. Recupera outros elementos DOM
-            pcpView = document.getElementById('pcp-view');
-            operatorView = document.getElementById('operator-view');
-            reportsView = document.getElementById('reports-view');
-            loadingIndicator = document.getElementById('loading-indicator');
-            ofsListContainer = document.getElementById('ofs-list-container');
-            tasksListContainer = document.getElementById('tasks-list-container');
-            userViewSelect = document.getElementById('user-view-select');
-            btnCreateOF = document.getElementById('btn-create-of');
-            btnSetupRoteiro = document.getElementById('btn-setup-roteiro');
-            btnProfile = document.getElementById('btn-profile');
-            userIdDisplay = document.getElementById('user-id-display');
-            operatorUserId = document.getElementById('operator-user-id');
-            headerControls = document.getElementById('header-controls');
-            appContent = document.getElementById('app-content');
-            loginView = document.getElementById('login-view');
-            authIdDisplay = document.getElementById('auth-id-display');
-            operatorSectorSelect = document.getElementById('operator-sector-select');
-            pcpPasswordInput = document.getElementById('pcp-password-input');
-            btnLoginPCP = document.getElementById('btn-login');
-            btnLoginOperatorStart = document.getElementById('btn-login-operator-start');
-            loginMessage = document.getElementById('login-message');
-            operatorSectorDisplay = document.getElementById('operator-sector-display');
-
-            radioPCP = document.getElementById('radio-pcp');
-            radioOperator = document.getElementById('radio-operator');
-            loginFormPCP = document.getElementById('login-form-pcp');
-            loginFormOperator = document.getElementById('login-form-operator');
-            labelPCPMaster = document.getElementById('label-pcp-master');
-            labelOperator = document.getElementById('label-operator');
-            
-            // Elementos dos Modais de Ação
-            roteiroStepsContainer = document.getElementById('roteiro-steps-container');
-            btnAddStep = document.getElementById('btn-add-step');
-            btnSaveRoteiro = document.getElementById('btn-save-roteiro');
-            roteiroMessage = document.getElementById('roteiro-message');
-            formCreateOF = document.getElementById('form-create-of');
-            ofMessage = document.getElementById('of-message');
-            roteiroStepsSummary = document.getElementById('roteiro-steps-summary');
-
-
-            // 3. Event Listeners de UI
-            userViewSelect.addEventListener('change', (e) => updateView(e.target.value));
-            
-            // Login events
-            radioPCP.addEventListener('change', toggleLoginForm);
-            radioOperator.addEventListener('change', toggleLoginForm);
-            btnLoginPCP.addEventListener('click', handleLogin);
-            btnLoginOperatorStart.addEventListener('click', handleLogin);
-
-            // Botões do Painel (Agora abrem Modais)
-            btnCreateOF.addEventListener('click', () => showModal('create-of-modal'));
-            btnSetupRoteiro.addEventListener('click', () => showModal('setup-roteiro-modal'));
-            
-            // Botões e Forms dos Modais de Ação
-            btnAddStep.addEventListener('click', addRoteiroStep);
-            btnSaveRoteiro.addEventListener('click', saveRoteiro);
-            formCreateOF.addEventListener('submit', createOFInFirestore);
-
-
-            // Stubs de Mensagens Rápidas
-            btnProfile.addEventListener('click', () => customAlert('Configurações de Perfil', `ID de Usuário: ${userId}`, 'info'));
-            document.getElementById('btn-export-report').addEventListener('click', () => customAlert('Exportar Relatório', 'Funcionalidade de Exportação de Relatório em desenvolvimento.', 'info'));
-
-
-            // 4. Inicializa visual do Login Form
-            toggleLoginForm();
-
-            // 5. Inicia o processo de autenticação e carga de dados
-            initializeFirebase();
-        }
-
-        // Inicia a aplicação quando o DOM estiver completamente carregado
-        document.addEventListener('DOMContentLoaded', setupDomAndStart);
-        
-        // Expondo funções para o escopo global (para onclick no HTML)
-        window.hideModal = hideModal;
-
-    </script>
+      initializeApp();
+      setupSectorDropdowns();
+      lucide.createIcons();
+    });
+  </script>
 </body>
 </html>
