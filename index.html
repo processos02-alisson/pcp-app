@@ -3,13 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sistema PCP: Controle de Produção e Roteiros (Visualização Interativa)</title>
+  <title>Sistema PCP: Controle de Produção e Roteiros (Firebase Edition)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
-  
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
     :root { color-scheme: light dark; }
@@ -63,7 +61,7 @@
       </h1>
       <div class="flex gap-2 items-center">
         <button id="btn-profile"
-                class="text-white bg-blue-800 hover:bg-blue-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden"
+              class="text-white bg-blue-800 hover:bg-blue-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden"
                 onclick="openUserModal()">
           <i data-lucide="user-cog" class="w-5 h-5 inline-block mr-1"></i>
           <span class="hidden sm:inline">Perfil</span>
@@ -71,7 +69,7 @@
 
         <select id="user-view-select"
                 onchange="updateView(this.value)"
-                class="bg-blue-800 text-white text-xs sm:text-sm font-semibold py-2 px-2 rounded-lg transition hover:bg-blue-700 focus:ring-2 focus:ring-blue-300">
+              class="bg-blue-800 text-white text-xs sm:text-sm font-semibold py-2 px-2 rounded-lg transition hover:bg-blue-700 focus:ring-2 focus:ring-blue-300">
           <option value="PCP">Visão: PCP (Gerencial)</option>
           <option value="Operador">Visão: Operador</option>
           <option value="Relatorio">Visão: Relatório</option>
@@ -112,22 +110,14 @@
           <i data-lucide="clipboard-list" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-blue-600"></i>
           Minhas Tarefas
         </h2>
-        
-        <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-          <div class="flex items-center gap-2 w-full sm:w-auto">
-            <label for="sector-filter" class="text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">Setor:</label>
-            <select id="sector-filter" onchange="updateSectorFilter(this.value)"
-                    class="p-2 border border-blue-300 rounded-lg bg-blue-50 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48"></select>
-          </div>
-
-          <div class="flex items-center gap-2 w-full sm:w-auto">
-            <label for="of-search-filter" class="text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">OF:</label>
-            <input type="text" id="of-search-filter" oninput="updateSearchFilter(this.value)"
-                   class="p-2 border border-blue-300 rounded-lg bg-blue-50 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48"
-                   placeholder="Pesquisar OF">
-          </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <input type="text" id="of-search-filter" oninput="updateOFCFilter(this.value)"
+                 class="p-2 border border-gray-300 rounded-lg bg-white focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48"
+                 placeholder="Buscar por OF (Ex: OF-001)">
+          <label for="sector-filter" class="text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">Setor:</label>
+          <select id="sector-filter" onchange="updateSectorFilter(this.value)"
+                  class="p-2 border border-blue-300 rounded-lg bg-blue-50 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48"></select>
         </div>
-        
       </div>
       <div id="tasks-list-container" class="space-y-3 sm:space-y-4"></div>
     </div>
@@ -234,7 +224,8 @@
   </div>
 
   <div id="setup-roteiro-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
-    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-2xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
+    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-2xl modal-panel mx-0 sm:mx-4" 
+    onclick="event.stopPropagation()">
       <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Setup: Cadastro de Roteiros Mestres</h3>
       <div id="roteiro-list" class="space-y-4 h-[50vh] sm:h-64 overflow-y-auto mb-4 p-2 border rounded-lg bg-gray-50 modal-body-scroll"></div>
       <div class="border-t pt-4 space-y-4">
@@ -278,9 +269,14 @@
         <div id="of-details-progress" class="h-2 rounded-full bg-blue-500" style="width:0%"></div>
       </div>
       <div id="of-details-content" class="max-h-[60vh] overflow-y-auto space-y-3 sm:space-y-4 modal-body-scroll"></div>
-      <div class="mt-4 sm:mt-5 flex justify-end gap-2 sm:gap-3 sticky-footer">
-        <button id="btn-export-of" class="px-3 sm:px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition" onclick="exportOFTasksCSV(window.__ofDetailsOpenId)">Exportar CSV</button>
-        <button class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition" onclick="closeModal('of-details-modal')">Fechar</button>
+      <div class="mt-4 sm:mt-5 flex justify-between gap-3 sticky-footer">
+        <button id="btn-delete-of" class="px-3 sm:px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition hidden" onclick="deleteOF(window.__ofDetailsOpenId)">
+          <i data-lucide="trash-2" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Excluir OF
+        </button>
+        <div class="flex gap-2 sm:gap-3">
+          <button id="btn-export-of" class="px-3 sm:px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition" onclick="exportOFTasksCSV(window.__ofDetailsOpenId)">Exportar CSV</button>
+          <button class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition" onclick="closeModal('of-details-modal')">Fechar</button>
+        </div>
       </div>
     </div>
   </div>
@@ -303,7 +299,7 @@
         <div id="user-pin-wrap" class="hidden">
           <label class="block text-sm font-medium text-gray-700">PIN do Master</label>
           <input type="password" id="user-pin" class="w-full border border-gray-300 rounded-lg p-2 mt-1" placeholder="****">
-          <p class="text-xs text-gray-500 mt-1">PIN padrão: 7889 (altere no código)</p>
+          <p class="text-xs text-gray-500 mt-1">PIN padrão: 7889</p>
         </div>
       </div>
       <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3">
@@ -315,7 +311,7 @@
 
   <script>
     // =================================================================================================
-    // CONFIGURAÇÃO FIREBASE: SUAS CREDENCIAIS CORRETAS ESTÃO AQUI!
+    // CONFIGURAÇÃO FIREBASE: 
     // =================================================================================================
     const firebaseConfig = {
       apiKey: "AIzaSyDIJJIe4WIVj5OKYTtR-HQscrxIzxNK9eY",
@@ -326,17 +322,33 @@
       appId: "1:675295958467:web:9d79700af6fc1c28db5976",
       measurementId: "G-DH06WDCKJY"
     };
-    
-    // Inicialização do Firebase
-    let db;
-    if (typeof firebase !== 'undefined') {
+    // Inicialização do Firebase (se a config não estiver vazia)
+    if (Object.keys(firebaseConfig).length > 0 && firebaseConfig.projectId) {
         firebase.initializeApp(firebaseConfig);
-        db = firebase.firestore();
+        const db = firebase.firestore();
+        // Coleções
+        const OF_COLLECTION = 'ofs';
+        const TASK_COLLECTION = 'tasks';
+        const ROTEIRO_COLLECTION = 'roteiros';
+        const OCORRENCIA_COLLECTION = 'ocorrencias';
+
+        window.db = db;
+        window.OF_COLLECTION = OF_COLLECTION;
+        window.TASK_COLLECTION = TASK_COLLECTION;
+        window.ROTEIRO_COLLECTION = ROTEIRO_COLLECTION;
+        window.OCORRENCIA_COLLECTION = OCORRENCIA_COLLECTION;
+    } else {
+        // Se as configurações não forem fornecidas, o código usará a versão Simulação/Default.
+        alert("AVISO: Configurações do Firebase ausentes. O sistema usará dados iniciais e não salvará no banco de dados.");
+        window.db = null;
     }
+    // =================================================================================================
+
+
     // ==========================
-    //  VARIÁVEIS E DADOS
+    //  VARIÁVEIS E DADOS GLOBAIS
     // ==========================
-    const MASTER_PIN = "7889"; 
+    const MASTER_PIN = "7889";
     const SECTORS = [
       'Corte','Corte de Revestimentos','Pré-Montagem','Preparação','Pré Conexão',
       'Conexão','Pré Grampeação','Grampeação','Acabamento','Embalagem','Montagem','Cabo de Bateria 1','Cabo de Bateria 2'
@@ -349,59 +361,21 @@
       "Complexidade inesperada da peça","Problema de qualidade na etapa anterior","Falta de treinamento/experiência",
       "Tempo padrão calculado incorretamente","Quebra/defeito de ferramenta","Outro (Detalhar abaixo)"
     ];
+    // Dados que serão preenchidos pelos listeners do Firebase
     let allOFs = {};
     let allTasks = {};
     let allRoteiros = {};
     let allOcurrencesLog = [];
     let currentAction = {};
+    // Armazena a ação pendente do modal
     let currentSectorFilter = SECTORS[0];
+    let currentOFCFilter = ""; // VARIÁVEL GLOBAL PARA FILTRO DE OF
     let currentUser = null;
-    let currentSearchFilter = ''; // Filtro de pesquisa por OF
-
-    // Counters
+    // Roteiro / Task Counters (para simulação ou inicialização)
     let taskCounter = 1;
     let roteiroCounter = 7;
-
-    // Constantes do Firestore
-    const OF_COLLECTION = 'ofs';
-    const TASK_COLLECTION = 'tasks';
-    const ROTEIRO_COLLECTION = 'roteiros';
-    const OCURRENCE_COLLECTION = 'ocorrencias';
-
     // ==========================
-    //  PERSISTÊNCIA (localStorage)
-    // ==========================
-    const STORAGE_KEY = "pcp_state_v2";
-    function saveState() {
-      const state = {
-        allOFs, allTasks, allRoteiros, allOcurrencesLog,
-        counters: { taskCounter, roteiroCounter },
-        currentUser
-      };
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) { console.warn("Falha ao salvar estado:", e); }
-    }
-
-    function restoreState() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return false;
-        const state = JSON.parse(raw);
-        allOFs = state.allOFs || {};
-        allTasks = state.allTasks || {};
-        allRoteiros = state.allRoteiros || {};
-        allOcurrencesLog = state.allOcurrencesLog || [];
-        taskCounter = state.counters?.taskCounter || taskCounter;
-        roteiroCounter = state.counters?.roteiroCounter || roteiroCounter;
-        if (state.currentUser) setUser(state.currentUser);
-        return true;
-      } catch(e) {
-        console.warn("Falha ao restaurar estado:", e);
-        return false;
-      }
-    }
-
-    // ==========================
-    //  ROTEIROS PRÉ-CARREGADOS (Fallback)
+    //  ROTEIROS PRÉ-CARREGADOS (Fallback para inicialização ou Simulação)
     // ==========================
     const DEFAULT_ROTEIROS = {
       "r1": { id:"r1", chicote_nome:"CHICOTE-001", setor:"Corte", nome_atividade:"Corte dos Fios", tempo_setup:5, tempo_ciclo:0.2,
@@ -433,15 +407,46 @@
     const btnSetupRoteiro = document.getElementById("btn-setup-roteiro");
     const btnProfile = document.getElementById("btn-profile");
     const btnExportReport = document.getElementById("btn-export-report");
+    const btnDeleteOF = document.getElementById("btn-delete-of");
+
     // ==========================
     //  HELPERS & PERMISSÕES
     // ==========================
-    function msToMinutes(ms){ return parseFloat((ms / (1000*60)).toFixed(2)); }
+    function msToMinutes(ms){ 
+      if (typeof ms !== 'number' || ms < 0) return 0;
+      return parseFloat((ms / (1000*60)).toFixed(2));
+    }
     function formatMinutes(v){ return `${Number(v||0).toFixed(2)} min`; }
-    function setUser(u){ currentUser = u; localStorage.setItem("pcp_current_user", JSON.stringify(u)); }
-    function getUser(){ try{ return JSON.parse(localStorage.getItem("pcp_current_user")||"null"); }catch(e){ return null; } }
+    
+    function setUser(u){ 
+      currentUser = u;
+      // Manter a sessão do usuário no localStorage (comportamento original)
+      localStorage.setItem("pcp_current_user", JSON.stringify(u));
+    }
+    
+    function getUser(){ 
+      try{ 
+        return JSON.parse(localStorage.getItem("pcp_current_user")||"null");
+      }catch(e){ 
+        return null;
+      } 
+    }
+    
     function isMaster(){ return currentUser && currentUser.role === "MASTER"; }
     function isOperador(){ return currentUser && currentUser.role === "OPERADOR"; }
+
+    function getDBTimestamp(timestampField) {
+        if (!timestampField) return null;
+        // Verifica se é um objeto Timestamp do Firebase (pode ser um Date se vier do mock)
+        if (typeof timestampField.toDate === 'function') {
+            return timestampField.toDate().getTime();
+        }
+        // Se for um número (milliseconds) ou um Date object
+        if (timestampField instanceof Date) {
+             return timestampField.getTime();
+        }
+        return timestampField; // Assume que já é o número de milissegundos
+    }
 
     // ==========================
     //  CÁLCULOS DE TEMPO
@@ -449,713 +454,1298 @@
     function calculateTempoReal(task){
       let tempoReal = task.tempo_real_acumulado || 0;
       const now = Date.now();
+
       if (task.status === 'Em Processo' && task.timestamp_inicio){
-        let inicioMs = task.timestamp_inicio instanceof Date ? task.timestamp_inicio.getTime() : task.timestamp_inicio;
-        let tempoTrabalhadoDesdeInicio = msToMinutes(now - inicioMs);
-        tempoReal += tempoTrabalhadoDesdeInicio;
+          let inicioMs = getDBTimestamp(task.timestamp_inicio);
+          if (inicioMs) {
+              let tempoTrabalhadoDesdeInicio = msToMinutes(now - inicioMs);
+              tempoReal += tempoTrabalhadoDesdeInicio;
+          }
       }
       return parseFloat(tempoReal.toFixed(2));
     }
+    
     function calculateDesvio(task){
       const tempoReal = calculateTempoReal(task);
+      // Desvio = Tempo Planejado - Tempo Real (Negativo = Atraso)
       const desvio = (task.tempo_planejado||0) - tempoReal;
       return parseFloat(desvio.toFixed(2));
     }
+
     function calculateTotalPauseMinutes(task){
       let totalMs = task.total_pause_time_ms || 0;
       if (task.status === 'Pausada' && task.pause_start_timestamp){
-        totalMs += Date.now() - task.pause_start_timestamp;
+          let pauseStartMs = getDBTimestamp(task.pause_start_timestamp);
+          if (pauseStartMs) {
+              totalMs += Date.now() - pauseStartMs;
+          }
       }
       return msToMinutes(totalMs);
     }
 
-    // ==========================
-    //  UTILITÁRIOS
-    // ==========================
-    function openModal(id){ 
-      document.getElementById(id).style.display='flex'; 
-      if(id === 'setup-roteiro-modal') renderRoteiros();
-      if(id === 'action-modal') setupActionModal();
+    function calculateTotalPauseMinutesFinal(task){
+      // Usado para o relatório, não considera a pausa em andamento
+      return msToMinutes(task.total_pause_time_ms || 0);
     }
-    function closeModal(id){ 
-      // Fecha o modal específico ou o modal de ação
-      if (id) {
-        document.getElementById(id).style.display='none';
-      } else {
-        document.getElementById('action-modal').style.display='none';
-        document.getElementById('instruction-modal').style.display='none';
-        document.getElementById('create-of-modal').style.display='none';
-        document.getElementById('setup-roteiro-modal').style.display='none';
-      }
-    }
-    window.openModal = openModal;
-    window.closeModal = closeModal;
 
     // ==========================
-    //  FILTROS DO OPERADOR
-    // ==========================
-    function updateSectorFilter(sector){
-        currentSectorFilter = sector;
-        renderTasks();
-    }
-    window.updateSectorFilter = updateSectorFilter;
-    
-    // Filtro de pesquisa por OF (Aprovado!)
-    function updateSearchFilter(search) {
-        currentSearchFilter = search.trim().toUpperCase();
-        renderTasks(); 
-    }
-    window.updateSearchFilter = updateSearchFilter;
-
-    // ==========================
-    //  INICIALIZAÇÃO & DADOS FIREBASE
+    //  INICIALIZAÇÃO & DADOS
     // ==========================
     function setupSectorDropdowns(){
-      const roteiroSetorSelect = document.getElementById('roteiro-setor');
-      const sectorFilterSelect = document.getElementById('sector-filter');
-      const userSectorSelect = document.getElementById('user-sector'); 
-      const ofChicoteSelect = document.getElementById('of-chicote');
+        const roteiroSetorSelect = document.getElementById('roteiro-setor');
+        const sectorFilterSelect = document.getElementById('sector-filter');
+        const userSectorSelect = document.getElementById('user-sector');
 
-      if (roteiroSetorSelect) { roteiroSetorSelect.innerHTML = ''; }
-      if (sectorFilterSelect) { sectorFilterSelect.innerHTML=''; }
-      if (userSectorSelect) { userSectorSelect.innerHTML = '<option value="">-- Selecione --</option>'; }
-      if (ofChicoteSelect) { ofChicoteSelect.innerHTML = '<option value="">-- Selecione um Chicote --</option>'; }
+        // Limpa todos
+        [roteiroSetorSelect, sectorFilterSelect, userSectorSelect].forEach(sel => {
+            if (sel) sel.innerHTML = '';
+        });
 
-      // Popula dropdowns de setor
-      SECTORS.forEach(sector=>{
-          const o1 = document.createElement('option'); o1.value=sector; o1.textContent=sector; roteiroSetorSelect?.appendChild(o1);
-          const o3 = document.createElement('option'); o3.value=sector; o3.textContent=sector; userSectorSelect?.appendChild(o3);
-      });
-      
-      // Popula dropdown de Chicote (Roteiro) na tela de Criação de OF
-      const uniqueChicotes = [...new Set(Object.values(allRoteiros).map(r => r.chicote_nome))].sort();
-      uniqueChicotes.forEach(chicote => {
-          const o = document.createElement('option');
-          o.value = chicote; o.textContent = chicote; ofChicoteSelect?.appendChild(o);
-      });
+        // 1. Dropdown de Setup Roteiro e User Sector
+        SECTORS.forEach(sector=>{
+            const o1 = document.createElement('option');
+            o1.value=sector;
+            o1.textContent=sector;
+            const o2 = o1.cloneNode(true);
+            if (roteiroSetorSelect) roteiroSetorSelect.appendChild(o1);
+            if (userSectorSelect) userSectorSelect.appendChild(o2);
+        });
 
-      // Configurações do filtro principal de setor (Visão Operador)
-      if (sectorFilterSelect){
-        if (isOperador()){
-          const o = document.createElement('option');
-          o.value=currentUser.sector; o.textContent=currentUser.sector; sectorFilterSelect.appendChild(o);
-          sectorFilterSelect.value=currentUser.sector;
-          sectorFilterSelect.disabled = true;
-          currentSectorFilter = currentUser.sector;
-        }else{
-          SECTORS.forEach(sector=>{
-            const o2 = document.createElement('option'); o2.value=sector; o2.textContent=sector; sectorFilterSelect.appendChild(o2);
-          });
-          currentSectorFilter = SECTORS[0];
-          sectorFilterSelect.value = SECTORS[0];
-          sectorFilterSelect.disabled = false;
+        // 2. Dropdown de Filtro do Operador
+        if (sectorFilterSelect){
+            if (isOperador()){
+                const o = document.createElement('option');
+                o.value=currentUser.sector;
+                o.textContent=currentUser.sector;
+                sectorFilterSelect.appendChild(o);
+                sectorFilterSelect.value=currentUser.sector;
+                sectorFilterSelect.disabled = true;
+                currentSectorFilter = currentUser.sector;
+            }else{
+                SECTORS.forEach(sector=>{
+                    const o2 = document.createElement('option');
+                    o2.value=sector;
+                    o2.textContent=sector;
+                    sectorFilterSelect.appendChild(o2);
+                });
+                currentSectorFilter = SECTORS[0];
+                sectorFilterSelect.value = SECTORS[0];
+                sectorFilterSelect.disabled = false;
+            }
         }
-      }
-      
-      // Define setor do usuário na tela de login
-      if (userSectorSelect && currentUser?.sector) {
-        userSectorSelect.value = currentUser.sector;
-      }
     }
 
-    // Carrega dados do Firestore ou usa dados padrão (Fallback)
-    async function loadData(){
-      if (!db) {
-        // Modo Local/Simulação
-        const restored = restoreState();
-        if (!restored){ 
-          allRoteiros = { ...DEFAULT_ROTEIROS }; 
-          createOF('OF-001', 10, 'CHICOTE-001', true);
-          createOF('OF-002', 20, 'CHICOTE-B', true); 
-          saveState(); 
-        }
-      } else {
-        // Modo Firebase
-        try {
-          // OFs
-          const ofsSnapshot = await db.collection(OF_COLLECTION).get();
-          allOFs = {};
-          ofsSnapshot.forEach(doc => allOFs[doc.id] = { id: doc.id, ...doc.data() });
-          
-          // Tasks
-          const tasksSnapshot = await db.collection(TASK_COLLECTION).get();
-          allTasks = {};
-          tasksSnapshot.forEach(doc => allTasks[doc.id] = { id: doc.id, ...doc.data() });
-
-          // Roteiros
-          const roteirosSnapshot = await db.collection(ROTEIRO_COLLECTION).get();
-          allRoteiros = {};
-          roteirosSnapshot.forEach(doc => allRoteiros[doc.id] = { id: doc.id, ...doc.data() });
-          if (Object.keys(allRoteiros).length === 0) { allRoteiros = { ...DEFAULT_ROTEIROS }; } // Fallback
-
-          // Ocorrências
-          const ocorrenciasSnapshot = await db.collection(OCURRENCE_COLLECTION).get();
-          allOcurrencesLog = [];
-          ocorrenciasSnapshot.forEach(doc => allOcurrencesLog.push(doc.data()));
-
-        } catch (error) {
-          console.error("Erro ao carregar dados do Firebase (Verifique Regras de Segurança):", error);
-          // Fallback para dados locais em caso de erro no Firebase
-          const restored = restoreState();
-          if (!restored){ 
-            allRoteiros = { ...DEFAULT_ROTEIROS }; 
-            createOF('OF-001', 10, 'CHICOTE-001', true);
-            createOF('OF-002', 20, 'CHICOTE-B', true); 
-            saveState(); 
-          }
-          alert("🚨 ERRO FIREBASE: Não foi possível carregar dados. Verifique o console e as regras de segurança.");
-        }
-      }
+    function updateSectorFilter(sector){
+        currentSectorFilter = sector;
+        renderTasks(); // Renderiza tarefas do novo setor
     }
 
-    // Inicialização da Aplicação
+    // NOVA FUNÇÃO PARA FILTRO DE OF
+    function updateOFCFilter(ofc){
+        currentOFCFilter = ofc.toUpperCase().trim();
+        renderTasks();
+    }
+    // FIM NOVA FUNÇÃO
+
+    function loadRoteiroDropdowns() {
+        const select = document.getElementById('of-chicote');
+        if (!select) return;
+
+        const roteiros = Object.values(allRoteiros);
+        const chicotes = [...new Set(roteiros.map(r => r.chicote_nome))];
+
+        select.innerHTML = '<option value="">-- Selecione um Modelo --</option>';
+
+        chicotes.forEach(chicote => {
+            const option = document.createElement('option');
+            option.value = chicote;
+            option.textContent = chicote;
+            select.appendChild(option);
+        });
+        if (chicotes.length === 0) {
+            select.innerHTML = '<option value="">Nenhum roteiro mestre cadastrado.</option>';
+        }
+    }
+
     async function initializeApp(){
-      const isFirebase = typeof firebase !== 'undefined' && firebase.apps.length > 0;
-      
-      document.getElementById('loading-indicator').innerHTML = `
-        <i data-lucide="loader-circle" class="w-8 h-8 sm:w-10 sm:h-10 text-blue-500 animate-spin"></i>
-        <p class="mt-3 sm:mt-4 text-gray-600 font-semibold text-sm sm:text-base">Carregando dados e autenticando...</p>
-        <div class="p-2 mt-4 bg-${isFirebase ? 'blue' : 'yellow'}-100 border border-${isFirebase ? 'blue' : 'yellow'}-400 text-${isFirebase ? 'blue' : 'yellow'}-700 rounded-lg shadow-md" role="alert">
-          <p class="font-bold">Modo de Execução: ${isFirebase ? 'Firebase (Online)' : 'Local (Simulação)'}</p>
-          <p class="text-xs sm:text-sm">Seus dados ${isFirebase ? 'estão no Firebase' : 'ficam salvos neste navegador (localStorage)'}.</p>
-        </div>`;
-      document.getElementById('loading-indicator').classList.remove('hidden');
+        loadingIndicator.classList.remove('hidden');
 
-      await loadData();
-      
-      const savedUser = getUser();
-      if (savedUser){ setUser(savedUser); }
+        // 1. Tenta carregar usuário
+        const savedUser = getUser();
+        if (savedUser){
+            setUser(savedUser);
+        }
 
-      // AJUSTE CRÍTICO (Aprovado): Força a abertura do modal de login/perfil na inicialização.
-      setTimeout(()=>{ 
-        loadingIndicator.classList.add('hidden');
-        setupSectorDropdowns(); // Popula os setores (inclusive do modal de login)
-        openUserModal(savedUser ? null : undefined); // Chama o modal para o usuário entrar/confirmar
-        setupUIRefresh(); 
-      }, 300);
-      lucide.createIcons();
+        // CORREÇÃO: FORÇAR LOGIN ANTES DE TUDO
+        if (!currentUser) {
+            loadingIndicator.classList.add('hidden'); // Esconde a tela de carregamento
+            openUserModal(); // Força a abertura do modal de login
+            return; // Pára a inicialização. O confirmUser() continuará o processo.
+        }
+        // FIM CORREÇÃO LOGIN FORÇADO
+
+        // 2. Setup Firebase Listeners ou Fallback (Simulação)
+        if (window.db) {
+            setupFirebaseListeners();
+            // No modo Firebase, o setupFirebaseListeners é quem irá carregar e renderizar a view
+        } else { // MODO SIMULAÇÃO
+            document.getElementById('loading-indicator').innerHTML = `
+                <div class="p-3 sm:p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg shadow-md" role="alert">
+                    <p class="font-bold">Aviso: Modo de Simulação (Sem Firebase)</p>
+                    <p class="text-xs sm:text-sm">Os dados serão voláteis e não persistirão entre sessões. Use a configuração do Firebase para persistência.</p>
+                </div>`;
+            allRoteiros = { ...DEFAULT_ROTEIROS };
+
+            // Na simulação, precisamos inicializar os dados de OFs e Tasks
+            if (!localStorage.getItem('sim_data_initialized')) {
+                const of1 = await createOF('OF-001', 10, 'CHICOTE-001', true);
+                const of2 = await createOF('OF-002', 20, 'CHICOTE-B', true);
+                localStorage.setItem('sim_data_initialized', 'true');
+            } else {
+                // Se já inicializado, tenta carregar do localStorage (comportamento original)
+                const storedOFs = JSON.parse(localStorage.getItem('sim_ofs') || '{}');
+                const storedTasks = JSON.parse(localStorage.getItem('sim_tasks') || '{}');
+                const storedOcorrencias = JSON.parse(localStorage.getItem('sim_ocorrencias') || '[]');
+                allOFs = storedOFs;
+                allTasks = storedTasks;
+                allOcurrencesLog = storedOcorrencias;
+            }
+
+            // Atraso simulado para UI
+            setTimeout(()=>{
+                loadingIndicator.classList.add('hidden');
+                setupUIRefresh(); // Inicia o timer de refresh
+                loadRoteiroDropdowns();
+                // Carrega a view para o usuário logado
+                updateView(currentUser.role === 'MASTER' ? 'PCP' : 'Operador');
+            }, 300); // tempo para o carregamento simulado
+        }
     }
-    
-    // ==========================
-    //  AUTENTICAÇÃO / PERFIL
-    // ==========================
-    function openUserModal(){
-      const modal = document.getElementById('user-modal');
-      const roleSel = document.getElementById('user-role');
-      const sectorSel = document.getElementById('user-sector');
-      const pinWrap = document.getElementById('user-pin-wrap');
-      const sectorWrap = document.getElementById('user-sector-wrap');
-      
-      setupSectorDropdowns();
 
-      roleSel.value = (currentUser?.role || 'OPERADOR');
-      if (currentUser?.sector) sectorSel.value = currentUser.sector;
+    // ==========================
+    //  RENDERIZAÇÃO
+    // ==========================
+    function updateView(view) {
+        if (!currentUser) return; // Garante que a view só mude se houver usuário
 
-      roleSel.onchange = () => {
-        const isM = roleSel.value === 'MASTER';
-        pinWrap.classList.toggle('hidden', !isM);
-        sectorWrap.classList.toggle('hidden', isM);
-      };
-      roleSel.onchange(); // Executa a função para o estado inicial
-      modal.style.display='flex';
+        // Esconde tudo
+        [pcpView, operatorView, reportView].forEach(el => el.classList.add('hidden'));
+        [btnCreateOF, btnSetupRoteiro, btnProfile].forEach(el => el.classList.add('hidden'));
+        btnProfile.classList.remove('hidden'); // O botão de perfil sempre fica visível após o login
+
+        // Atualiza a visualização selecionada
+        userViewSelect.value = view;
+        document.body.classList.remove('bg-gray-100', 'bg-white');
+
+        if (view === 'PCP') {
+            document.body.classList.add('bg-gray-100');
+            pcpView.classList.remove('hidden');
+            btnCreateOF.classList.remove('hidden');
+            btnSetupRoteiro.classList.remove('hidden');
+            renderKPIs();
+            renderOFs();
+        } else if (view === 'Operador') {
+            document.body.classList.add('bg-gray-100');
+            operatorView.classList.remove('hidden');
+            setupSectorDropdowns(); // Re-seta o filtro de setor para o operador atual
+            renderTasks();
+        } else if (view === 'Relatorio') {
+            document.body.classList.add('bg-white'); // Fundo branco para o relatório
+            reportView.classList.remove('hidden');
+            renderReport();
+        }
+
+        // Se for Master, habilita o seletor de visão. Se for Operador, bloqueia a seleção.
+        userViewSelect.disabled = isOperador();
     }
-    
-    function confirmUser(){
-      const role = document.getElementById('user-role').value;
-      const sector = document.getElementById('user-sector').value;
-      const pin = document.getElementById('user-pin').value;
 
-      if (role==='MASTER'){
-        if (pin !== MASTER_PIN){ alert('PIN incorreto.'); return; }
-        setUser({ role:'MASTER', name:'Master' });
-        saveState();
-        closeModal('user-modal');
-        setupSectorDropdowns();
-        updateView('PCP'); // Redireciona para PCP após login
-      } else {
-        if (!sector){ alert('Selecione um setor.'); return; }
-        setUser({ role:'OPERADOR', sector, name:'Operador' });
-        saveState();
-        closeModal('user-modal');
-        setupSectorDropdowns();
-        updateView('Operador'); // Redireciona para Operador após login
-      }
-    }
-    window.openUserModal = openUserModal;
-    window.confirmUser = confirmUser; // Necessário para o botão
-    
-    // ==========================
-    //  KPI / RENDER
-    // ==========================
-    function reloadActiveFilter(){ /* placeholder */ } 
-    function renderKPIs(){ 
-      const kpisContainer = document.getElementById('kpis-container');
-      if (!kpisContainer) return; 
-      const totalOFs = Object.keys(allOFs).filter(k=> allOFs[k]?.status !== 'Concluído').length; 
-      const concludedTasks = Object.values(allTasks).filter(t=>t.status==='Concluído').length; 
-      const totalTasks = Object.values(allTasks).length;
-      const totalPause = allOcurrencesLog.reduce((s,l)=> s + (l.TEMPO_PAUSA||0), 0); 
-      const kpiData = [ 
-        { title:"OFs Ativas", value: totalOFs, icon:"package", color:"bg-blue-600" }, 
-        { title:"Tarefas Concluídas", value: `${concludedTasks} / ${totalTasks}`, icon:"check-circle", color:"bg-green-600" }, 
-        { title:"Pausas (min)", value: totalPause.toFixed(1), icon:"pause-circle", color:"bg-yellow-600" }, 
-        { title:"Ocorrências", value: allOcurrencesLog.length, icon:"alert-triangle", color:"bg-red-600" }, 
-      ];
-      kpisContainer.innerHTML = kpiData.map(k=>` 
-        <div class="${k.color} text-white p-3 sm:p-4 rounded-xl shadow-md flex items-center justify-between"> 
-          <div> 
-            <p class="text-xs sm:text-sm font-medium opacity-80">${k.title}</p> 
-            <p class="text-2xl sm:text-3xl font-bold">${k.value}</p> 
-          </div> 
-          <i data-lucide="${k.icon}" class="w-7 h-7 sm:w-8 sm:h-8 opacity-70"></i> 
-        </div>`).join('');
-      lucide.createIcons(); 
-    } 
-    
-    function updateView(view){ 
-      if (!currentUser) return openUserModal(); 
-      
-      if (isOperador() && view !== 'Operador'){ view = 'Operador'; } 
-      const isPCP = view === 'PCP';
-      const isReport = view === 'Relatorio'; 
-      pcpView.classList.toggle('hidden', !isPCP); 
-      operatorView.classList.toggle('hidden', (isPCP || isReport)); 
-      reportView.classList.toggle('hidden', !isReport); 
-      userViewSelect.value = view; 
-      btnCreateOF.classList.toggle('hidden', !isMaster());
-      btnSetupRoteiro.classList.toggle('hidden', !isMaster()); 
-      btnProfile.classList.remove('hidden'); 
-      userViewSelect.disabled = isOperador(); 
-      if (btnExportReport) btnExportReport.classList.toggle('hidden', !isMaster()); 
-      
-      if (isPCP){ 
-        renderKPIs(); 
-        renderOFs(); 
-        reloadActiveFilter();
-      } else if (view === 'Operador'){ 
-        renderTasks(); 
-      } else if (isReport){ 
-        renderReport(); 
-      } 
-      lucide.createIcons(); 
-    } 
-    window.updateView = updateView;
 
-    function renderReport(){ 
-      const body = document.getElementById('report-table-body'); 
-      if (allOcurrencesLog.length === 0){ 
-        body.innerHTML = `<tr><td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">Nenhuma ocorrência registrada.</td></tr>`;
-        return; 
-      } 
-      const html = allOcurrencesLog.map(log=>{ 
-        const atrasoClass = (log.TEMPO_ATRASO||0) > 0 ? 'highlight-red' : 'text-gray-600'; 
-        const pausaClass = (log.TEMPO_PAUSA||0) > 0 ? 'text-yellow-700 font-semibold' : 'text-gray-600'; 
-        return ` 
-          <tr> 
-            <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm font-medium text-gray-900">${log.OF}</td> 
-            <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm text-gray-600">${log.CHICOTE}</td> 
-            <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm text-gray-600">${log.ATIVIDADE}</td> 
-            <td class="px-3 sm:px-6 py-2 text-sm text-gray-700">${log.MOTIVO_PAUSA || '-'}</td> 
-            <td class="px-3 sm:px-6 py-2 text-sm text-gray-700">${log.MOTIVO_ATRASO || '-'}</td> 
-            <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm ${pausaClass}">${(log.TEMPO_PAUSA||0).toFixed(2)}</td> 
-            <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm ${atrasoClass}">${(log.TEMPO_ATRASO||0).toFixed(2)}</td> 
-          </tr>`; 
-      }).join('');
-      body.innerHTML = html; 
-    } 
-    
-    function renderOFs(){ 
-      if (!pcpView.classList.contains('hidden')) { 
-        const ofs = Object.values(allOFs).filter(of=> of.status !== 'Concluído');
-        const ofsHtml = ofs.map(of=>{ 
-          const tasks = Object.values(allTasks).filter(t=> t.id_of === of.id); 
-          const completed = tasks.filter(t=> t.status==='Concluído').length; 
-          const nextTask = tasks.find(t=> t.status === 'Em Espera'); 
-          let statusColor = 'bg-gray-100 border-gray-300'; 
-          let progress = 0; 
-          if (tasks.length>0){ 
-            progress = Math.floor((completed / tasks.length) * 100); 
-            if (progress > 0) statusColor = 'bg-blue-100 border-blue-400'; 
-            if (progress === 100) statusColor = 'bg-green-100 border-green-500'; 
-            if (tasks.some(t=> t.status === 'Em Processo')) statusColor = 'bg-indigo-100 border-indigo-400'; 
-            if (tasks.some(t=> calculateDesvio(t) < -10)) statusColor = 'bg-red-100 border-red-500'; 
-          } 
-          const nextActivity = nextTask ? `<p class="text-sm font-semibold mt-2">Próximo: ${nextTask.nome_atividade} (${nextTask.setor})</p>` : '';
-          return ` 
-            <div class="${statusColor} p-4 rounded-xl shadow-md border-2 hover:shadow-lg transition cursor-pointer" onclick="openOFDetails('${of.id}')"> 
-              <h3 class="text-xl font-bold text-gray-800 mb-1">${of.id}</h3> 
-              <p class="text-sm text-gray-600">Chicote: ${of.chicote}</p> 
-              <p class="text-sm text-gray-600">Qtd: ${of.quantidade} pçs</p> 
-              <div class="w-full bg-gray-300 rounded-full h-2 mt-3"> 
-                <div class="h-2 rounded-full bg-blue-600" style="width:${progress}%"></div> 
-              </div> 
-              <p class="text-sm font-semibold mt-1 text-gray-700">${progress}% Concluído</p> 
-              ${nextActivity} 
-            </div>`; 
-        }).join('');
-        ofsListContainer.innerHTML = ofsHtml; 
-        lucide.createIcons(); 
-      } 
-    } 
-    
-    // Função de Renderização de Tarefas (Operador) - COM FILTRO DE OF
-    function renderTasks(){ 
-      if (!operatorView.classList.contains('hidden')) { 
-        const container = document.getElementById('tasks-list-container');
-        
-        // Aplica todos os filtros
-        const tasks = Object.values(allTasks)
-          .filter(t => 
-            t.setor === currentSectorFilter && 
-            (t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada') &&
-            (currentSearchFilter === '' || t.id_of.toUpperCase().includes(currentSearchFilter)) 
-          )
-          .sort((a,b) => (a.status === 'Em Processo' ? -1 : 1) || a.ordem - b.ordem);
-          
-        if (tasks.length === 0){ 
-          container.innerHTML = `
-            <div class="p-6 bg-white rounded-xl shadow-md text-center text-gray-500">
-              Nenhuma tarefa ${currentSearchFilter ? `para a OF "${currentSearchFilter}"` : ''} encontrada para o setor ${currentSectorFilter}.
-            </div>`;
-          return; 
-        } 
-        
-        // ... (resto da lógica de renderização de cards) ...
-        const html = tasks.map(t=>{ 
-          let statusClass, statusText, actionButton, disableAction = false;
-          const tempoReal = calculateTempoReal(t);
-          const desvio = calculateDesvio(t);
-          const totalPause = calculateTotalPauseMinutes(t);
-          
-          if(t.status === 'Em Esperha') statusClass = 'bg-yellow-500';
-          else if(t.status === 'Em Processo') statusClass = 'bg-indigo-500';
-          else if(t.status === 'Pausada') statusClass = 'bg-red-500';
-          else if(t.status === 'Bloqueada') { statusClass = 'bg-gray-400'; disableAction = true; } 
-          else if(t.status === 'Concluído') statusClass = 'bg-green-500';
-          
-          if(t.status === 'Em Espera'){ 
-            statusText = 'Pronta para Iniciar';
-            actionButton = `<button class="w-full py-2 px-4 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition" onclick="prepareAction('${t.id}', 'start')">INICIAR</button>`;
-          }else if(t.status === 'Em Processo'){ 
-            statusText = 'Em Processo';
-            actionButton = `
-              <div class="flex gap-2">
-                <button class="w-1/2 py-2 px-4 bg-yellow-600 text-white rounded-lg font-semibold hover:bg-yellow-700 transition" onclick="prepareAction('${t.id}', 'pause')">PAUSAR</button>
-                <button class="w-1/2 py-2 px-4 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition" onclick="prepareAction('${t.id}', 'finish')">FINALIZAR</button>
-              </div>`;
-          }else if(t.status === 'Pausada'){ 
-            statusText = 'Pausada';
-            actionButton = `<button class="w-full py-2 px-4 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition" onclick="prepareAction('${t.id}', 'resume')">RETOMAR</button>`;
-          }else if(t.status === 'Bloqueada'){ 
-            statusText = 'Bloqueada (Aguardando setor anterior)';
-            actionButton = `<button class="w-full py-2 px-4 bg-gray-500 text-white rounded-lg font-semibold opacity-50 cursor-not-allowed">BLOQUEADA</button>`;
-          }
-          
-          let desvioClass = desvio < 0 ? 'highlight-red' : 'text-green-600';
-          if (t.status !== 'Em Processo' && t.status !== 'Pausada') desvioClass = 'text-gray-500';
+    function renderKPIs(){
+        const totalOFs = Object.keys(allOFs).length;
+        const totalTasks = Object.keys(allTasks).length;
+        const tasksCompleted = Object.values(allTasks).filter(t => t.status === 'Concluída').length;
+        const tasksInProgress = Object.values(allTasks).filter(t => t.status === 'Em Processo').length;
 
-          return `
-            <div class="bg-white rounded-xl shadow-lg border-l-8 ${statusClass.replace('bg-', 'border-')} card-tap-big space-y-3">
-              <div class="flex justify-between items-start">
-                <div>
-                  <h3 class="text-xl font-bold text-gray-800">${t.id_of} - ${t.nome_atividade}</h3>
-                  <p class="text-sm text-gray-600">Chicote: ${t.chicote_nome} | Ordem: ${t.ordem}</p>
-                  <p class="text-sm text-gray-600">Qtd: ${t.quantidade} pçs</p>
-                </div>
-                <div class="${statusClass} text-white text-xs font-semibold px-3 py-1 rounded-full shadow-md">${statusText}</div>
-              </div>
-              
-              <div class="grid grid-cols-2 gap-3 text-sm border-t pt-3">
-                <p class="text-gray-700">T. Planejado: <span class="font-semibold">${formatMinutes(t.tempo_planejado)}</span></p>
-                <p class="text-gray-700">T. Real Acumulado: <span class="font-semibold text-indigo-600">${formatMinutes(tempoReal)}</span></p>
-                <p class="text-gray-700">Desvio: <span class="font-bold ${desvioClass}">${desvio > 0 ? '+' : ''}${formatMinutes(desvio * -1)}</span></p>
-                <p class="text-gray-700">T. Pausado: <span class="font-semibold text-yellow-700">${formatMinutes(totalPause)}</span></p>
-              </div>
-
-              <div class="flex gap-2 pt-2">
-                  <button class="flex-1 py-2 px-3 bg-blue-100 text-blue-800 rounded-lg font-semibold hover:bg-blue-200 transition text-sm" onclick="openInstructionModal('${t.roteiro_id}')">
-                      <i data-lucide="book-open-text" class="w-4 h-4 inline-block mr-1"></i> Instrução
-                  </button>
-                  <div class="flex-1">
-                      ${actionButton}
-                  </div>
-              </div>
-            </div>`;
-        }).join('');
-
-        container.innerHTML = html;
+        let html = `
+            ${createKPICard('OFs Totais', totalOFs, 'bar-chart-2', 'bg-blue-500')}
+            ${createKPICard('Tarefas Totais', totalTasks, 'clipboard-list', 'bg-indigo-500')}
+            ${createKPICard('Tarefas em Andamento', tasksInProgress, 'loader', 'bg-yellow-500')}
+            ${createKPICard('Tarefas Concluídas', tasksCompleted, 'check-square', 'bg-green-500')}
+        `;
+        document.getElementById('kpis-container').innerHTML = html;
         lucide.createIcons();
-      }
+    }
+
+    function createKPICard(title, value, icon, colorClass){
+        return `
+            <div class="bg-white p-4 rounded-xl shadow-lg flex items-center justify-between transition hover:shadow-xl">
+                <div>
+                    <p class="text-sm font-semibold text-gray-500">${title}</p>
+                    <p class="text-2xl font-bold text-gray-800">${value}</p>
+                </div>
+                <div class="${colorClass} p-3 rounded-full text-white">
+                    <i data-lucide="${icon}" class="w-6 h-6"></i>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderOFs(){
+        ofsListContainer.innerHTML = Object.values(allOFs).map(of => createOFCardHTML(of)).join('');
+        lucide.createIcons();
+    }
+
+    function createOFCardHTML(of){
+        const totalTasks = of.tasks.length;
+        const completedTasks = of.tasks.filter(t => allTasks[t] && allTasks[t].status === 'Concluída').length;
+        const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+        const status = completedTasks === totalTasks ? 'Concluída' : (completedTasks > 0 ? 'Em Andamento' : 'Pendente');
+        let statusColor = status === 'Concluída' ? 'bg-green-500' : (status === 'Em Andamento' ? 'bg-yellow-500' : 'bg-gray-500');
+
+        return `
+            <div class="bg-white rounded-xl shadow-lg p-5 border-t-4 border-blue-600 transition hover:shadow-xl cursor-pointer" onclick="openOFDetails('${of.id}')">
+                <div class="flex justify-between items-start mb-3">
+                    <h3 class="text-xl font-bold text-gray-800">${of.id}</h3>
+                    <span class="text-xs font-semibold px-2 py-1 rounded-full text-white ${statusColor}">${status}</span>
+                </div>
+                <p class="text-sm text-gray-600 mb-3">Chicote: <strong>${of.chicote_id}</strong> | Qtd: <strong>${of.quantidade} pçs</strong></p>
+                
+                <div class="w-full bg-gray-200 rounded-full h-2 mb-2">
+                    <div class="h-2 rounded-full bg-blue-500" style="width:${progress.toFixed(0)}%"></div>
+                </div>
+                <p class="text-xs text-gray-500 text-right">${completedTasks} de ${totalTasks} etapas (${progress.toFixed(0)}%)</p>
+            </div>
+        `;
+    }
+
+    function openOFDetails(ofId){
+        const of = allOFs[ofId];
+        if (!of) return;
+
+        window.__ofDetailsOpenId = ofId; // Salva o ID para uso em outras funções do modal
+
+        const totalTasks = of.tasks.length;
+        const tasks = of.tasks.map(taskId => allTasks[taskId]).filter(t => t);
+        const completedTasks = tasks.filter(t => t.status === 'Concluída').length;
+        const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+        document.getElementById('of-details-title').textContent = `Detalhes da OF: ${of.id}`;
+        document.getElementById('of-details-progress').style.width = `${progress.toFixed(0)}%`;
+
+        let summaryHTML = formatOFSummary(of, tasks);
+        document.getElementById('of-details-summary').innerHTML = summaryHTML;
+
+        let contentHTML = tasks.map(task => formatTaskDetail(task, of.quantidade)).join('');
+        document.getElementById('of-details-content').innerHTML = contentHTML;
+
+        // Exibe o botão de exclusão apenas para Master e se a OF não estiver em andamento/concluída
+        const isMasterUser = isMaster();
+        const isInProgress = tasks.some(t => t.status === 'Em Processo');
+        const isCompleted = completedTasks === totalTasks;
+
+        if (isMasterUser && !isInProgress && !isCompleted){
+            btnDeleteOF.classList.remove('hidden');
+        } else {
+            btnDeleteOF.classList.add('hidden');
+        }
+
+        openModal('of-details-modal');
+        lucide.createIcons();
+    }
+
+    function formatOFSummary(of, tasks){
+        const totalSetup = tasks.reduce((sum, t) => sum + (t.roteiro_tempo_setup || 0), 0);
+        const totalCycle = tasks.reduce((sum, t) => sum + (t.roteiro_tempo_ciclo || 0), 0);
+        const totalPlanejado = totalSetup + (totalCycle * of.quantidade);
+
+        const totalReal = tasks.reduce((sum, t) => sum + calculateTempoReal(t), 0);
+        const totalDesvio = totalPlanejado - totalReal;
+        const totalPause = tasks.reduce((sum, t) => sum + calculateTotalPauseMinutes(t), 0);
+
+        return `
+            ${createSummaryItem('Qtd Peças', of.quantidade)}
+            ${createSummaryItem('T. Planejado', formatMinutes(totalPlanejado))}
+            ${createSummaryItem('T. Real', formatMinutes(totalReal))}
+            ${createSummaryItem('Desvio', formatMinutes(totalDesvio), totalDesvio < -10 ? 'highlight-red' : '')}
+            ${createSummaryItem('T. Pausa', formatMinutes(totalPause))}
+            ${createSummaryItem('Chicote', of.chicote_id)}
+            ${createSummaryItem('Criação', new Date(getDBTimestamp(of.timestamp_criacao)).toLocaleDateString())}
+            ${createSummaryItem('Status', of.tasks.length === tasks.filter(t => t.status === 'Concluída').length ? 'Finalizada' : 'Em Andamento')}
+        `;
+    }
+
+    function createSummaryItem(title, value, customClass=''){
+        return `
+            <div class="bg-gray-50 p-3 rounded-lg border">
+                <p class="text-xs font-semibold text-gray-500">${title}</p>
+                <p class="text-sm font-bold text-gray-800 ${customClass}">${value}</p>
+            </div>
+        `;
+    }
+
+    function formatTaskDetail(task, quantidade){
+        const tempoPlanejado = (task.roteiro_tempo_setup || 0) + (task.roteiro_tempo_ciclo || 0) * quantidade;
+        const tempoReal = calculateTempoReal(task);
+        const desvio = tempoPlanejado - tempoReal;
+        const desvioCor = desvio < -5 ? 'text-red-600 font-bold' : (desvio < 0 ? 'text-yellow-600' : 'text-green-600');
+        const totalPause = calculateTotalPauseMinutes(task);
+
+        let statusCor = 'bg-gray-200';
+        let statusTexto = task.status;
+        if (task.status === 'Em Processo') { statusCor = 'bg-blue-200'; statusTexto = 'Em Processo...'; }
+        if (task.status === 'Concluída') { statusCor = 'bg-green-200'; statusTexto = 'Concluída'; }
+        if (task.status === 'Pausada') { statusCor = 'bg-yellow-200'; statusTexto = 'Pausada'; }
+        if (task.status === 'Em Espera') { statusCor = 'bg-gray-200'; statusTexto = 'Aguardando'; }
+
+
+        let pauseLogHTML = '';
+        if (task.pause_log && task.pause_log.length > 0){
+            pauseLogHTML = task.pause_log.map(log => {
+                const motive = log.motivo_pausa || log.motivo_atraso || 'Motivo não especificado';
+                const type = log.motivo_pausa ? 'PAUSA' : 'ATRASO';
+                const time = log.tempo_pausa_min || log.tempo_atraso_min;
+                return `
+                    <li class="text-xs text-gray-600 pl-4 border-l-2 border-dashed border-red-300">
+                        <strong>[${type}] ${formatMinutes(time)}:</strong> ${motive}
+                        ${log.detalhes ? `(Detalhes: ${log.detalhes})` : ''}
+                    </li>
+                `;
+            }).join('');
+            pauseLogHTML = `<ul class="mt-2 space-y-1">${pauseLogHTML}</ul>`;
+        }
+
+        return `
+            <div class="bg-white p-4 rounded-lg shadow-md border ${statusCor}">
+                <div class="flex justify-between items-center">
+                    <h5 class="text-base font-bold text-gray-800">${task.roteiro_activity_name}</h5>
+                    <span class="text-xs font-semibold px-2 py-1 rounded-full ${statusCor.replace('200','500').replace('gray','blue')} text-white">${statusTexto}</span>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">Setor: <strong>${task.setor}</strong> | Seq: <strong>${task.sequencia}</strong></p>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs mt-2 border-t pt-2">
+                    <div>
+                        <p class="text-gray-500">Planejado (min)</p>
+                        <p class="font-semibold">${formatMinutes(tempoPlanejado)}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Real (min)</p>
+                        <p class="font-semibold">${formatMinutes(tempoReal)}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Desvio (min)</p>
+                        <p class="font-semibold ${desvioCor}">${formatMinutes(desvio)}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Pausa Total (min)</p>
+                        <p class="font-semibold">${formatMinutes(totalPause)}</p>
+                    </div>
+                </div>
+                ${pauseLogHTML}
+                <button onclick="openInstructionModal('${task.id}')" class="text-blue-600 text-xs mt-2 hover:underline">
+                    Ver Instrução de Trabalho
+                </button>
+            </div>
+        `;
     }
 
     // ==========================
-    //  ROTEIRO MASTER (RE-ADICIONADO)
+    //  RENDERIZAÇÃO DE TASKS (OPERADOR)
     // ==========================
-    function renderRoteiros(){
-        const container = document.getElementById('roteiro-list');
-        const chicotes = Object.values(allRoteiros).reduce((acc, r) => {
-            if (!acc[r.chicote_nome]) acc[r.chicote_nome] = [];
-            acc[r.chicote_nome].push(r);
-            return acc;
-        }, {});
+    function renderTasks(){
+        if (!isOperador() && !isMaster()) return; // Requer pelo menos Master para ver a tela
 
-        if (Object.keys(chicotes).length === 0){
-            container.innerHTML = '<p class="text-gray-500 text-center p-4">Nenhum roteiro mestre cadastrado.</p>';
+        const tasksToRender = Object.values(allTasks).filter(task => {
+            // Filtro 1: Apenas tasks para o setor atual
+            if (task.setor !== currentSectorFilter) return false;
+
+            // NOVO FILTRO DE OF: pesquisa por OF_ID
+            if (currentOFCFilter && !task.of_id.toUpperCase().includes(currentOFCFilter)) return false;
+            // FIM NOVO FILTRO
+
+            // Filtro 2: Apenas tasks não finalizadas ou que acabaram de finalizar
+            // Permite ver tarefas concluídas por 5 minutos
+            if (task.status === 'Concluída' && Date.now() - getDBTimestamp(task.timestamp_fim) > (5*60*1000)) return false;
+
+            return true;
+        }).sort((a,b) => {
+            // Prioriza "Em Processo" no topo
+            if (a.status === 'Em Processo' && b.status !== 'Em Processo') return -1;
+            if (a.status !== 'Em Processo' && b.status === 'Em Processo') return 1;
+            // Depois, tarefas com maior desvio (negativo)
+            return calculateDesvio(a) - calculateDesvio(b);
+        });
+
+        tasksListContainer.innerHTML = tasksToRender.map(task => createTaskCardHTML(task)).join('');
+        lucide.createIcons();
+    }
+
+    function createTaskCardHTML(task){
+        const of = allOFs[task.of_id] || { quantidade: 0, chicote_id: 'N/A' };
+        const tempoPlanejado = (task.roteiro_tempo_setup || 0) + (task.roteiro_tempo_ciclo || 0) * of.quantidade;
+        const tempoReal = calculateTempoReal(task);
+        const desvio = calculateDesvio(task);
+        const totalPause = calculateTotalPauseMinutes(task);
+        const desvioCor = desvio < -5 ? 'text-red-600 font-bold' : (desvio < 0 ? 'text-yellow-600' : 'text-green-600');
+
+        let statusClass = 'bg-gray-100 text-gray-700 border-gray-300';
+        let actionButtonHTML = '';
+
+        if (task.status === 'Em Processo') {
+            statusClass = 'bg-blue-50 border-blue-500 shadow-md';
+            actionButtonHTML = `
+                <button onclick="pauseTask('${task.id}')" class="flex-1 px-3 py-2 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 transition">
+                    <i data-lucide="pause" class="w-5 h-5 inline-block mr-1"></i> Pausar
+                </button>
+                <button onclick="finishTask('${task.id}')" class="flex-1 px-3 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition">
+                    <i data-lucide="check" class="w-5 h-5 inline-block mr-1"></i> Finalizar
+                </button>
+            `;
+        } else if (task.status === 'Pausada') {
+            statusClass = 'bg-yellow-50 border-yellow-500 shadow-md';
+            actionButtonHTML = `
+                <button onclick="startTask('${task.id}')" class="flex-1 px-3 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">
+                    <i data-lucide="play" class="w-5 h-5 inline-block mr-1"></i> Continuar
+                </button>
+            `;
+        } else if (task.status === 'Em Espera') {
+            statusClass = 'bg-gray-100 border-gray-300';
+            actionButtonHTML = `
+                <button onclick="startTask('${task.id}')" class="w-full px-3 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition">
+                    <i data-lucide="play" class="w-5 h-5 inline-block mr-1"></i> Iniciar
+                </button>
+            `;
+        } else if (task.status === 'Concluída') {
+            statusClass = 'bg-green-100 border-green-500 opacity-80';
+            actionButtonHTML = `
+                <p class="text-green-700 text-sm font-bold flex items-center justify-center">
+                    <i data-lucide="check-circle" class="w-5 h-5 mr-2"></i> Concluída às ${new Date(getDBTimestamp(task.timestamp_fim)).toLocaleTimeString()}
+                </p>
+            `;
+        }
+
+        return `
+            <div class="bg-white rounded-xl shadow-lg p-4 border-l-4 ${statusClass} card-tap-big">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800">${task.roteiro_activity_name} (${task.of_id})</h3>
+                        <p class="text-sm text-gray-600 mb-2">Chicote: ${of.chicote_id} | Qtd: ${of.quantidade} pçs</p>
+                    </div>
+                    <span class="text-xs font-semibold px-2 py-1 rounded-full bg-blue-600 text-white">${task.sequencia}ª Etapa</span>
+                </div>
+                
+                <button onclick="openInstructionModal('${task.id}')" class="text-blue-600 text-xs hover:underline mb-3 block">
+                    <i data-lucide="book-open-text" class="w-4 h-4 inline-block mr-1"></i> Ver Instrução de Trabalho
+                </button>
+
+                <div class="grid grid-cols-2 gap-3 text-sm border-t pt-3 mb-4">
+                    <div>
+                        <p class="text-gray-500">T. Planejado</p>
+                        <p class="font-semibold">${formatMinutes(tempoPlanejado)}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">T. Real</p>
+                        <p class="font-semibold">${formatMinutes(tempoReal)}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Desvio</p>
+                        <p class="font-semibold ${desvioCor}">${formatMinutes(desvio)}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-500">Pausa Total</p>
+                        <p class="font-semibold">${formatMinutes(totalPause)}</p>
+                    </div>
+                </div>
+                
+                <div class="flex gap-2 sticky-footer">
+                    ${actionButtonHTML}
+                </div>
+            </div>
+        `;
+    }
+
+    function startTask(taskId){
+        const task = allTasks[taskId];
+        if (!task || (task.status !== 'Em Espera' && task.status !== 'Pausada')) return;
+        
+        const updates = {};
+        if (task.status === 'Em Espera'){
+            updates.status = 'Em Processo';
+            updates.timestamp_inicio = window.db ? firebase.firestore.Timestamp.now() : new Date();
+        } else if (task.status === 'Pausada'){
+            updates.status = 'Em Processo';
+            // Calcula o tempo total de pausa e adiciona
+            const pauseTimeMs = Date.now() - getDBTimestamp(task.pause_start_timestamp);
+            updates.total_pause_time_ms = (task.total_pause_time_ms || 0) + pauseTimeMs;
+            updates.pause_start_timestamp = window.db ? firebase.firestore.FieldValue.delete() : null; // Remove o timestamp de pausa
+            
+            // Loga a pausa no histórico
+            if (task.current_pause_log){
+                const pauseLog = task.current_pause_log;
+                pauseLog.tempo_pausa_min = msToMinutes(pauseTimeMs);
+                updates.pause_log = [...(task.pause_log || []), pauseLog];
+                updates.current_pause_log = window.db ? firebase.firestore.FieldValue.delete() : null;
+            }
+        }
+        
+        updateTaskInDB(taskId, updates);
+    }
+
+    function pauseTask(taskId){
+        const task = allTasks[taskId];
+        if (!task || task.status !== 'Em Processo') return;
+        
+        // 1. Calcula o tempo real acumulado
+        const tempoTrabalhadoDesdeInicio = Date.now() - getDBTimestamp(task.timestamp_inicio);
+        const tempoTrabalhadoMin = msToMinutes(tempoTrabalhadoDesdeInicio);
+
+        // 2. Acumula o tempo real e reseta o timestamp de início
+        const updates = {
+            tempo_real_acumulado: (task.tempo_real_acumulado || 0) + tempoTrabalhadoMin,
+            timestamp_inicio: window.db ? firebase.firestore.FieldValue.delete() : null, // Remove o timestamp de início
+            status: 'Pausada',
+            pause_start_timestamp: window.db ? firebase.firestore.Timestamp.now() : new Date(),
+        };
+
+        // 3. Abre o modal para justificar a pausa
+        openJustificationModal(taskId, 'pause', updates);
+    }
+
+    function finishTask(taskId){
+        const task = allTasks[taskId];
+        if (!task || task.status !== 'Em Processo') return;
+
+        // 1. Calcula o tempo real acumulado (tempo total)
+        const tempoTrabalhadoDesdeInicio = Date.now() - getDBTimestamp(task.timestamp_inicio);
+        const tempoTotalMin = (task.tempo_real_acumulado || 0) + msToMinutes(tempoTrabalhadoDesdeInicio);
+        
+        // 2. Calcula o desvio final
+        const of = allOFs[task.of_id];
+        const tempoPlanejado = (task.roteiro_tempo_setup || 0) + (task.roteiro_tempo_ciclo || 0) * (of?.quantidade || 0);
+        const desvio = tempoPlanejado - tempoTotalMin; // Desvio negativo = Atraso
+
+        const updates = {
+            tempo_real_acumulado: tempoTotalMin,
+            timestamp_inicio: window.db ? firebase.firestore.FieldValue.delete() : null,
+            timestamp_fim: window.db ? firebase.firestore.Timestamp.now() : new Date(),
+            status: 'Concluída',
+        };
+
+        // 3. Verifica se houve atraso significativo (Desvio < -10 minutos)
+        if (desvio < -10){
+            // Se houve atraso, força a justificar
+            openJustificationModal(taskId, 'delay', updates, desvio);
+        } else {
+            // Se não houve atraso, finaliza a tarefa
+            updateTaskInDB(taskId, updates);
+            unlockNextTask(task);
+        }
+    }
+    
+    // Função que destrava a próxima tarefa no roteiro
+    function unlockNextTask(currentTask){
+        const of = allOFs[currentTask.of_id];
+        if (!of) return;
+
+        const nextSequence = currentTask.sequencia + 1;
+        
+        // Busca a próxima tarefa da OF que tenha a sequência correta
+        const nextTask = Object.values(allTasks).find(t => 
+            t.of_id === currentTask.of_id && t.sequencia === nextSequence
+        );
+
+        if (nextTask){
+             // IMPORTANTE: Se a tarefa é destravada, o status volta a ser 'Em Espera', removendo o bloqueio.
+            updateTaskInDB(nextTask.id, {
+                status: 'Em Espera'
+            });
+        }
+    }
+
+
+    // ==========================
+    //  MODAL DE AÇÃO (PAUSA / ATRASO)
+    // ==========================
+    function openJustificationModal(taskId, type, updates, desvio = 0){
+        currentAction = { taskId, type, updates };
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+        const justificationSelect = document.getElementById('justification-select');
+        const justificationText = document.getElementById('justification-text');
+        const requiredText = document.getElementById('justification-required-text');
+
+        justificationSelect.innerHTML = '';
+        justificationText.value = '';
+        requiredText.classList.add('hidden');
+        
+        if (type === 'pause'){
+            modalTitle.textContent = 'Justificar Pausa de Tarefa';
+            modalMessage.textContent = 'Selecione o motivo pelo qual você está pausando a atividade.';
+            PAUSE_REASONS.forEach(reason => {
+                const opt = document.createElement('option');
+                opt.value = reason;
+                opt.textContent = reason;
+                justificationSelect.appendChild(opt);
+            });
+            justificationText.placeholder = 'Detalhes da pausa (Ex: "A máquina 3 precisa de óleo").';
+        } else if (type === 'delay'){
+            modalTitle.textContent = 'Justificar Atraso (> 10 min)';
+            modalMessage.innerHTML = `Esta tarefa resultou em um atraso de <strong>${formatMinutes(Math.abs(desvio))}</strong>. Selecione o motivo principal.`;
+            DELAY_REASONS.forEach(reason => {
+                const opt = document.createElement('option');
+                opt.value = reason;
+                opt.textContent = reason;
+                justificationSelect.appendChild(opt);
+            });
+            justificationText.placeholder = 'Detalhes do atraso (Ex: "Peças da etapa anterior vieram com rebarba").';
+            requiredText.classList.remove('hidden');
+        }
+        
+        openModal('action-modal');
+    }
+
+    function handleConfirmedAction(){
+        const { taskId, type, updates } = currentAction;
+        const justificationSelect = document.getElementById('justification-select');
+        const justificationText = document.getElementById('justification-text').value;
+        const selectedReason = justificationSelect.value;
+        const task = allTasks[taskId];
+        
+        if (type === 'delay' && !selectedReason){
+            alert('Por favor, selecione um motivo para o atraso (campo obrigatório).');
             return;
         }
 
-        let html = '';
-        for (const [chicote, roteiros] of Object.entries(chicotes)) {
-            // Ordena por ID para manter a ordem de cadastro (Ex: CHICOTE-A-1, CHICOTE-A-2)
-            roteiros.sort((a, b) => a.id.localeCompare(b.id));
+        const log = {
+            timestamp: window.db ? firebase.firestore.Timestamp.now() : new Date(),
+            operador: currentUser.name || 'Operador',
+            setor: currentUser.sector || task.setor,
+            detalhes: justificationText,
+        };
 
-            const stepsHtml = roteiros.map(r => `
-                <div class="flex justify-between items-center bg-white p-3 border-l-4 border-indigo-400 rounded-md shadow-sm">
-                    <div class="text-sm">
-                        <p class="font-semibold">${r.nome_atividade} (${r.setor})</p>
-                        <p class="text-xs text-gray-500">Setup: ${r.tempo_setup} min | Ciclo: ${r.tempo_ciclo} min/pç</p>
-                    </div>
-                    <button onclick="deleteRoteiro('${r.id}')" class="p-1 text-red-600 hover:text-red-800 transition">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    </button>
-                </div>
-            `).join('');
+        if (type === 'pause'){
+            log.motivo_pausa = selectedReason;
+            updates.current_pause_log = log; // Salva o log temporariamente
+            
+            // O log será finalizado em startTask()
+            updateTaskInDB(taskId, updates);
+            closeModal('action-modal');
 
-            html += `
-                <div class="mb-4 p-3 bg-white rounded-lg shadow-md border">
-                    <h5 class="text-lg font-bold text-gray-800 mb-2 border-b pb-1">${chicote} (${roteiros.length} Etapas)</h5>
-                    <div class="space-y-2">${stepsHtml}</div>
-                </div>
-            `;
+        } else if (type === 'delay'){
+            log.motivo_atraso = selectedReason;
+            log.tempo_atraso_min = Math.abs(calculateDesvio(task));
+
+            // Adiciona o log de atraso ao histórico de pausas
+            updates.pause_log = [...(task.pause_log || []), log];
+            
+            // Finaliza a tarefa
+            updateTaskInDB(taskId, updates);
+            unlockNextTask(task);
+            closeModal('action-modal');
         }
-        container.innerHTML = html;
+        
+        // Loga a ocorrência no relatório geral (coleção 'ocorrencias')
+        logOcorrencia(task, log, type);
+    }
+
+    function logOcorrencia(task, log, type){
+        const of = allOFs[task.of_id];
+        if (!of) return;
+
+        const ocorrenciaData = {
+            of_id: task.of_id,
+            chicote_id: of.chicote_id,
+            atividade: task.roteiro_activity_name,
+            sequencia: task.sequencia,
+            setor: task.setor,
+            timestamp: log.timestamp,
+            operador: log.operador,
+            detalhes: log.detalhes,
+            motivo_pausa: type === 'pause' ? log.motivo_pausa : null,
+            tempo_pausa_min: type === 'pause' ? (log.tempo_pausa_min || 0) : 0, // Será atualizado em startTask()
+            motivo_atraso: type === 'delay' ? log.motivo_atraso : null,
+            tempo_atraso_min: type === 'delay' ? log.tempo_atraso_min : 0,
+            tipo: type, // pause ou delay
+        };
+
+        if (window.db){
+            window.db.collection(OCORRENCIA_COLLECTION).add(ocorrenciaData);
+        } else {
+            // Simulação
+            ocorrenciaData.id = `o${allOcurrencesLog.length + 1}`;
+            allOcurrencesLog.push(ocorrenciaData);
+            saveState();
+        }
+    }
+
+
+    // ==========================
+    //  CRUD DE OF (PCP)
+    // ==========================
+    function createOF(ofId = null, quantity = null, chicoteName = null, isSimulated = false){
+        const id = ofId || document.getElementById('of-id').value.toUpperCase().trim();
+        const quantidade = parseInt(quantity || document.getElementById('of-quantity').value);
+        const chicote_id = chicoteName || document.getElementById('of-chicote').value;
+        const messageEl = document.getElementById('of-creation-message');
+        
+        messageEl.classList.add('hidden');
+
+        if (!id || isNaN(quantidade) || quantidade <= 0 || !chicote_id){
+            messageEl.textContent = '🚨 Preencha todos os campos corretamente (Qtd > 0).';
+            messageEl.classList.remove('hidden');
+            return;
+        }
+        if (allOFs[id]){
+            messageEl.textContent = `🚨 A OF ${id} já existe.`;
+            messageEl.classList.remove('hidden');
+            return;
+        }
+
+        // 1. Obter roteiro completo
+        const roteiroCompleto = Object.values(allRoteiros).filter(r => r.chicote_nome === chicote_id)
+                                    .sort((a, b) => a.id.localeCompare(b.id)); // Ordena para garantir sequência
+
+        if (roteiroCompleto.length === 0){
+            messageEl.textContent = '🚨 O roteiro selecionado não possui etapas cadastradas.';
+            messageEl.classList.remove('hidden');
+            return;
+        }
+
+        const taskIds = [];
+        const ofData = {
+            id,
+            chicote_id,
+            quantidade,
+            tasks: taskIds,
+            timestamp_criacao: window.db ? firebase.firestore.Timestamp.now() : new Date(),
+        };
+
+        // 2. Criar as tarefas baseadas no roteiro
+        roteiroCompleto.forEach((roteiro, index) => {
+            const taskId = `${id}-${index + 1}`;
+            const isFirstTask = index === 0;
+
+            const taskData = {
+                id: taskId,
+                of_id: id,
+                sequencia: index + 1,
+                setor: roteiro.setor,
+                roteiro_chicote_name: roteiro.chicote_nome,
+                roteiro_activity_name: roteiro.nome_atividade,
+                roteiro_tempo_setup: roteiro.tempo_setup,
+                roteiro_tempo_ciclo: roteiro.tempo_ciclo,
+                roteiro_instruction_text: roteiro.instrucao_trabalho,
+                tempo_real_acumulado: 0,
+                total_pause_time_ms: 0,
+                // Status inicial: 'Em Espera' para a primeira tarefa, 'Bloqueada' para as demais.
+                // CORREÇÃO: Mantenha sempre 'Em Espera'. O operador só verá as tarefas do setor dele, e o sistema 
+                // não deve bloquear no início. A regra de sequenciamento é visual e de notificação.
+                status: 'Em Espera', // Inicialmente todas em espera, o operador só inicia a sua vez.
+                timestamp_criacao: ofData.timestamp_criacao,
+            };
+            
+            taskIds.push(taskId);
+
+            if (window.db){
+                window.db.collection(TASK_COLLECTION).doc(taskId).set(taskData);
+            } else {
+                // Simulação
+                allTasks[taskId] = taskData;
+                taskCounter++;
+            }
+        });
+
+        // 3. Salvar a OF
+        if (window.db){
+            window.db.collection(OF_COLLECTION).doc(id).set(ofData);
+        } else {
+            // Simulação
+            allOFs[id] = ofData;
+        }
+
+        if (!isSimulated){
+            saveState();
+            closeModal('create-of-modal');
+            renderOFs();
+        }
+        return ofData;
+    }
+
+    function deleteOF(ofId){
+        if (!isMaster() || !ofId) return;
+        if (!confirm(`Tem certeza que deseja EXCLUIR a OF ${ofId} e TODAS as suas tarefas? Esta ação é IRREVERSÍVEL!`)) return;
+
+        const of = allOFs[ofId];
+        if (!of) return;
+
+        // Deleta as tarefas
+        of.tasks.forEach(taskId => {
+            if (window.db){
+                window.db.collection(TASK_COLLECTION).doc(taskId).delete();
+            } else {
+                delete allTasks[taskId];
+            }
+        });
+
+        // Deleta a OF
+        if (window.db){
+            window.db.collection(OF_COLLECTION).doc(ofId).delete();
+        } else {
+            delete allOFs[ofId];
+        }
+
+        saveState();
+        closeModal('of-details-modal');
+        renderOFs();
+        alert(`OF ${ofId} e suas tarefas excluídas com sucesso.`);
+    }
+
+    // ==========================
+    //  CRUD DE ROTEIROS (PCP)
+    // ==========================
+    function renderRoteiros(){
+        const roteiroListEl = document.getElementById('roteiro-list');
+        roteiroListEl.innerHTML = '';
+        
+        const roteirosAgrupados = Object.values(allRoteiros).reduce((acc, r) => {
+            acc[r.chicote_nome] = acc[r.chicote_nome] || [];
+            acc[r.chicote_nome].push(r);
+            return acc;
+        }, {});
+        
+        Object.keys(roteirosAgrupados).sort().forEach(chicoteName => {
+            const roteiros = roteirosAgrupados[chicoteName].sort((a,b) => a.id.localeCompare(b.id));
+            
+            let html = `<div class="p-3 bg-white rounded-lg shadow border-l-4 border-indigo-400 mb-3">
+                            <h5 class="text-base font-bold text-gray-800 mb-2">Modelo: ${chicoteName}</h5>
+                            <ul class="space-y-1 text-sm">`;
+            
+            roteiros.forEach(r => {
+                html += `
+                    <li class="flex justify-between items-center text-gray-700 border-t pt-1">
+                        <span>
+                            <strong class="text-indigo-600">Seq ${r.id.replace('r','')} - </strong>
+                            ${r.nome_atividade} (${r.setor})
+                            <span class="text-xs text-gray-500 ml-2">Setup: ${r.tempo_setup}m | Ciclo: ${r.tempo_ciclo}m/pç</span>
+                        </span>
+                        <button onclick="deleteRoteiroActivity('${r.id}')" class="text-red-500 hover:text-red-700 ml-4">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </li>
+                `;
+            });
+            
+            html += `</ul></div>`;
+            roteiroListEl.innerHTML += html;
+        });
+        
+        if (Object.keys(roteirosAgrupados).length === 0){
+             roteiroListEl.innerHTML = `<p class="text-center text-gray-500 py-4">Nenhum roteiro mestre cadastrado.</p>`;
+        }
+
         lucide.createIcons();
     }
-    window.renderRoteiros = renderRoteiros;
 
-    async function addRoteiroActivity(){
-        const chicoteName = document.getElementById('roteiro-chicote-name').value.trim().toUpperCase();
+
+    // CORRIGIDO: O botão de adicionar etapa foi restaurado.
+    function addRoteiroActivity(){
+        const chicoteName = document.getElementById('roteiro-chicote-name').value.toUpperCase().trim();
         const setor = document.getElementById('roteiro-setor').value;
         const activityName = document.getElementById('roteiro-activity-name').value.trim();
         const setupTime = parseFloat(document.getElementById('roteiro-setup-time').value);
         const cycleTime = parseFloat(document.getElementById('roteiro-cycle-time').value);
         const instructionText = document.getElementById('roteiro-instruction-text').value.trim();
-        const msgElement = document.getElementById('roteiro-message');
+        const messageEl = document.getElementById('roteiro-message');
 
-        if (!chicoteName || !setor || !activityName || isNaN(setupTime) || isNaN(cycleTime)){
-            msgElement.textContent = "Preencha todos os campos obrigatórios (Nome do Chicote, Setor, Atividade, Tempos).";
+        messageEl.textContent = '';
+
+        if (!chicoteName || !setor || !activityName || isNaN(setupTime) || isNaN(cycleTime) || !instructionText) {
+            messageEl.textContent = '🚨 Preencha todos os campos e use números válidos para Tempo de Setup e Ciclo.';
             return;
         }
-        msgElement.textContent = ""; // Limpa a mensagem
 
-        // Determinar o ID do novo roteiro (baseado no chicote)
-        const existingRoteiros = Object.values(allRoteiros).filter(r => r.chicote_nome === chicoteName);
-        let nextRoteiroNumber = 1;
-        if (existingRoteiros.length > 0) {
-            // Encontra o próximo número sequencial
-            const maxRoteiroNumber = existingRoteiros
-                .map(r => parseInt(r.id.match(/-(\d+)$/)?.[1] || r.id.match(/(\d+)$/)?.[1] || 0))
-                .reduce((a, b) => Math.max(a, b), 0);
-            nextRoteiroNumber = maxRoteiroNumber + 1;
-        }
-        // Usa o formato CHICOTE-NOME-1, CHICOTE-NOME-2, etc.
-        const roteiroId = `${chicoteName}-${nextRoteiroNumber}`;
-        
-        const newRoteiro = {
+        // Incrementa o contador e usa para gerar um ID
+        roteiroCounter++;
+        const roteiroId = `r${roteiroCounter}`;
+
+        const roteiroData = {
             id: roteiroId,
             chicote_nome: chicoteName,
             setor: setor,
             nome_atividade: activityName,
             tempo_setup: setupTime,
             tempo_ciclo: cycleTime,
-            instrucao_trabalho: instructionText,
+            instrucao_trabalho: instructionText
         };
 
-        if (!db) {
-            // Modo Local
-            allRoteiros[newRoteiro.id] = newRoteiro;
+        if (window.db){
+            window.db.collection(ROTEIRO_COLLECTION).doc(roteiroId).set(roteiroData).then(() => {
+                renderRoteiros();
+                loadRoteiroDropdowns();
+                messageEl.textContent = '✅ Etapa de roteiro adicionada com sucesso!';
+            });
+        } else {
+            // Simulação
+            allRoteiros[roteiroId] = roteiroData;
             saveState();
             renderRoteiros();
-            // Limpar campos
-            document.getElementById('roteiro-activity-name').value = '';
-            document.getElementById('roteiro-setup-time').value = '';
-            document.getElementById('roteiro-cycle-time').value = '';
-            document.getElementById('roteiro-instruction-text').value = '';
-            msgElement.textContent = `Etapa ${activityName} adicionada com sucesso ao chicote ${chicoteName} (Local).`;
-        } else {
-            // Modo Firebase
-            const roteiroRef = db.collection(ROTEIRO_COLLECTION).doc(newRoteiro.id);
-            try {
-                await roteiroRef.set(newRoteiro);
-                await loadData(); // Recarrega os roteiros
-                renderRoteiros();
-                setupSectorDropdowns(); // Atualiza a lista de chicotes na Criação de OF
-                // Limpar campos
-                document.getElementById('roteiro-activity-name').value = '';
-                document.getElementById('roteiro-setup-time').value = '';
-                document.getElementById('roteiro-cycle-time').value = '';
-                document.getElementById('roteiro-instruction-text').value = '';
-                msgElement.textContent = `Etapa ${activityName} adicionada com sucesso ao chicote ${chicoteName} (Firebase).`;
-            } catch (error) {
-                console.error("Erro ao adicionar roteiro no Firebase:", error);
-                msgElement.textContent = `Erro ao salvar no Firebase: ${error.message}`;
-            }
+            loadRoteiroDropdowns();
+            messageEl.textContent = '✅ Etapa de roteiro adicionada com sucesso!';
         }
+
+        // Limpa os campos da nova etapa
+        document.getElementById('roteiro-activity-name').value = '';
+        document.getElementById('roteiro-setup-time').value = '';
+        document.getElementById('roteiro-cycle-time').value = '';
+        document.getElementById('roteiro-instruction-text').value = '';
     }
-    window.addRoteiroActivity = addRoteiroActivity; // TORNA GLOBAL
+    // FIM DA CORREÇÃO DE addRoteiroActivity
 
-    async function deleteRoteiro(id) {
-        if (!confirm('Tem certeza que deseja deletar esta etapa do roteiro?')) return;
+    function deleteRoteiroActivity(roteiroId){
+        if (!isMaster()) return;
+        if (!confirm('Tem certeza que deseja EXCLUIR esta etapa do roteiro mestre?')) return;
 
-        if (!db) {
-            // Modo Local
-            delete allRoteiros[id];
+        if (window.db){
+            window.db.collection(ROTEIRO_COLLECTION).doc(roteiroId).delete().then(() => {
+                renderRoteiros();
+                loadRoteiroDropdowns();
+            });
+        } else {
+            delete allRoteiros[roteiroId];
             saveState();
             renderRoteiros();
-            setupSectorDropdowns(); 
-        } else {
-            // Modo Firebase
-            try {
-                await db.collection(ROTEIRO_COLLECTION).doc(id).delete();
-                await loadData();
-                renderRoteiros();
-                setupSectorDropdowns();
-            } catch (error) {
-                alert("Erro ao deletar roteiro no Firebase: " + error.message);
-                console.error("Erro ao deletar roteiro no Firebase:", error);
-            }
+            loadRoteiroDropdowns();
         }
     }
-    window.deleteRoteiro = deleteRoteiro;
 
 
     // ==========================
-    //  CRIAÇÃO DE OF / TAREFAS
+    //  MODAIS GENÉRICOS
     // ==========================
-    async function createOF(ofId, quantity, chicote, isFallback = false){
-      const id = isFallback ? ofId : document.getElementById('of-id').value.trim().toUpperCase();
-      const qtd = isFallback ? quantity : parseInt(document.getElementById('of-quantity').value);
-      const chicoteName = isFallback ? chicote : document.getElementById('of-chicote').value;
-      const msgElement = document.getElementById('of-creation-message');
+    function openModal(modalId){
+        const modal = document.getElementById(modalId);
+        if (modalId === 'setup-roteiro-modal'){
+            renderRoteiros();
+        }
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
 
-      if (!id || !qtd || !chicoteName || qtd <= 0){
-        if (!isFallback) { msgElement.textContent = "Preencha todos os campos corretamente."; msgElement.classList.remove('hidden'); }
-        return;
-      }
+    function closeModal(modalId = null){
+        const modals = modalId ? [document.getElementById(modalId)] : document.querySelectorAll('.modal-fixed');
+        modals.forEach(modal => {
+            if (modal) modal.style.display = 'none';
+        });
+        document.body.style.overflow = '';
+    }
 
-      if (!isFallback && allOFs[id]){
-        msgElement.textContent = `A OF "${id}" já existe.`; msgElement.classList.remove('hidden');
-        return;
-      }
-      if (!isFallback) msgElement.classList.add('hidden');
+    function openInstructionModal(taskId){
+        const task = allTasks[taskId];
+        if (!task) return;
 
-      const roteiroSteps = Object.values(allRoteiros).filter(r => r.chicote_nome === chicoteName).sort((a, b) => a.id.localeCompare(b.id));
+        const modalHeader = document.getElementById('instruction-modal-header');
+        const modalContent = document.getElementById('instruction-modal-content');
 
-      if (roteiroSteps.length === 0){
-        if (!isFallback) { msgElement.textContent = `Nenhum roteiro encontrado para o chicote "${chicoteName}".`; msgElement.classList.remove('hidden'); }
-        return;
-      }
+        modalHeader.textContent = `OF ${task.of_id} - Etapa ${task.sequencia}: ${task.roteiro_activity_name}`;
+        modalContent.innerHTML = task.roteiro_instruction_text;
 
-      const newOF = {
-        id: id,
-        chicote: chicoteName,
-        quantidade: qtd,
-        status: 'Pendente',
-        timestamp_criacao: Date.now(),
-        creator: currentUser?.name || 'Sistema',
-      };
+        openModal('instruction-modal');
+        lucide.createIcons();
+    }
 
-      const tasksToCreate = [];
-      let order = 1;
-      let totalPlannedTime = 0;
 
-      for (const step of roteiroSteps) {
-        const plannedTime = step.tempo_setup + (step.tempo_ciclo * qtd);
-        totalPlannedTime += plannedTime;
-
-        const taskId = `${id}-T${taskCounter++}`;
-        const newTask = {
-          id: taskId,
-          id_of: id,
-          roteiro_id: step.id,
-          chicote_nome: chicoteName,
-          nome_atividade: step.nome_atividade,
-          setor: step.setor,
-          quantidade: qtd,
-          tempo_setup: step.tempo_setup,
-          tempo_ciclo: step.tempo_ciclo,
-          tempo_planejado: parseFloat(plannedTime.toFixed(2)),
-          
-          // AJUSTE APROVADO: Todas as tarefas começam como 'Em Espera' para permitir paralelismo
-          status: 'Em Espera', 
-          
-          ordem: order++,
-          // Campos de rastreamento de tempo
-          timestamp_criacao: newOF.timestamp_criacao,
-          timestamp_inicio: null,
-          timestamp_fim: null,
-          tempo_real_acumulado: 0,
-          total_pause_time_ms: 0,
-          pause_start_timestamp: null,
-          last_pauser: null,
-          last_worker: null,
-        };
-        tasksToCreate.push(newTask);
-      }
-      
-      newOF.status = 'Em Andamento'; // Muda o status da OF
-
-      if (!db) {
-        // Modo Local
-        allOFs[newOF.id] = newOF;
-        tasksToCreate.forEach(t => allTasks[t.id] = t);
-        saveState();
-        if (!isFallback) { closeModal('create-of-modal'); updateView(userViewSelect.value); }
-      } else {
-        // Modo Firebase
-        const batch = db.batch();
-        const ofRef = db.collection(OF_COLLECTION).doc(newOF.id);
-        batch.set(ofRef, newOF);
+    // ==========================
+    //  PERSISTÊNCIA (SIMULAÇÃO)
+    // ==========================
+    function saveState(){
+        if (window.db) return; // Não salva no localStorage se estiver usando Firebase
         
-        tasksToCreate.forEach(t => {
-          const taskRef = db.collection(TASK_COLLECTION).doc(t.id);
-          batch.set(taskRef, t);
+        localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
+        localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
+        localStorage.setItem('sim_roteiros', JSON.stringify(allRoteiros));
+        localStorage.setItem('sim_ocorrencias', JSON.stringify(allOcurrencesLog));
+        localStorage.setItem('sim_task_counter', taskCounter);
+        localStorage.setItem('sim_roteiro_counter', roteiroCounter);
+    }
+    
+    function updateTaskInDB(taskId, updates){
+        if (window.db){
+            window.db.collection(TASK_COLLECTION).doc(taskId).update(updates);
+        } else {
+            // Simulação
+            allTasks[taskId] = { ...allTasks[taskId], ...updates };
+            // Limpa campos que foram deletados (Firestore FieldValue.delete)
+            Object.keys(updates).forEach(key => {
+                if (updates[key] === null || (typeof updates[key] === 'object' && updates[key] && updates[key].delete)){
+                     delete allTasks[taskId][key];
+                }
+            });
+            saveState();
+            renderTasks();
+            renderOFs(); // Para atualizar o progresso no painel PCP
+        }
+    }
+
+
+    // ==========================
+    //  FUNÇÕES DO MODAL DE ACESSO
+    // ==========================
+    function openUserModal(initialRole = null){
+        const modal = document.getElementById('user-modal');
+        const roleSel = document.getElementById('user-role');
+        const sectorSel = document.getElementById('user-sector');
+        const pinWrap = document.getElementById('user-pin-wrap');
+        const sectorWrap = document.getElementById('user-sector-wrap');
+        
+        setupSectorDropdowns(); // Popula o dropdown de setor
+
+        roleSel.value = (currentUser?.role || 'OPERADOR');
+        if (currentUser?.sector) sectorSel.value = currentUser.sector;
+
+        roleSel.onchange = () => {
+          const isM = roleSel.value === 'MASTER';
+          pinWrap.classList.toggle('hidden', !isM);
+          sectorWrap.classList.toggle('hidden', isM);
+        };
+        roleSel.onchange();
+        modal.style.display='flex';
+    }
+
+    function confirmUser(){
+        const role = document.getElementById('user-role').value;
+        const sector = document.getElementById('user-sector').value;
+        const pin = document.getElementById('user-pin').value;
+
+        if (role==='MASTER'){
+            if (pin !== MASTER_PIN){ alert('PIN incorreto.'); return; }
+            setUser({ role:'MASTER', name:'Master' });
+            saveState();
+            closeModal('user-modal');
+            setupSectorDropdowns();
+            // Recomeça a inicialização após o login forçado
+            initializeApp(); 
+        } else {
+            if (!sector){ alert('Selecione um setor.'); return; }
+            setUser({ role:'OPERADOR', sector, name:'Operador' });
+            saveState();
+            closeModal('user-modal');
+            setupSectorDropdowns();
+            // Recomeça a inicialização após o login forçado
+            initializeApp();
+        }
+    }
+
+    window.openUserModal = openUserModal;
+    window.confirmUser = confirmUser;
+
+
+    // ==========================
+    //  FIREBASE LISTENERS
+    // ==========================
+    function setupFirebaseListeners() {
+        if (!window.db) return;
+
+        // Listener para Roteiros
+        window.db.collection(ROTEIRO_COLLECTION).onSnapshot(snapshot => {
+            allRoteiros = {};
+            snapshot.forEach(doc => {
+                allRoteiros[doc.id] = doc.data();
+            });
+            loadRoteiroDropdowns();
+            // Se estiver no modal de setup, renderiza novamente
+            if (document.getElementById('setup-roteiro-modal').style.display === 'flex') {
+                renderRoteiros();
+            }
+        }, error => console.error("Erro ao carregar roteiros:", error));
+
+        // Listener para OFs
+        window.db.collection(OF_COLLECTION).onSnapshot(snapshot => {
+            allOFs = {};
+            snapshot.forEach(doc => {
+                allOFs[doc.id] = doc.data();
+            });
+            if (userViewSelect.value === 'PCP') {
+                renderOFs();
+                renderKPIs();
+            }
+        }, error => console.error("Erro ao carregar OFs:", error));
+
+        // Listener para Tasks
+        window.db.collection(TASK_COLLECTION).onSnapshot(snapshot => {
+            allTasks = {};
+            snapshot.forEach(doc => {
+                allTasks[doc.id] = doc.data();
+            });
+            if (userViewSelect.value === 'Operador') {
+                renderTasks();
+            }
+            if (userViewSelect.value === 'PCP') {
+                renderOFs(); // Força a atualização do progresso no PCP
+            }
+        }, error => console.error("Erro ao carregar Tasks:", error));
+        
+         // Listener para Ocorrências
+        window.db.collection(OCORRENCIA_COLLECTION).onSnapshot(snapshot => {
+            allOcurrencesLog = [];
+            snapshot.forEach(doc => {
+                allOcurrencesLog.push(doc.data());
+            });
+            if (userViewSelect.value === 'Relatorio') {
+                renderReport();
+            }
+        }, error => console.error("Erro ao carregar Ocorrências:", error));
+
+
+        // Após configurar todos os listeners, escondemos o loading e iniciamos o refresh.
+        // Isso só ocorre se o usuário estiver logado (passou pelo check de login forçado)
+        loadingIndicator.classList.add('hidden');
+        setupUIRefresh();
+        updateView(currentUser.role === 'MASTER' ? 'PCP' : 'Operador');
+    }
+
+    // ==========================
+    //  RELATÓRIO
+    // ==========================
+    function renderReport(){
+        const tbody = document.getElementById('report-table-body');
+        if (!tbody) return;
+        
+        // Filtra e prepara os dados
+        const reportData = allOcurrencesLog.filter(o => o.tipo === 'delay' || o.tipo === 'pause')
+            .sort((a, b) => getDBTimestamp(b.timestamp) - getDBTimestamp(a.timestamp)); // Mais recentes primeiro
+            
+        tbody.innerHTML = reportData.map(o => {
+            return `
+                <tr class="hover:bg-gray-100">
+                    <td class="px-3 sm:px-6 py-2 whitespace-nowrap">${o.of_id}</td>
+                    <td class="px-3 sm:px-6 py-2 whitespace-nowrap">${o.chicote_id}</td>
+                    <td class="px-3 sm:px-6 py-2 whitespace-nowrap">${o.atividade}</td>
+                    <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-red-700 font-semibold">${o.motivo_pausa || 'N/A'}</td>
+                    <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-red-700 font-semibold">${o.motivo_atraso || 'N/A'}</td>
+                    <td class="px-3 sm:px-6 py-2 whitespace-nowrap">${formatMinutes(o.tempo_pausa_min)}</td>
+                    <td class="px-3 sm:px-6 py-2 whitespace-nowrap">${formatMinutes(o.tempo_atraso_min)}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // ==========================
+    //  EXPORTAÇÃO DE DADOS (CSV)
+    // ==========================
+    function downloadCSV(data, filename){
+        const blob = new Blob([data], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+
+    function exportReportCSV(){
+        const header = ["OF","CHICOTE","ATIVIDADE","SETOR","OPERADOR","DATA","TIPO","MOTIVO_PAUSA","TEMPO_PAUSA_MIN","MOTIVO_ATRASO","TEMPO_ATRASO_MIN","DETALHES"];
+        let csv = header.join(";") + "\n";
+        
+        allOcurrencesLog.sort((a, b) => getDBTimestamp(b.timestamp) - getDBTimestamp(a.timestamp)).forEach(o => {
+            const row = [
+                o.of_id,
+                o.chicote_id,
+                o.atividade,
+                o.setor,
+                o.operador,
+                new Date(getDBTimestamp(o.timestamp)).toLocaleString(),
+                o.tipo,
+                o.motivo_pausa || "",
+                formatMinutes(o.tempo_pausa_min).replace(' min', '').replace('.',','),
+                o.motivo_atraso || "",
+                formatMinutes(o.tempo_atraso_min).replace(' min', '').replace('.',','),
+                (o.detalhes || "").replace(/;/g, ","),
+            ];
+            csv += row.map(item => `"${item}"`).join(";") + "\n";
+        });
+        
+        downloadCSV(csv, `relatorio_ocorrencias_${new Date().toISOString().slice(0,10)}.csv`);
+    }
+
+    function exportOFTasksCSV(ofId){
+        const of = allOFs[ofId];
+        if (!of) return;
+
+        const tasks = of.tasks.map(taskId => allTasks[taskId]).filter(t => t);
+        const header = ["OF","CHICOTE","ATIVIDADE","SEQUENCIA","SETOR","TEMPO_PLANEJADO_MIN","TEMPO_REAL_MIN","DESVIO_MIN","STATUS","DATA_FIM","PAUSAS_REGISTRADAS"];
+        let csv = header.join(";") + "\n";
+
+        tasks.forEach(task => {
+            const tempoPlanejado = (task.roteiro_tempo_setup || 0) + (task.roteiro_tempo_ciclo || 0) * of.quantidade;
+            const tempoReal = task.tempo_real_acumulado || 0;
+            const desvio = tempoPlanejado - tempoReal;
+            
+            const pauseDetails = (task.pause_log || []).map(log => {
+                const motive = log.motivo_pausa || log.motivo_atraso;
+                const time = log.tempo_pausa_min || log.tempo_atraso_min;
+                const details = log.detalhes;
+                return `[${motive} - ${formatMinutes(time).replace(' min','')}m ${details ? `(${details})` : ''}]`;
+            }).join('; ').replace(/;/g,','); // Substitui ponto-e-vírgula nos detalhes por vírgula para não quebrar o CSV
+
+            const row = [
+                task.of_id,
+                of.chicote_id,
+                task.roteiro_activity_name,
+                task.sequencia,
+                task.setor,
+                formatMinutes(tempoPlanejado).replace(' min', '').replace('.',','),
+                formatMinutes(tempoReal).replace(' min', '').replace('.',','),
+                formatMinutes(desvio).replace(' min', '').replace('.',','),
+                task.status,
+                task.timestamp_fim ? new Date(getDBTimestamp(task.timestamp_fim)).toLocaleString() : "",
+                pauseDetails
+            ];
+            csv += row.map(item => `"${item}"`).join(";") + "\n";
         });
 
-        try {
-          await batch.commit();
-          if (!isFallback) { closeModal('create-of-modal'); await loadData(); updateView(userViewSelect.value); }
-        } catch (error) {
-          if (!isFallback) { msgElement.textContent = `Erro ao salvar no Firebase: ${error.message}`; msgElement.classList.remove('hidden'); }
-          console.error("Erro ao salvar OF no Firebase:", error);
-        }
-      }
+        downloadCSV(csv, `tarefas_${of.id}_${new Date().toISOString().slice(0,10)}.csv`);
     }
-    window.createOF = createOF; // Torna global
 
-    // ... (restante das funções de detalhes de OF, ações de operador e exportação) ...
-
-    // ==========================
-    //  EVENTOS DE INICIALIZAÇÃO
-    // ==========================
-    document.addEventListener('DOMContentLoaded', ()=>{
-      initializeApp();
-    });
-
-    // Função para rodar o Lucide e atualizar os dados a cada 10s
+    // =========================
+    //  REFRESH E INÍCIO
+    // =========================
     function setupUIRefresh(){
-      lucide.createIcons();
-      // Atualiza a visualização a cada 10 segundos para refletir mudanças de tempo
-      setInterval(() => {
-        if (!loadingIndicator.classList.contains('hidden')) return;
-        if (pcpView.classList.contains('hidden') && reportView.classList.contains('hidden')) {
-          renderTasks(); // Renderiza tarefas apenas no modo Operador
-        } else if (!pcpView.classList.contains('hidden')) {
-          renderKPIs();
-          renderOFs(); // Renderiza OFs no modo PCP
-        }
-      }, 10000); // 10 segundos
+        // Atualiza a visualização a cada 10 segundos (para atualizar tempo real e desvio)
+        setInterval(() => {
+            const currentView = userViewSelect.value;
+            if (currentView === 'PCP') {
+                renderOFs();
+                renderKPIs();
+            } else if (currentView === 'Operador') {
+                renderTasks();
+            }
+        }, 10000); 
     }
+
+    // Chamada inicial
+    document.addEventListener('DOMContentLoaded', initializeApp);
+
+    // Expõe funções para o HTML
+    window.updateView = updateView; // Permite o uso no seletor do header
+    window.updateSectorFilter = updateSectorFilter; // Permite o uso no seletor de setor
+    window.updateOFCFilter = updateOFCFilter; // Permite o uso no novo filtro de OF
+    window.startTask = startTask;
+    window.pauseTask = pauseTask;
+    window.finishTask = finishTask;
+    window.openOFDetails = openOFDetails;
+    window.openInstructionModal = openInstructionModal;
+    window.handleConfirmedAction = handleConfirmedAction;
+    window.openModal = openModal;
+    window.closeModal = closeModal;
+    window.createOF = createOF;
+    window.addRoteiroActivity = addRoteiroActivity;
+    window.deleteRoteiroActivity = deleteRoteiroActivity;
+    window.deleteOF = deleteOF;
+    window.exportReportCSV = exportReportCSV;
+    window.exportOFTasksCSV = exportOFTasksCSV;
+
   </script>
 </body>
 </html>
