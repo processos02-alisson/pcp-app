@@ -356,7 +356,7 @@
     let currentAction = {};
     let currentSectorFilter = SECTORS[0];
     let currentUser = null;
-    let currentSearchFilter = ''; // NOVO: Filtro de pesquisa por OF
+    let currentSearchFilter = ''; // Filtro de pesquisa por OF
 
     // Counters
     let taskCounter = 1;
@@ -492,7 +492,7 @@
     window.closeModal = closeModal;
 
     // ==========================
-    //  FILTROS DO OPERADOR (NOVO: Pesquisa)
+    //  FILTROS DO OPERADOR
     // ==========================
     function updateSectorFilter(sector){
         currentSectorFilter = sector;
@@ -500,10 +500,10 @@
     }
     window.updateSectorFilter = updateSectorFilter;
     
-    // NOVO: Função para atualizar o filtro de pesquisa por OF
+    // Filtro de pesquisa por OF (Aprovado!)
     function updateSearchFilter(search) {
         currentSearchFilter = search.trim().toUpperCase();
-        renderTasks(); // Renderiza tarefas com o novo filtro
+        renderTasks(); 
     }
     window.updateSearchFilter = updateSearchFilter;
 
@@ -513,16 +513,25 @@
     function setupSectorDropdowns(){
       const roteiroSetorSelect = document.getElementById('roteiro-setor');
       const sectorFilterSelect = document.getElementById('sector-filter');
-      const userSectorSelect = document.getElementById('user-sector'); // Novo
+      const userSectorSelect = document.getElementById('user-sector'); 
+      const ofChicoteSelect = document.getElementById('of-chicote');
 
       if (roteiroSetorSelect) { roteiroSetorSelect.innerHTML = ''; }
       if (sectorFilterSelect) { sectorFilterSelect.innerHTML=''; }
       if (userSectorSelect) { userSectorSelect.innerHTML = '<option value="">-- Selecione --</option>'; }
+      if (ofChicoteSelect) { ofChicoteSelect.innerHTML = '<option value="">-- Selecione um Chicote --</option>'; }
 
-      // Popula todos os dropdowns de setor
+      // Popula dropdowns de setor
       SECTORS.forEach(sector=>{
           const o1 = document.createElement('option'); o1.value=sector; o1.textContent=sector; roteiroSetorSelect?.appendChild(o1);
           const o3 = document.createElement('option'); o3.value=sector; o3.textContent=sector; userSectorSelect?.appendChild(o3);
+      });
+      
+      // Popula dropdown de Chicote (Roteiro) na tela de Criação de OF
+      const uniqueChicotes = [...new Set(Object.values(allRoteiros).map(r => r.chicote_nome))].sort();
+      uniqueChicotes.forEach(chicote => {
+          const o = document.createElement('option');
+          o.value = chicote; o.textContent = chicote; ofChicoteSelect?.appendChild(o);
       });
 
       // Configurações do filtro principal de setor (Visão Operador)
@@ -617,12 +626,14 @@
       const savedUser = getUser();
       if (savedUser){ setUser(savedUser); }
 
-      // NOVO AJUSTE: Força a abertura do modal de login/perfil na inicialização.
+      // AJUSTE CRÍTICO (Aprovado): Força a abertura do modal de login/perfil na inicialização.
       setTimeout(()=>{ 
         loadingIndicator.classList.add('hidden');
+        setupSectorDropdowns(); // Popula os setores (inclusive do modal de login)
         openUserModal(savedUser ? null : undefined); // Chama o modal para o usuário entrar/confirmar
         setupUIRefresh(); 
       }, 300);
+      lucide.createIcons();
     }
     
     // ==========================
@@ -673,9 +684,6 @@
     window.openUserModal = openUserModal;
     window.confirmUser = confirmUser; // Necessário para o botão
     
-    // ... (restante das funções de KPI, Renderização e Ações) ...
-    // (As funções que não foram alteradas serão mantidas em sua forma original)
-
     // ==========================
     //  KPI / RENDER
     // ==========================
@@ -705,7 +713,7 @@
     } 
     
     function updateView(view){ 
-      if (!currentUser) return openUserModal(); // Se a visualização for chamada sem usuário, força o login
+      if (!currentUser) return openUserModal(); 
       
       if (isOperador() && view !== 'Operador'){ view = 'Operador'; } 
       const isPCP = view === 'PCP';
@@ -790,7 +798,7 @@
       } 
     } 
     
-    // Função de Renderização de Tarefas (Operador) - AJUSTADA PARA O FILTRO
+    // Função de Renderização de Tarefas (Operador) - COM FILTRO DE OF
     function renderTasks(){ 
       if (!operatorView.classList.contains('hidden')) { 
         const container = document.getElementById('tasks-list-container');
@@ -800,7 +808,7 @@
           .filter(t => 
             t.setor === currentSectorFilter && 
             (t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada') &&
-            (currentSearchFilter === '' || t.id_of.toUpperCase().includes(currentSearchFilter)) // NOVO FILTRO APLICADO
+            (currentSearchFilter === '' || t.id_of.toUpperCase().includes(currentSearchFilter)) 
           )
           .sort((a,b) => (a.status === 'Em Processo' ? -1 : 1) || a.ordem - b.ordem);
           
@@ -822,7 +830,7 @@
           if(t.status === 'Em Esperha') statusClass = 'bg-yellow-500';
           else if(t.status === 'Em Processo') statusClass = 'bg-indigo-500';
           else if(t.status === 'Pausada') statusClass = 'bg-red-500';
-          else if(t.status === 'Bloqueada') { statusClass = 'bg-gray-400'; disableAction = true; } // Bloqueada
+          else if(t.status === 'Bloqueada') { statusClass = 'bg-gray-400'; disableAction = true; } 
           else if(t.status === 'Concluído') statusClass = 'bg-green-500';
           
           if(t.status === 'Em Espera'){ 
@@ -879,8 +887,147 @@
         lucide.createIcons();
       }
     }
-    
-    // ... (restante das funções que não foram alteradas) ...
+
+    // ==========================
+    //  ROTEIRO MASTER (RE-ADICIONADO)
+    // ==========================
+    function renderRoteiros(){
+        const container = document.getElementById('roteiro-list');
+        const chicotes = Object.values(allRoteiros).reduce((acc, r) => {
+            if (!acc[r.chicote_nome]) acc[r.chicote_nome] = [];
+            acc[r.chicote_nome].push(r);
+            return acc;
+        }, {});
+
+        if (Object.keys(chicotes).length === 0){
+            container.innerHTML = '<p class="text-gray-500 text-center p-4">Nenhum roteiro mestre cadastrado.</p>';
+            return;
+        }
+
+        let html = '';
+        for (const [chicote, roteiros] of Object.entries(chicotes)) {
+            // Ordena por ID para manter a ordem de cadastro (Ex: CHICOTE-A-1, CHICOTE-A-2)
+            roteiros.sort((a, b) => a.id.localeCompare(b.id));
+
+            const stepsHtml = roteiros.map(r => `
+                <div class="flex justify-between items-center bg-white p-3 border-l-4 border-indigo-400 rounded-md shadow-sm">
+                    <div class="text-sm">
+                        <p class="font-semibold">${r.nome_atividade} (${r.setor})</p>
+                        <p class="text-xs text-gray-500">Setup: ${r.tempo_setup} min | Ciclo: ${r.tempo_ciclo} min/pç</p>
+                    </div>
+                    <button onclick="deleteRoteiro('${r.id}')" class="p-1 text-red-600 hover:text-red-800 transition">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            html += `
+                <div class="mb-4 p-3 bg-white rounded-lg shadow-md border">
+                    <h5 class="text-lg font-bold text-gray-800 mb-2 border-b pb-1">${chicote} (${roteiros.length} Etapas)</h5>
+                    <div class="space-y-2">${stepsHtml}</div>
+                </div>
+            `;
+        }
+        container.innerHTML = html;
+        lucide.createIcons();
+    }
+    window.renderRoteiros = renderRoteiros;
+
+    async function addRoteiroActivity(){
+        const chicoteName = document.getElementById('roteiro-chicote-name').value.trim().toUpperCase();
+        const setor = document.getElementById('roteiro-setor').value;
+        const activityName = document.getElementById('roteiro-activity-name').value.trim();
+        const setupTime = parseFloat(document.getElementById('roteiro-setup-time').value);
+        const cycleTime = parseFloat(document.getElementById('roteiro-cycle-time').value);
+        const instructionText = document.getElementById('roteiro-instruction-text').value.trim();
+        const msgElement = document.getElementById('roteiro-message');
+
+        if (!chicoteName || !setor || !activityName || isNaN(setupTime) || isNaN(cycleTime)){
+            msgElement.textContent = "Preencha todos os campos obrigatórios (Nome do Chicote, Setor, Atividade, Tempos).";
+            return;
+        }
+        msgElement.textContent = ""; // Limpa a mensagem
+
+        // Determinar o ID do novo roteiro (baseado no chicote)
+        const existingRoteiros = Object.values(allRoteiros).filter(r => r.chicote_nome === chicoteName);
+        let nextRoteiroNumber = 1;
+        if (existingRoteiros.length > 0) {
+            // Encontra o próximo número sequencial
+            const maxRoteiroNumber = existingRoteiros
+                .map(r => parseInt(r.id.match(/-(\d+)$/)?.[1] || r.id.match(/(\d+)$/)?.[1] || 0))
+                .reduce((a, b) => Math.max(a, b), 0);
+            nextRoteiroNumber = maxRoteiroNumber + 1;
+        }
+        // Usa o formato CHICOTE-NOME-1, CHICOTE-NOME-2, etc.
+        const roteiroId = `${chicoteName}-${nextRoteiroNumber}`;
+        
+        const newRoteiro = {
+            id: roteiroId,
+            chicote_nome: chicoteName,
+            setor: setor,
+            nome_atividade: activityName,
+            tempo_setup: setupTime,
+            tempo_ciclo: cycleTime,
+            instrucao_trabalho: instructionText,
+        };
+
+        if (!db) {
+            // Modo Local
+            allRoteiros[newRoteiro.id] = newRoteiro;
+            saveState();
+            renderRoteiros();
+            // Limpar campos
+            document.getElementById('roteiro-activity-name').value = '';
+            document.getElementById('roteiro-setup-time').value = '';
+            document.getElementById('roteiro-cycle-time').value = '';
+            document.getElementById('roteiro-instruction-text').value = '';
+            msgElement.textContent = `Etapa ${activityName} adicionada com sucesso ao chicote ${chicoteName} (Local).`;
+        } else {
+            // Modo Firebase
+            const roteiroRef = db.collection(ROTEIRO_COLLECTION).doc(newRoteiro.id);
+            try {
+                await roteiroRef.set(newRoteiro);
+                await loadData(); // Recarrega os roteiros
+                renderRoteiros();
+                setupSectorDropdowns(); // Atualiza a lista de chicotes na Criação de OF
+                // Limpar campos
+                document.getElementById('roteiro-activity-name').value = '';
+                document.getElementById('roteiro-setup-time').value = '';
+                document.getElementById('roteiro-cycle-time').value = '';
+                document.getElementById('roteiro-instruction-text').value = '';
+                msgElement.textContent = `Etapa ${activityName} adicionada com sucesso ao chicote ${chicoteName} (Firebase).`;
+            } catch (error) {
+                console.error("Erro ao adicionar roteiro no Firebase:", error);
+                msgElement.textContent = `Erro ao salvar no Firebase: ${error.message}`;
+            }
+        }
+    }
+    window.addRoteiroActivity = addRoteiroActivity; // TORNA GLOBAL
+
+    async function deleteRoteiro(id) {
+        if (!confirm('Tem certeza que deseja deletar esta etapa do roteiro?')) return;
+
+        if (!db) {
+            // Modo Local
+            delete allRoteiros[id];
+            saveState();
+            renderRoteiros();
+            setupSectorDropdowns(); 
+        } else {
+            // Modo Firebase
+            try {
+                await db.collection(ROTEIRO_COLLECTION).doc(id).delete();
+                await loadData();
+                renderRoteiros();
+                setupSectorDropdowns();
+            } catch (error) {
+                alert("Erro ao deletar roteiro no Firebase: " + error.message);
+                console.error("Erro ao deletar roteiro no Firebase:", error);
+            }
+        }
+    }
+    window.deleteRoteiro = deleteRoteiro;
+
 
     // ==========================
     //  CRIAÇÃO DE OF / TAREFAS
@@ -939,7 +1086,7 @@
           tempo_ciclo: step.tempo_ciclo,
           tempo_planejado: parseFloat(plannedTime.toFixed(2)),
           
-          // NOVO AJUSTE: TODAS COMEÇAM COMO 'Em Espera' para permitir paralelismo
+          // AJUSTE APROVADO: Todas as tarefas começam como 'Em Espera' para permitir paralelismo
           status: 'Em Espera', 
           
           ordem: order++,
@@ -986,7 +1133,7 @@
     }
     window.createOF = createOF; // Torna global
 
-    // ... (restante das funções de roteiro, ações de operador e detalhes de OF) ...
+    // ... (restante das funções de detalhes de OF, ações de operador e exportação) ...
 
     // ==========================
     //  EVENTOS DE INICIALIZAÇÃO
