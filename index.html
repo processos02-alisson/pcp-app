@@ -2,1166 +2,879 @@
 <html lang="pt-br">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
     <title>PCP – Controle de Produção (Chicotes)</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest"></script>
-
-    <!-- Importações do Firebase v9 (compatível) -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <style>
-        /* Define a fonte Inter */
-        html { font-family: 'Inter', sans-serif; }
-        /* Estilo para ícones de status */
-        .status-icon { margin-right: 4px; }
+        /* Estilização personalizada para o background e sombra */
+        .card-shadow {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+            border-radius: 0.75rem; /* rounded-xl */
+        }
+        .animated-entry {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Cores de status aprimoradas */
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+        .status-badge-pending { background-color: #e0f2fe; color: #0284c7; } /* Blue Light (Pendente/Aguardando) */
+        .status-badge-progress { background-color: #fef3c7; color: #d97706; } /* Yellow/Orange (Em Progresso) */
+        .status-badge-complete { background-color: #d1fae5; color: #059669; } /* Green (Concluído) */
+        
+        /* Modal Backdrop */
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.6);
+        }
+
     </style>
 </head>
-<body class="min-h-screen bg-gray-100 antialiased">
-    <header class="bg-white border-b sticky top-0 z-30 shadow-md">
-        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-            <h1 class="text-xl sm:text-2xl font-extrabold text-blue-800">PCP – Chicotes</h1>
-            <div class="ml-auto flex items-center gap-4">
-                <div class="relative">
-                    <select id="user-view-select" class="border border-gray-300 rounded-xl px-4 py-2 text-sm appearance-none bg-white pr-8 transition duration-150 ease-in-out hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="PCP">PCP</option>
-                        <option value="Operador">Operador</option>
-                        <option value="Relatórios">Relatórios</option>
-                    </select>
-                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                        <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
-                    </div>
+<body class="min-h-screen bg-gray-50 antialiased font-sans">
+    
+    <!-- Header (Controles ocultos por padrão, visíveis após login) -->
+    <header class="bg-white border-b sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+            <h1 class="text-xl sm:text-3xl font-extrabold text-gray-800 tracking-tight">PCP – <span class="text-blue-700">Chicotes</span></h1>
+            
+            <!-- Controles do Header - Ocultos até o login -->
+            <div id="header-controls" class="ml-auto flex items-center gap-3 hidden transition duration-300">
+                <select id="user-view-select" class="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-gray-50 shadow-inner focus:ring-blue-500 focus:border-blue-500">
+                    <option value="PCP">Visão PCP</option>
+                    <option value="Operador">Visão Operador</option>
+                    <option value="Relatórios">Relatórios</option>
+                </select>
+                <div id="user-profile" class="flex items-center gap-2 bg-blue-50 p-2 rounded-full cursor-pointer hover:bg-blue-100 transition">
+                    <button id="btn-profile" class="text-blue-700 w-8 h-8 flex items-center justify-center bg-blue-200 rounded-full">
+                        <i data-lucide="user" class="w-5 h-5"></i>
+                    </button>
+                    <span id="user-id-display" class="text-sm font-medium text-blue-800 truncate max-w-[120px]">Carregando...</span>
                 </div>
-                <!-- Botão de Exportar Relatório -->
-                <button id="btn-export-report" class="flex items-center bg-green-600 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-md hover:bg-green-700 transition duration-150 ease-in-out">
-                    <span class="mr-2" data-lucide="download"></span> Exportar Relatório
-                </button>
             </div>
         </div>
     </header>
 
-    <main class="max-w-6xl mx-auto px-4 py-8">
-        <!-- Indicador de Carregamento Global -->
-        <div id="loading-indicator" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden">
-            <div class="text-center p-6 bg-white rounded-lg shadow-xl border border-blue-200">
-                <div class="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-blue-500 mx-auto"></div>
-                <p class="mt-4 text-blue-600 font-semibold">Carregando Dados...</p>
-            </div>
+    <main class="max-w-7xl mx-auto px-4 py-8">
+
+        <!-- Indicador de Carregamento -->
+        <div id="loading-indicator" class="fixed inset-0 bg-gray-50/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+            <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="mt-3 text-lg font-medium text-gray-700">Iniciando sistema e autenticando...</span>
         </div>
 
-        <!-- Visão PCP -->
-        <div id="pcp-view" class="space-y-8">
-            <h2 class="text-3xl font-bold text-gray-700 border-b pb-2 mb-4">Painel PCP</h2>
+        <!-- Tela de Login (Aparece após a autenticação inicial do Firebase) -->
+        <div id="login-view" class="hidden flex flex-col items-center justify-center min-h-[70vh] animated-entry">
+            <div class="bg-white p-8 sm:p-10 card-shadow max-w-lg w-full text-center border-t-4 border-blue-600">
+                <i data-lucide="shield-check" class="w-12 h-12 mx-auto mb-4 text-blue-600"></i>
+                <h2 class="text-3xl font-extrabold text-gray-800 mb-2">Entrar no Sistema PCP</h2>
+                <p class="text-sm text-gray-600 mb-6">ID de Sessão: <span id="auth-id-display" class="font-mono bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-xs break-all">...</span></p>
 
-            <!-- KPIs -->
-            <div id="kpis-container" class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <!-- KPIs serão renderizados aqui -->
-            </div>
+                <div id="login-message" class="hidden text-left mb-4"></div>
 
-            <!-- Controles PCP -->
-            <div class="flex flex-col sm:flex-row gap-4 pt-4 border-t border-gray-300">
-                <button id="btn-create-of" class="flex-1 flex justify-center items-center bg-blue-600 text-white px-6 py-3 rounded-xl text-base font-semibold shadow-lg hover:bg-blue-700 transition duration-150 ease-in-out">
-                    <span class="mr-2" data-lucide="plus-circle"></span> Nova Ordem de Fabricação (OF)
-                </button>
-                <button id="btn-setup-roteiro" class="flex-1 flex justify-center items-center bg-purple-600 text-white px-6 py-3 rounded-xl text-base font-semibold shadow-lg hover:bg-purple-700 transition duration-150 ease-in-out">
-                    <span class="mr-2" data-lucide="settings"></span> Configurar Roteiros
-                </button>
-            </div>
-
-            <!-- Listagem de OFs -->
-            <h3 class="text-2xl font-semibold text-gray-700 mt-8 mb-4 border-b pb-2">Ordens de Fabricação Ativas</h3>
-            <div id="ofs-list-container" class="space-y-4">
-                <!-- OFs serão renderizadas aqui -->
-            </div>
-        </div>
-
-        <!-- Visão Operador -->
-        <div id="operator-view" class="hidden space-y-8">
-            <h2 class="text-3xl font-bold text-gray-700 border-b pb-2 mb-4">Painel Operador: Tarefas Pendentes</h2>
-            <div id="tasks-list-container" class="space-y-6">
-                <!-- Tarefas serão renderizadas aqui -->
-                <p id="no-tasks" class="text-center text-gray-500 text-lg py-10 hidden">Nenhuma tarefa pendente no momento. Bom trabalho!</p>
-            </div>
-        </div>
-
-        <!-- Visão Relatórios -->
-        <div id="reports-view" class="hidden space-y-8">
-            <h2 class="text-3xl font-bold text-gray-700 border-b pb-2 mb-4">Relatórios de Produção</h2>
-            <p class="text-gray-600">
-                Aqui serão exibidos relatórios detalhados de eficiência, tempo médio de ciclo e gargalos (WIP).
-            </p>
-            <!-- Detalhes do Relatório -->
-            <div id="report-details" class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-                <h4 class="text-xl font-semibold text-gray-800 mb-4">Relatório de Eficiência Geral (Exemplo)</h4>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700">
-                    <div>
-                        <p class="font-medium">Total de OFs Finalizadas:</p>
-                        <p id="report-ofs-finished" class="text-2xl font-bold text-green-600">0</p>
+                <div class="space-y-6">
+                    <!-- Seletor de Perfil Aprimorado -->
+                    <div class="flex space-x-4 bg-gray-100 p-2 rounded-xl">
+                        <label class="flex-1">
+                            <input type="radio" name="role-select" value="PCP" checked class="hidden" id="radio-pcp">
+                            <div class="py-2 px-4 rounded-lg cursor-pointer text-center font-semibold text-gray-700 transition hover:bg-white border-2 border-transparent" id="label-pcp-master">
+                                <i data-lucide="monitor" class="w-5 h-5 inline-block mr-2"></i> PCP Master
+                            </div>
+                        </label>
+                        <label class="flex-1">
+                            <input type="radio" name="role-select" value="Operador" class="hidden" id="radio-operator">
+                            <div class="py-2 px-4 rounded-lg cursor-pointer text-center font-semibold text-gray-700 transition hover:bg-white border-2 border-transparent" id="label-operator">
+                                <i data-lucide="plug-zap" class="w-5 h-5 inline-block mr-2"></i> Operador
+                            </div>
+                        </label>
                     </div>
-                    <div>
-                        <p class="font-medium">Tempo Médio de Produção por Peça (Minutos):</p>
-                        <p id="report-avg-time" class="text-2xl font-bold text-blue-600">0 min</p>
+
+                    <!-- Formulário de Login (Conteúdo Dinâmico) -->
+                    <div id="login-form-pcp" class="space-y-4 text-left">
+                        <p class="text-sm text-gray-500">Acesso total ao Painel de Controle. (Senha: **admin123**)</p>
+                        <input type="password" id="pcp-password-input" placeholder="Digite a Senha Master" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <button id="btn-login" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition transform hover:scale-[1.005] shadow-lg shadow-blue-500/50">
+                            <i data-lucide="lock" class="w-5 h-5 inline-block mr-2"></i> Entrar como PCP
+                        </button>
                     </div>
-                    <div>
-                        <p class="font-medium">OFs em Andamento (WIP):</p>
-                        <p id="report-wip" class="text-2xl font-bold text-yellow-600">0</p>
+
+                    <div id="login-form-operator" class="space-y-4 text-left hidden">
+                        <p class="text-sm text-gray-500">Visualização de tarefas de produção e registro de tempo.</p>
+                        <select id="operator-sector-select" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 bg-white">
+                            <option value="">-- Selecione o Setor --</option>
+                            <option value="Corte">Corte e Descasque</option>
+                            <option value="Montagem">Montagem e Prensagem</option>
+                            <option value="Teste">Teste e Acabamento</option>
+                            <option value="Embalagem">Embalagem</option>
+                        </select>
+                        <button id="btn-login-operator-start" class="w-full bg-yellow-500 text-gray-900 font-bold py-3 rounded-xl hover:bg-yellow-600 transition transform hover:scale-[1.005] shadow-lg shadow-yellow-500/50">
+                            <i data-lucide="wrench" class="w-5 h-5 inline-block mr-2"></i> Iniciar Produção
+                        </button>
                     </div>
                 </div>
             </div>
         </div>
-        
-    </main>
 
-    <!-- Modal Base (Novo Roteiro, Nova OF, Mensagens) -->
-    <div id="modal-backdrop" class="fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center z-40 transition-opacity duration-300">
-        <div id="modal-content" class="bg-white p-6 rounded-xl shadow-2xl w-full max-w-lg mx-4 transform transition-all duration-300 scale-95 opacity-0">
-            <!-- O conteúdo do modal será injetado aqui pelo JS -->
+        <!-- Conteúdo Principal do Aplicativo (Oculto no início) -->
+        <div id="app-content" class="hidden">
+            <!-- Visão PCP -->
+            <div id="pcp-view" class="space-y-8 animated-entry">
+                <div class="flex flex-wrap gap-4 justify-between items-start">
+                    <h2 class="text-3xl font-bold text-gray-800">Painel de Controle da Produção</h2>
+                    <div class="flex gap-3">
+                        <button id="btn-export-report" class="bg-gray-100 text-gray-700 hover:bg-gray-200 transition px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 border border-gray-300">
+                            <i data-lucide="file-text" class="w-4 h-4"></i> Exportar Relatório
+                        </button>
+                        <button id="btn-setup-roteiro" class="bg-blue-50 text-blue-700 hover:bg-blue-100 transition px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 border border-blue-300">
+                            <i data-lucide="settings" class="w-4 h-4"></i> Configurar Roteiro
+                        </button>
+                        <button id="btn-create-of" class="bg-blue-600 text-white hover:bg-blue-700 transition px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-md shadow-blue-500/50">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Criar OF
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KPIs -->
+                <div id="kpis-container" class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    <!-- KPI Total de OFs -->
+                    <div class="bg-white p-6 card-shadow border-l-4 border-blue-600">
+                        <p class="text-sm font-medium text-gray-500">Total de OFs</p>
+                        <p id="kpi-total-ofs" class="mt-1 text-4xl font-extrabold text-gray-900">0</p>
+                    </div>
+                    <!-- KPI Em Progresso -->
+                    <div class="bg-white p-6 card-shadow border-l-4 border-yellow-500">
+                        <p class="text-sm font-medium text-gray-500">Em Progresso</p>
+                        <p id="kpi-in-progress" class="mt-1 text-4xl font-extrabold text-yellow-600">0</p>
+                    </div>
+                    <!-- KPI Concluídas (Hoje) -->
+                    <div class="bg-white p-6 card-shadow border-l-4 border-green-600">
+                        <p class="text-sm font-medium text-gray-500">Concluídas (Hoje)</p>
+                        <p id="kpi-completed-today" class="mt-1 text-4xl font-extrabold text-green-600">0</p>
+                    </div>
+                </div>
+
+                <!-- Lista de Ordens de Fabricação (OFs) -->
+                <div class="space-y-4">
+                    <h3 class="text-2xl font-semibold text-gray-800 border-b pb-2">Ordens de Fabricação (OFs)</h3>
+                    <div id="ofs-list-container" class="space-y-3">
+                        <div class="p-6 text-center text-sm text-gray-500 bg-white card-shadow">Carregando dados...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visão Operador -->
+            <div id="operator-view" class="hidden space-y-6 animated-entry">
+                <h2 class="text-3xl font-bold text-gray-800">Minhas Tarefas de Produção</h2>
+                <div class="bg-yellow-50 p-4 rounded-xl border border-yellow-300">
+                    <p class="text-gray-700">Setor Ativo: <span id="operator-sector-display" class="font-mono bg-yellow-200 text-yellow-800 px-2 py-0.5 rounded text-sm font-semibold">N/A</span>. Visualizando tarefas para o ID: <span id="operator-user-id" class="font-mono bg-gray-200 text-gray-800 px-2 py-0.5 rounded text-sm"></span></p>
+                </div>
+
+                <div class="space-y-4">
+                    <h3 class="text-2xl font-semibold text-gray-800 border-b pb-2">Tarefas Atuais</h3>
+                    <div id="tasks-list-container" class="space-y-3">
+                        <div class="p-6 text-center text-sm text-gray-500 bg-white card-shadow">Buscando tarefas para o operador...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visão Relatórios -->
+            <div id="reports-view" class="hidden space-y-6 animated-entry">
+                <h2 class="text-3xl font-bold text-gray-800">Relatórios e Análise de Produção</h2>
+                <div class="bg-white p-6 rounded-xl shadow border-l-4 border-gray-400">
+                    <p class="text-gray-600">Aqui você pode gerar relatórios detalhados de produção, eficiência e utilização de recursos.</p>
+                    <p class="mt-2 text-sm text-gray-500">Funcionalidade pendente de implementação.</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+    
+    <!-- Modais -->
+
+    <!-- Modal Base (Global) - Para Alertas/Confirmações (Substitui alert/confirm) -->
+    <div id="global-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50 p-4" onclick="if(event.target.id === 'global-modal') hideModal('global-modal')">
+        <div id="modal-content-container" class="bg-white p-6 rounded-xl card-shadow max-w-lg w-full transform transition-all duration-300 scale-100">
+            <h3 id="modal-title" class="text-xl font-bold mb-3 text-gray-900 border-b pb-2"></h3>
+            <p id="modal-body" class="text-gray-600 mb-6"></p>
+            <div id="modal-footer" class="flex justify-end space-x-3 mt-4">
+                <button type="button" id="modal-btn-cancel" class="bg-gray-300 text-gray-800 hover:bg-gray-400 font-semibold px-4 py-2 rounded-lg transition">Cancelar</button>
+                <button type="button" id="modal-btn-confirm" class="bg-blue-600 text-white hover:bg-blue-700 font-semibold px-4 py-2 rounded-lg transition">Confirmar</button>
+            </div>
         </div>
     </div>
 
-    <!-- Script principal -->
-    <script>
-        // Variáveis globais para Firebase e Dados
-        let db;
-        let allOFs = {};
-        let allRoteiros = {};
-        let allTasks = {};
-        let allReports = {};
-
-        // Variáveis de Elementos DOM
-        let pcpView, operatorView, reportsView, userViewSelect, loadingIndicator;
-        let ofsListContainer, tasksListContainer;
-        let btnCreateOF, btnSetupRoteiro, btnExportReport;
-
-        // ----------------------------------------------------
-        // CONFIGURAÇÃO FIREBASE
-        // ----------------------------------------------------
-        /*
-         * ESTA É A CONFIGURAÇÃO REAL DO SEU PROJETO FIREBASE.
-         */
-        const firebaseConfig = {
-            apiKey: "AIzaSyDIJJIe4WIVj5OKYTtR-HQscrxIzxNK9eY",
-            authDomain: "pcp-app-24c56.firebaseapp.com",
-            projectId: "pcp-app-24c56",
-            storageBucket: "pcp-app-24c56.firebasestorage.app",
-            messagingSenderId: "675295958467",
-            appId: "1:675295958467:web:9d79700af6fc1c28db5976",
-            measurementId: "G-DH06WDCKJY"
-        };
-        
-        // Nó raiz no Realtime Database
-        const DB_ROOT_NODE = 'pcp_system_data';
-
-        // ----------------------------------------------------
-        // UTILITÁRIOS
-        // ----------------------------------------------------
-
-        /**
-         * Exibe um indicador de carregamento.
-         * @param {boolean} show - Se deve mostrar ou esconder.
-         */
-        function toggleLoading(show) {
-            if (loadingIndicator) {
-                loadingIndicator.classList.toggle('hidden', !show);
-            }
-        }
-
-        /**
-         * Exibe uma mensagem em um modal simples.
-         * @param {string} title - Título da mensagem.
-         * @param {string} message - Corpo da mensagem.
-         */
-        function showMessageModal(title, message) {
-            const backdrop = document.getElementById('modal-backdrop');
-            const content = document.getElementById('modal-content');
+    <!-- Modal de Configuração de Roteiro Padrão -->
+    <div id="setup-roteiro-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50 p-4" onclick="if(event.target.id === 'setup-roteiro-modal') hideModal('setup-roteiro-modal')">
+        <div class="bg-white p-6 rounded-xl card-shadow max-w-xl w-full">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center gap-2">
+                <i data-lucide="settings" class="w-6 h-6 text-blue-600"></i> Configurar Roteiro Padrão
+            </h3>
             
-            content.innerHTML = `
-                <div class="flex justify-between items-center border-b pb-3 mb-4">
-                    <h3 class="text-xl font-bold text-gray-800">${title}</h3>
-                    <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition duration-150 ease-in-out">
-                        <span data-lucide="x" class="w-6 h-6"></span>
+            <p class="text-sm text-gray-600 mb-4">Defina a sequência padrão de etapas para a fabricação dos chicotes.</p>
+
+            <div id="roteiro-steps-container" class="space-y-3 p-4 bg-gray-50 rounded-lg border">
+                <!-- Etapas do roteiro serão injetadas/manipuladas via JS -->
+            </div>
+            
+            <button id="btn-add-step" class="mt-4 bg-gray-200 text-gray-700 hover:bg-gray-300 transition px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+                <i data-lucide="plus" class="w-4 h-4"></i> Adicionar Etapa
+            </button>
+
+            <div id="roteiro-message" class="mt-4 text-sm hidden"></div>
+
+            <div class="flex justify-end gap-3 mt-6">
+                <button type="button" onclick="hideModal('setup-roteiro-modal')" class="bg-gray-300 text-gray-800 hover:bg-gray-400 font-semibold px-4 py-2 rounded-lg transition">Cancelar</button>
+                <button type="button" id="btn-save-roteiro" class="bg-blue-600 text-white hover:bg-blue-700 font-semibold px-4 py-2 rounded-lg transition">Salvar Roteiro</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Criação de OF (Ordem de Fabricação) -->
+    <div id="create-of-modal" class="fixed inset-0 modal-backdrop hidden items-center justify-center z-50 p-4" onclick="if(event.target.id === 'create-of-modal') hideModal('create-of-modal')">
+        <div class="bg-white p-6 rounded-xl card-shadow max-w-xl w-full">
+            <h3 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center gap-2">
+                <i data-lucide="file-plus" class="w-6 h-6 text-green-600"></i> Criar Nova Ordem de Fabricação (OF)
+            </h3>
+            <form id="form-create-of" class="space-y-4">
+                <div>
+                    <label for="of-product-code" class="block text-sm font-medium text-gray-700">Código do Produto / Projeto</label>
+                    <input type="text" id="of-product-code" required class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div>
+                    <label for="of-product-name" class="block text-sm font-medium text-gray-700">Nome / Descrição do Produto</label>
+                    <input type="text" id="of-product-name" required class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="of-quantity" class="block text-sm font-medium text-gray-700">Quantidade</label>
+                        <input type="number" id="of-quantity" required min="1" value="1" class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="of-priority" class="block text-sm font-medium text-gray-700">Prioridade</label>
+                        <select id="of-priority" class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white">
+                            <option value="Média">Média</option>
+                            <option value="Alta">Alta</option>
+                            <option value="Baixa">Baixa</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label for="of-roteiro-select" class="block text-sm font-medium text-gray-700">Roteiro de Produção</label>
+                    <select id="of-roteiro-select" required class="mt-1 w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 bg-white">
+                        <option value="default">Padrão</option>
+                        <!-- Opções dinâmicas do roteiro seriam carregadas aqui se houvesse múltiplos roteiros -->
+                    </select>
+                    <p id="roteiro-steps-summary" class="text-xs text-gray-500 mt-1">Etapas: Corte e Descasque, Montagem, Teste e Acabamento.</p>
+                </div>
+                
+                <div id="of-message" class="text-sm hidden"></div>
+
+                <div class="flex justify-end gap-3 pt-4">
+                    <button type="button" onclick="hideModal('create-of-modal')" class="bg-gray-300 text-gray-800 hover:bg-gray-400 font-semibold px-4 py-2 rounded-lg transition">Cancelar</button>
+                    <button type="submit" class="bg-green-600 text-white hover:bg-green-700 font-bold px-4 py-2 rounded-lg transition flex items-center gap-2">
+                        <i data-lucide="send" class="w-5 h-5"></i> Gerar OF
                     </button>
                 </div>
-                <p class="text-gray-700">${message}</p>
-                <div class="mt-6 flex justify-end">
-                    <button onclick="closeModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition duration-150">Fechar</button>
-                </div>
-            `;
-            // Renderiza os ícones Lucide
+            </form>
+        </div>
+    </div>
+
+
+    <script type="module">
+        // --- 1. IMPORTAÇÕES FIREBASE (v11.6.1) ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            collection, 
+            onSnapshot, 
+            query, 
+            setLogLevel,
+            where,
+            doc,
+            getDoc,
+            setDoc,
+            addDoc,
+            updateDoc
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- 2. VARIÁVEIS GLOBAIS ---
+        let app, db, auth;
+        let userId = '';
+        let userRole = '';
+        let userSector = ''; 
+        let isAuthReady = false; 
+        
+        // Roteiro Padrão Inicial (Será carregado do Firestore)
+        let defaultRoteiro = [
+            { sector: "Corte", name: "Corte e Descasque" },
+            { sector: "Montagem", name: "Montagem e Prensagem" },
+            { sector: "Teste", name: "Teste e Acabamento" }
+        ];
+
+        // Variável de Ambiente (simplesmente para demonstração e teste de restrição)
+        const PCP_MASTER_PASSWORD = "admin123"; 
+
+        // Elementos DOM (Usados para evitar múltiplas buscas)
+        let loginView, appContent, pcpView, operatorView, reportsView, loadingIndicator, ofsListContainer, tasksListContainer, userViewSelect, btnCreateOF, btnSetupRoteiro, btnProfile, userIdDisplay, operatorUserId, authIdDisplay, headerControls, operatorSectorSelect, pcpPasswordInput, btnLoginPCP, btnLoginOperatorStart, loginMessage, operatorSectorDisplay;
+        let radioPCP, radioOperator, loginFormPCP, loginFormOperator, labelPCPMaster, labelOperator;
+        let roteiroStepsContainer, btnAddStep, btnSaveRoteiro, roteiroMessage, roteiroStepsSummary;
+        let formCreateOF, ofMessage;
+        let modalGlobal, modalTitle, modalBody, modalFooter, modalBtnCancel, modalBtnConfirm;
+
+        // Variáveis Globais de Ambiente (MANDATÓRIO usar)
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+
+        // --- 3. FUNÇÕES DE UI E MODAIS ---
+        
+        function showMessage(element, message, type = 'info') {
+            element.textContent = message;
+            element.className = `p-3 rounded-lg text-sm mt-2 transition duration-300 animated-entry ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+            element.classList.remove('hidden');
+        }
+
+        function hideMessage(element) {
+            element.classList.add('hidden');
+        }
+        
+        // Modal genérico para substituir alert/confirm
+        function customAlert(title, message, type = 'info', onConfirm = null) {
+            modalTitle.textContent = title;
+            modalBody.textContent = message;
+            
+            modalBtnCancel.classList.add('hidden');
+            modalBtnConfirm.textContent = 'Ok';
+            modalBtnConfirm.onclick = () => hideModal('global-modal');
+            
+            if (onConfirm) {
+                modalBtnCancel.classList.remove('hidden');
+                modalBtnConfirm.textContent = 'Confirmar';
+                modalBtnConfirm.onclick = () => { onConfirm(); hideModal('global-modal'); };
+            }
+
+            modalGlobal.classList.remove('hidden');
+            modalGlobal.classList.add('flex');
             lucide.createIcons();
-
-            backdrop.classList.remove('hidden');
-            backdrop.classList.add('flex');
-            // Animação de entrada
-            setTimeout(() => {
-                content.classList.remove('opacity-0', 'scale-95');
-                content.classList.add('opacity-100', 'scale-100');
-            }, 50);
         }
 
-        /** Fecha o modal ativo */
-        function closeModal() {
-            const backdrop = document.getElementById('modal-backdrop');
-            const content = document.getElementById('modal-content');
-            
-            // Animação de saída
-            content.classList.remove('opacity-100', 'scale-100');
-            content.classList.add('opacity-0', 'scale-95');
-            
-            setTimeout(() => {
-                backdrop.classList.add('hidden');
-                backdrop.classList.remove('flex');
-                content.innerHTML = ''; // Limpa o conteúdo
-            }, 300);
+        function showModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
         }
 
-        // ----------------------------------------------------
-        // LÓGICA DE DADOS (FIREBASE)
-        // ----------------------------------------------------
+        function hideModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+            // Reset message elements
+            if (roteiroMessage) hideMessage(roteiroMessage);
+            if (ofMessage) hideMessage(ofMessage);
+        }
 
-        /** Inicializa a conexão com o Firebase e carrega os dados. */
-        function setupFirebase() {
-            toggleLoading(true);
+        function toggleLoginForm() {
+            const isPCP = radioPCP.checked;
+            
+            loginFormPCP.classList.toggle('hidden', !isPCP);
+            loginFormOperator.classList.toggle('hidden', isPCP);
+
+            // Estilos do seletor
+            labelPCPMaster.classList.toggle('bg-white', isPCP);
+            labelPCPMaster.classList.toggle('shadow-md', isPCP);
+            labelPCPMaster.classList.toggle('border-blue-500', isPCP);
+            labelPCPMaster.classList.toggle('text-blue-700', isPCP);
+            
+            labelOperator.classList.toggle('bg-white', !isPCP);
+            labelOperator.classList.toggle('shadow-md', !isPCP);
+            labelOperator.classList.toggle('border-yellow-500', !isPCP);
+            labelOperator.classList.toggle('text-yellow-700', !isPCP);
+            
+            // Reset messages/inputs on form switch
+            hideMessage(loginMessage);
+            pcpPasswordInput.value = '';
+            lucide.createIcons();
+        }
+
+
+        // --- 4. CONFIGURAÇÃO E AUTENTICAÇÃO FIREBASE ---
+
+        async function initializeFirebase() {
+            console.log("Iniciando Firebase...");
+            loadingIndicator.classList.remove('hidden');
+
             try {
-                // Inicializa o Firebase
-                const app = firebase.initializeApp(firebaseConfig);
-                db = firebase.database(app);
+                // Inicializa App, Auth e Firestore
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                setLogLevel('Debug'); 
 
-                // Configura o listener de dados (onValue)
-                const dbRef = db.ref(DB_ROOT_NODE);
+                // Tenta autenticar com token customizado (Canvas) ou Anonimamente
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
 
-                dbRef.on('value', (snapshot) => {
-                    toggleLoading(true);
-                    
-                    const data = snapshot.val();
-                    
-                    if (data) {
-                        // Carrega dados existentes
-                        allOFs = data.allOFs || {};
-                        // Garante que roteiros padrão são gerados se a estrutura estiver vazia
-                        allRoteiros = data.allRoteiros && Object.keys(data.allRoteiros).length > 0 ? data.allRoteiros : generateDefaultRoteiros();
-                        allTasks = data.allTasks || {};
-                        allReports = data.allReports || {};
-                        console.log("Dados carregados do Firebase com sucesso.");
+                // Listener para o estado de autenticação
+                onAuthStateChanged(auth, (user) => {
+                    loadingIndicator.classList.add('hidden'); 
+
+                    if (user) {
+                        userId = user.uid;
+                        userIdDisplay.textContent = userId.substring(0, 8) + '...';
+                        authIdDisplay.textContent = userId;
                     } else {
-                        // Se não houver dados no nó raiz, cria dados iniciais
-                        console.log("Nenhum dado encontrado. Inicializando com dados padrões.");
-                        allRoteiros = generateDefaultRoteiros();
-                        
-                        // Cria OFs iniciais se estiverem vazias, usando os novos IDs de roteiro
-                        if (Object.keys(allOFs).length === 0) {
-                            createOF('Chicote Básico', 50, 'CHICOTE-001');
-                            createOF('Chicote Intermediário', 30, 'CHICOTE-002');
-                        }
-                        
-                        saveDataToFirebase(); // Salva a estrutura inicial no DB
+                        // Deve sempre haver um user (anônimo ou token)
+                        userId = crypto.randomUUID(); 
+                        userIdDisplay.textContent = 'Anônimo';
+                        authIdDisplay.textContent = userId;
                     }
 
-                    // Renderiza a visualização atual após carregar/inicializar os dados
-                    updateView(userViewSelect.value);
-                    toggleLoading(false);
-                }, (error) => {
-                    console.error("Erro ao carregar dados do Firebase:", error);
-                    
-                    // Se a permissão for negada, remove o listener para evitar retries infinitos.
-                    dbRef.off(); 
-
-                    // Mensagem de erro robusta
-                    showMessageModal(
-                        "Erro de Permissão (FIREBASE)", 
-                        "O servidor Firebase negou o acesso. Por favor, verifique se as **Regras de Segurança** do seu **Realtime Database** estão configuradas para `\".read\": \"true\"` e `\".write\": \"true\"`. Se o erro persistir APÓS a correção das regras, pode ser um problema de cache do navegador. Tente recarregar a página."
-                    );
-                    toggleLoading(false);
+                    isAuthReady = true;
+                    // Mostra a tela de login para escolha de função
+                    loginView.classList.remove('hidden');
+                    console.log("Firebase e Autenticação prontos. ID:", userId);
+                    loadRoteiroConfig(); // Carrega roteiro padrão para o modal de criação de OF
                 });
-
-            } catch (error) {
-                console.error("Erro na inicialização do Firebase:", error);
-                showMessageModal("Erro de Inicialização", "Ocorreu um erro ao iniciar a conexão com o Firebase. Verifique se as credenciais estão corretas.");
-                toggleLoading(false);
-            }
-        }
-
-        /** Salva todos os dados globais no Firebase Realtime Database. */
-        function saveDataToFirebase() {
-            if (!db) {
-                console.error("Firebase não inicializado.");
-                return;
-            }
-            const dataToSave = {
-                allOFs,
-                allRoteiros,
-                allTasks,
-                allReports
-            };
-            
-            db.ref(DB_ROOT_NODE).set(dataToSave)
-                .then(() => {
-                    // console.log("Dados salvos com sucesso.");
-                })
-                .catch(error => {
-                    console.error("Erro ao salvar dados:", error);
-                    // Não mostra modal de erro, pois o onValue já trata o permission_denied
-                });
-        }
-        
-        // ----------------------------------------------------
-        // MODELO DE DADOS (FUNÇÕES DE CRUD)
-        // ----------------------------------------------------
-
-        /**
-         * Gera roteiros padrão para inicialização com a nova estrutura.
-         * @returns {Object} Dicionário de roteiros padrão.
-         */
-        function generateDefaultRoteiros() {
-            return {
-                'CHICOTE-001': { // Usando o Código do Chicote como ID
-                    id: 'CHICOTE-001',
-                    productCode: 'CHICOTE-001',
-                    name: 'Roteiro Básico',
-                    steps: [
-                        { id: 1, name: 'Corte de Cabos', setupTime: 10, cycleTime: 0.5, instructions: 'Usar máquina de corte A, verificar comprimento no padrão X.' },
-                        { id: 2, name: 'Pré-Montagem de Conectores', setupTime: 5, cycleTime: 0.8, instructions: 'Crimpagem dos terminais nas posições 1, 2, 3.' },
-                        { id: 3, name: 'Montagem Final e Teste', setupTime: 15, cycleTime: 1.2, instructions: 'Montar capa e testar continuidade no aparelho Y. Registrar resultado do teste.' }
-                    ]
-                },
-                'CHICOTE-002': { // Usando o Código do Chicote como ID
-                    id: 'CHICOTE-002',
-                    productCode: 'CHICOTE-002',
-                    name: 'Roteiro Intermediário',
-                    steps: [
-                        { id: 1, name: 'Corte e Estanhamento', setupTime: 15, cycleTime: 0.7, instructions: 'Estanhar pontas conforme desenho 002-E.' },
-                        { id: 2, name: 'Montagem de Terminais', setupTime: 10, cycleTime: 1.0, instructions: 'Montar conectores 1 e 2 no painel. Verificar torque.' },
-                        { id: 3, name: 'Injeção/Crimpagem', setupTime: 20, cycleTime: 1.5, instructions: 'Realizar injeção de plástico no corpo do conector. Inspecionar visualmente o encaixe.' },
-                        { id: 4, name: 'Inspeção Final', setupTime: 5, cycleTime: 0.3, instructions: 'Inspeção visual e dimensional. Liberar para expedição.' }
-                    ]
-                }
-            };
-        }
-
-        /**
-         * Cria uma nova Ordem de Fabricação (OF) e gera as tarefas.
-         * @param {string} productName - Nome do produto.
-         * @param {number} quantity - Quantidade a ser fabricada.
-         * @param {string} roteiroId - ID do roteiro (Código do Chicote) a ser usado.
-         * @returns {string} O ID da nova OF.
-         */
-        function createOF(productName, quantity, roteiroId) {
-            // Garante um ID único, mesmo que seja apenas um protótipo de serial
-            const ofId = `OF-${Date.now().toString().slice(-6)}`;
-            const roteiro = allRoteiros[roteiroId];
-            
-            if (!roteiro) {
-                console.error(`Roteiro ${roteiroId} não encontrado.`);
-                showMessageModal("Erro", `Roteiro ${roteiroId} não encontrado. Não foi possível criar a OF.`);
-                return null;
-            }
-
-            const newOF = {
-                id: ofId,
-                product: productName,
-                productCode: roteiro.productCode, // Adiciona o código do chicote
-                quantity: quantity,
-                roteiroId: roteiroId,
-                status: 'Pendente', // Pendente, Em Andamento, Finalizada
-                creationDate: new Date().toISOString().split('T')[0],
-                tasks: {} // As tarefas serão adicionadas abaixo
-            };
-
-            // Gera tarefas (Tasks) para cada passo do roteiro
-            roteiro.steps.forEach(step => {
-                const taskId = `${ofId}-${step.id}`;
                 
-                // NOVO CÁLCULO DE TEMPO: Setup Time + (Cycle Time * Quantity)
-                const expectedTime = (step.setupTime || 0) + ((step.cycleTime || 0) * quantity);
-
-                const task = {
-                    id: taskId,
-                    ofId: ofId,
-                    stepId: step.id,
-                    stepName: step.name,
-                    expectedTime: expectedTime, // Tempo total esperado (em minutos)
-                    status: 'Pendente', // Pendente, Em Andamento, Concluída
-                    startDate: null,
-                    endDate: null,
-                    assignedOperator: null,
-                    quantityToProduce: quantity,
-                    // Novos campos para a tarefa (para referência)
-                    setupTime: step.setupTime || 0,
-                    cycleTime: step.cycleTime || 0,
-                    instructions: step.instructions || 'Nenhuma instrução detalhada fornecida.'
-                };
-                newOF.tasks[taskId] = task;
-                allTasks[taskId] = task; // Adiciona ao índice global de tarefas
-            });
-
-            allOFs[ofId] = newOF;
-            saveDataToFirebase();
-            return ofId;
-        }
-
-        /**
-         * Atualiza o status de uma tarefa.
-         * @param {string} taskId - ID da tarefa.
-         * @param {string} status - Novo status (Em Andamento, Concluída).
-         * @param {string} [operatorId='OPERATOR_001'] - ID do operador (fixo para este protótipo).
-         */
-        function updateTaskStatus(taskId, status, operatorId = 'OPERATOR_001') {
-            const task = allTasks[taskId];
-            if (!task) return;
-
-            const now = new Date().toISOString();
-            
-            if (status === 'Em Andamento' && task.status === 'Pendente') {
-                task.status = status;
-                task.startDate = now;
-                task.assignedOperator = operatorId;
-                showMessageModal("Tarefa Iniciada", `A tarefa ${task.stepName} da OF ${task.ofId} foi iniciada.`);
-            } else if (status === 'Concluída' && task.status === 'Em Andamento') {
-                task.status = status;
-                task.endDate = now;
-                recordCompletion(task);
-                showMessageModal("Tarefa Concluída", `A tarefa ${task.stepName} da OF ${task.ofId} foi finalizada com sucesso.`);
-            }
-
-            // Atualiza a tarefa na OF pai
-            if (allOFs[task.ofId]) {
-                allOFs[task.ofId].tasks[taskId] = task;
-            }
-            
-            updateOFStatus(task.ofId);
-            saveDataToFirebase();
-            renderTasks(); // Renderiza tarefas novamente
-        }
-
-        /**
-         * Atualiza o status da OF com base no status de suas tarefas.
-         * @param {string} ofId - ID da OF.
-         */
-        function updateOFStatus(ofId) {
-            const of = allOFs[ofId];
-            if (!of) return;
-
-            const tasks = Object.values(of.tasks);
-            const totalTasks = tasks.length;
-            const completedTasks = tasks.filter(t => t.status === 'Concluída').length;
-            const pendingTasks = tasks.filter(t => t.status === 'Pendente').length;
-
-            if (completedTasks === totalTasks) {
-                of.status = 'Finalizada';
-            } else if (completedTasks > 0 || totalTasks - pendingTasks > 0) {
-                of.status = 'Em Andamento';
-            } else {
-                of.status = 'Pendente';
+            } catch (error) {
+                console.error("Erro fatal durante a inicialização/autenticação do Firebase:", error);
+                customAlert('Erro Fatal', `Não foi possível conectar ao Firebase. Verifique as credenciais. Erro: ${error.message}`, 'error');
+                loadingIndicator.classList.add('hidden');
             }
         }
         
-        /**
-         * Registra a conclusão de uma tarefa no relatório.
-         * @param {Object} task - Objeto da tarefa concluída.
-         */
-        function recordCompletion(task) {
-            if (!task.startDate || !task.endDate) return;
+        // --- 5. LÓGICA DE LOGIN E NAVEGAÇÃO PRINCIPAL ---
+        
+        function handleLogin() {
+            const isPCP = radioPCP.checked;
 
-            const startTime = new Date(task.startDate).getTime();
-            const endTime = new Date(task.endDate).getTime();
-            const actualTime = (endTime - startTime) / (1000 * 60); // Tempo em minutos
-
-            const reportEntry = {
-                taskId: task.id,
-                ofId: task.ofId,
-                stepName: task.stepName,
-                operator: task.assignedOperator,
-                expectedTime: task.expectedTime,
-                actualTime: actualTime,
-                date: new Date().toISOString()
-            };
-
-            const reportKey = new Date().toISOString().split('T')[0]; // Usa a data como chave de relatório
-            if (!allReports[reportKey]) {
-                allReports[reportKey] = [];
+            if (isPCP) {
+                const password = pcpPasswordInput.value;
+                if (password === PCP_MASTER_PASSWORD) {
+                    userRole = 'PCP';
+                    userSector = '';
+                    proceedToApp('PCP');
+                    showMessage(loginMessage, 'Login PCP Master realizado com sucesso!', 'success');
+                } else {
+                    showMessage(loginMessage, 'Senha Master incorreta. (Dica: admin123)', 'error');
+                }
+            } else { // Operador
+                const sector = operatorSectorSelect.value;
+                if (sector && sector !== '') {
+                    userRole = 'Operador';
+                    userSector = sector;
+                    operatorSectorDisplay.textContent = userSector;
+                    proceedToApp('Operador');
+                    showMessage(loginMessage, `Login Operador no Setor ${userSector} realizado com sucesso!`, 'success');
+                } else {
+                    showMessage(loginMessage, 'Selecione um Setor para continuar.', 'error');
+                }
             }
-            allReports[reportKey].push(reportEntry);
         }
 
-        // ----------------------------------------------------
-        // RENDERIZAÇÃO E UI
-        // ----------------------------------------------------
+        function proceedToApp(view) {
+            loginView.classList.add('hidden');
+            appContent.classList.remove('hidden');
+            headerControls.classList.remove('hidden');
+            userViewSelect.value = view; 
+            updateView(view);
+        }
 
-        /**
-         * Muda a visualização principal (PCP, Operador, Relatórios).
-         * @param {string} view - O nome da visualização a ser exibida.
-         */
         function updateView(view) {
             pcpView.classList.add('hidden');
             operatorView.classList.add('hidden');
             reportsView.classList.add('hidden');
-            btnExportReport.classList.add('hidden');
+
+            // Garante que o usuário tem permissão para a view (simples checagem)
+            if (view === 'Operador' && userRole === 'PCP') view = 'PCP';
+            if (view === 'Relatórios' && userRole === 'Operador') view = 'Operador';
             
             switch (view) {
                 case 'PCP':
                     pcpView.classList.remove('hidden');
-                    renderOFs();
-                    renderKPIs();
+                    if (isAuthReady) {
+                        renderOFs(); 
+                        renderKPIs();
+                    }
                     break;
                 case 'Operador':
                     operatorView.classList.remove('hidden');
-                    renderTasks();
+                    if (isAuthReady) {
+                        renderTasks(); 
+                    }
                     break;
                 case 'Relatórios':
                     reportsView.classList.remove('hidden');
-                    btnExportReport.classList.remove('hidden');
-                    renderReports();
                     break;
             }
+            lucide.createIcons();
         }
         
-        /** Renderiza os Cartões de KPI para a visão PCP. */
-        function renderKPIs() {
-            const kpisContainer = document.getElementById('kpis-container');
-            if (!kpisContainer) return;
+        // --- 6. LÓGICA DE DADOS (FIRESTORE) ---
 
-            const ofsArray = Object.values(allOFs);
-            const tasksArray = Object.values(allTasks);
-
-            const totalOFs = ofsArray.length;
-            const ofsEmAndamento = ofsArray.filter(of => of.status === 'Em Andamento').length;
-            const ofsFinalizadas = ofsArray.filter(of => of.status === 'Finalizada').length;
-            const tasksPendentes = tasksArray.filter(t => t.status === 'Pendente').length;
-
-            const kpiData = [
-                { title: 'Total de OFs', value: totalOFs, icon: 'factory', color: 'blue' },
-                { title: 'Em Andamento (WIP)', value: ofsEmAndamento, icon: 'rotate-cw', color: 'yellow' },
-                { title: 'Tarefas Pendentes', value: tasksPendentes, icon: 'list-todo', color: 'red' },
-                { title: 'Finalizadas', value: ofsFinalizadas, icon: 'check-circle', color: 'green' },
-            ];
-
-            kpisContainer.innerHTML = kpiData.map(kpi => `
-                <div class="bg-white p-5 rounded-xl shadow-lg border-l-4 border-${kpi.color}-500 transition duration-300 hover:shadow-xl">
-                    <div class="flex items-center justify-between">
-                        <p class="text-sm font-medium text-gray-500">${kpi.title}</p>
-                        <span data-lucide="${kpi.icon}" class="text-${kpi.color}-500 w-6 h-6"></span>
-                    </div>
-                    <p class="text-3xl font-bold text-gray-900 mt-2">${kpi.value}</p>
-                </div>
-            `).join('');
-
-            lucide.createIcons();
+        // Função de Ação: Edição/Gerenciamento de OF
+        window.editOF = function(ofId) { 
+            customAlert('Gerenciar OF', `Abrindo painel para gerenciar as etapas da OF #${ofId.substring(0, 8)}. Funcionalidade em desenvolvimento.`, 'info'); 
+            console.log('Editar OF:', ofId); 
         }
 
-        /** Renderiza a lista de Ordens de Fabricação para a visão PCP. */
-        function renderOFs() {
-            const ofsArray = Object.values(allOFs).sort((a, b) => {
-                // Ordenação: Em Andamento > Pendente > Finalizada
-                const statusOrder = { 'Em Andamento': 1, 'Pendente': 2, 'Finalizada': 3 };
-                return statusOrder[a.status] - statusOrder[b.status] || a.id.localeCompare(b.id);
-            });
-
-            if (ofsArray.length === 0) {
-                ofsListContainer.innerHTML = '<p class="text-center text-gray-500 py-10">Nenhuma Ordem de Fabricação (OF) encontrada.</p>';
-                return;
-            }
-
-            ofsListContainer.innerHTML = ofsArray.map(of => {
-                const roteiroName = allRoteiros[of.roteiroId] ? allRoteiros[of.roteiroId].name : 'Roteiro Desconhecido';
-                const totalTasks = Object.keys(of.tasks).length;
-                const completedTasks = Object.values(of.tasks).filter(t => t.status === 'Concluída').length;
-                const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-                
-                let statusColor = 'bg-gray-400';
-                let statusText = 'Pendente';
-                if (of.status === 'Em Andamento') {
-                    statusColor = 'bg-yellow-500';
-                    statusText = 'Em Andamento';
-                } else if (of.status === 'Finalizada') {
-                    statusColor = 'bg-green-500';
-                    statusText = 'Finalizada';
-                }
-
-                return `
-                    <div class="bg-white p-5 rounded-xl shadow-lg border border-gray-200 transition duration-300 hover:shadow-xl">
-                        <div class="flex justify-between items-start mb-3">
-                            <h4 class="text-xl font-bold text-blue-700">${of.id} - ${of.product}</h4>
-                            <span class="px-3 py-1 text-xs font-semibold text-white rounded-full ${statusColor}">${statusText}</span>
-                        </div>
-                        <p class="text-sm text-gray-600 mb-2">Código: <span class="font-semibold text-purple-600">${of.productCode}</span> | Quantidade: <span class="font-semibold">${of.quantity}</span> | Roteiro: <span class="font-semibold">${roteiroName}</span></p>
-                        
-                        <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
-                            <div class="h-2.5 rounded-full ${statusColor}" style="width: ${progress}%"></div>
-                        </div>
-                        <p class="text-xs text-gray-500">${progress}% Concluído (${completedTasks}/${totalTasks} tarefas)</p>
-                        
-                        <!-- Botão de Detalhes (pode abrir modal com tarefas) -->
-                        <button onclick="showOFDetails('${of.id}')" class="mt-3 text-blue-600 hover:text-blue-800 text-sm font-semibold transition duration-150">
-                            Ver Tarefas e Detalhes <span data-lucide="chevrons-right" class="w-4 h-4 inline ml-1"></span>
-                        </button>
-                    </div>
-                `;
-            }).join('');
-
-            lucide.createIcons();
+        // Função de Ação: Iniciar/Pausar Tarefa
+        window.startTask = function(ofId, stepId) { 
+            customAlert('Controle de Tempo', `Iniciando/Pausando Tarefa ${stepId} da OF #${ofId.substring(0, 8)}. Lógica de cronometragem deve ser implementada no Firestore.`, 'info');
+            console.log('Iniciar/Pausar Tarefa:', ofId, stepId); 
         }
 
-        /**
-         * Exibe os detalhes da OF em um modal.
-         * @param {string} ofId - ID da OF.
-         */
-        function showOFDetails(ofId) {
-            const of = allOFs[ofId];
-            if (!of) return;
+        // --- Roteiro ---
 
-            const tasksListHtml = Object.values(of.tasks).map(task => {
-                let statusColor = 'text-gray-500';
-                let icon = 'clock';
-                if (task.status === 'Em Andamento') {
-                    statusColor = 'text-yellow-600';
-                    icon = 'rotate-cw';
-                } else if (task.status === 'Concluída') {
-                    statusColor = 'text-green-600';
-                    icon = 'check-circle';
-                }
-                
-                // Formata o tempo total estimado para horas e minutos
-                const totalMinutes = Math.ceil(task.expectedTime);
-                const expectedTimeText = `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}min`;
-
-                return `
-                    <li class="flex flex-col p-3 border-b last:border-b-0 hover:bg-gray-100 transition duration-100">
-                        <div class="flex items-start justify-between">
-                            <div class="flex items-center">
-                                <span data-lucide="${icon}" class="${statusColor} w-5 h-5 mr-3 flex-shrink-0"></span>
-                                <div>
-                                    <p class="font-medium text-gray-700">${task.stepName}</p>
-                                    <p class="text-xs text-gray-500">
-                                        Setup: ${task.setupTime} min | Ciclo: ${task.cycleTime} min/peça 
-                                        (<span class="font-semibold">Total Estimado: ${expectedTimeText}</span>)
-                                    </p>
-                                </div>
-                            </div>
-                            <span class="text-sm font-semibold ${statusColor}">${task.status}</span>
-                        </div>
-                        ${task.instructions ? `<p class="text-xs italic text-gray-600 mt-2 pl-8 border-l-2 border-dashed border-gray-300 ml-4">Como Fazer: ${task.instructions}</p>` : ''}
-                    </li>
-                `;
-            }).join('');
-
-            const contentHtml = `
-                <div class="flex justify-between items-center border-b pb-3 mb-4">
-                    <h3 class="text-xl font-bold text-gray-800">Detalhes da OF ${of.id}</h3>
-                    <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition duration-150 ease-in-out">
-                        <span data-lucide="x" class="w-6 h-6"></span>
+        function renderRoteiroSteps(steps = defaultRoteiro) {
+            roteiroStepsContainer.innerHTML = '';
+            steps.forEach((step, index) => {
+                const div = document.createElement('div');
+                div.className = "flex items-center gap-3 bg-white p-3 rounded-lg border border-blue-200 shadow-sm";
+                div.innerHTML = `
+                    <span class="font-bold text-blue-600">${index + 1}</span>
+                    <input type="text" value="${step.name}" placeholder="Nome da Etapa" class="flex-1 p-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500" data-index="${index}" data-type="name" required>
+                    <select class="w-28 p-2 border rounded-lg bg-gray-50 text-sm" data-index="${index}" data-type="sector">
+                        <option value="Corte" ${step.sector === 'Corte' ? 'selected' : ''}>Corte</option>
+                        <option value="Montagem" ${step.sector === 'Montagem' ? 'selected' : ''}>Montagem</option>
+                        <option value="Teste" ${step.sector === 'Teste' ? 'selected' : ''}>Teste</option>
+                        <option value="Embalagem" ${step.sector === 'Embalagem' ? 'selected' : ''}>Embalagem</option>
+                        <option value="Outro" ${!['Corte', 'Montagem', 'Teste', 'Embalagem'].includes(step.sector) ? 'selected' : ''}>Outro</option>
+                    </select>
+                    <button type="button" class="text-red-500 hover:text-red-700 p-1" onclick="removeRoteiroStep(this)">
+                        <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
-                </div>
-                <p class="text-lg font-semibold text-blue-700 mb-2">${of.product} (Cód: ${of.productCode}, ${of.quantity} peças)</p>
-                <p class="text-sm text-gray-600 mb-4">Status: <span class="font-bold ${of.status === 'Em Andamento' ? 'text-yellow-600' : of.status === 'Finalizada' ? 'text-green-600' : 'text-gray-600'}">${of.status}</span></p>
-
-                <h4 class="font-bold text-gray-700 mt-4 mb-2">Roteiro de Produção:</h4>
-                <ul class="bg-white border rounded-xl divide-y divide-gray-200 shadow-inner max-h-80 overflow-y-auto">
-                    ${tasksListHtml}
-                </ul>
-                <div class="mt-6 flex justify-end">
-                    <button onclick="closeModal()" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:bg-gray-400 transition duration-150">Fechar</button>
-                </div>
-            `;
-            
-            document.getElementById('modal-content').innerHTML = contentHtml;
+                `;
+                roteiroStepsContainer.appendChild(div);
+            });
             lucide.createIcons();
-            document.getElementById('modal-backdrop').classList.remove('hidden');
-            document.getElementById('modal-backdrop').classList.add('flex');
-            
-            // Animação de entrada
-            setTimeout(() => {
-                document.getElementById('modal-content').classList.remove('opacity-0', 'scale-95');
-                document.getElementById('modal-content').classList.add('opacity-100', 'scale-100');
-            }, 50);
+            // Atualiza o resumo do roteiro na criação de OF
+            const stepNames = steps.map(s => s.name);
+            roteiroStepsSummary.textContent = `Etapas: ${stepNames.join(', ')}.`;
+        }
+        
+        window.removeRoteiroStep = function(button) {
+            button.closest('div').remove();
+            // Recria a lista de roteiro para reindexar e renderizar
+            const currentSteps = Array.from(roteiroStepsContainer.querySelectorAll('input[data-type="name"]')).map((input, index) => ({
+                sector: roteiroStepsContainer.querySelector(`select[data-index="${index}"]`).value,
+                name: input.value
+            }));
+            renderRoteiroSteps(currentSteps);
         }
 
-        /** Renderiza a lista de tarefas para a visão Operador. */
-        function renderTasks() {
-            const operatorId = 'OPERATOR_001'; // Fixo para este protótipo
-            const allTasksArray = Object.values(allTasks);
+        function addRoteiroStep() {
+            const steps = Array.from(roteiroStepsContainer.querySelectorAll('input[data-type="name"]')).map((input, index) => ({
+                sector: roteiroStepsContainer.querySelector(`select[data-index="${index}"]`).value,
+                name: input.value
+            }));
+            
+            steps.push({ sector: "Outro", name: `Nova Etapa ${steps.length + 1}` });
+            renderRoteiroSteps(steps);
+        }
 
-            // Filtra e ordena tarefas: Pendente > Em Andamento > Concluída (deve ser rara aqui)
-            const tasks = allTasksArray
-                .filter(t => t.status !== 'Concluída') // Mostra apenas pendentes e em andamento
-                .sort((a, b) => {
-                    // Prioriza Em Andamento sobre Pendente
-                    const statusOrder = { 'Em Andamento': 1, 'Pendente': 2 };
-                    return statusOrder[a.status] - statusOrder[b.status] || a.id.localeCompare(b.id);
+        async function loadRoteiroConfig() {
+            if (!isAuthReady || !db) return;
+
+            const docRef = doc(db, `artifacts/${appId}/public/data/config`, 'roteiro_padrao');
+            try {
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    defaultRoteiro = docSnap.data().steps || defaultRoteiro;
+                }
+                renderRoteiroSteps(defaultRoteiro);
+            } catch (e) {
+                console.error("Erro ao carregar roteiro padrão:", e);
+                renderRoteiroSteps(defaultRoteiro); 
+            }
+        }
+        
+        async function saveRoteiro(e) {
+            e.preventDefault();
+            const inputs = roteiroStepsContainer.querySelectorAll('input[data-type="name"]');
+            const selects = roteiroStepsContainer.querySelectorAll('select[data-type="sector"]');
+            const newRoteiro = [];
+            
+            inputs.forEach((input, index) => {
+                newRoteiro.push({
+                    sector: selects[index].value || 'Outro',
+                    name: input.value.trim()
                 });
-
-            tasksListContainer.innerHTML = '';
-            
-            if (tasks.length === 0) {
-                document.getElementById('no-tasks').classList.remove('hidden');
-                return;
-            }
-            document.getElementById('no-tasks').classList.add('hidden');
-
-            tasks.forEach(task => {
-                const isPending = task.status === 'Pendente';
-                const isStarted = task.status === 'Em Andamento';
-                
-                let actionButtonHtml;
-                const expectedTimeText = `${Math.floor(task.expectedTime)} min ${Math.round((task.expectedTime % 1) * 60)} s`;
-
-                if (isPending) {
-                    actionButtonHtml = `
-                        <button onclick="updateTaskStatus('${task.id}', 'Em Andamento')" class="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold text-sm shadow-md hover:bg-green-600 transition duration-150">
-                            <span data-lucide="play" class="w-4 h-4 inline mr-1"></span> Iniciar
-                        </button>
-                    `;
-                } else if (isStarted) {
-                    actionButtonHtml = `
-                        <button onclick="updateTaskStatus('${task.id}', 'Concluída')" class="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold text-sm shadow-md hover:bg-red-600 transition duration-150">
-                            <span data-lucide="check-circle" class="w-4 h-4 inline mr-1"></span> Concluir
-                        </button>
-                    `;
-                }
-
-                let statusColorClass = isPending ? 'text-gray-500' : 'text-yellow-600';
-                let icon = isPending ? 'clock' : 'rotate-cw';
-
-                const taskElement = document.createElement('div');
-                taskElement.className = 'bg-white p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition duration-300';
-                taskElement.innerHTML = `
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="flex items-center">
-                            <span data-lucide="${icon}" class="${statusColorClass} w-6 h-6 mr-3"></span>
-                            <div>
-                                <h4 class="text-xl font-bold text-gray-800">${task.stepName}</h4>
-                                <p class="text-sm text-gray-500">OF: <span class="font-semibold text-blue-600">${task.ofId}</span> | Quantidade: ${task.quantityToProduce}</p>
-                            </div>
-                        </div>
-                        <span class="px-3 py-1 text-xs font-semibold text-white rounded-full ${isPending ? 'bg-gray-400' : 'bg-yellow-500'}">${task.status}</span>
-                    </div>
-                    
-                    <!-- Detalhes de Tempo -->
-                    <div class="mb-4 text-sm text-gray-700 bg-blue-50 p-3 rounded-lg border border-blue-200">
-                        <p class="font-bold mb-1">Detalhes de Tempo:</p>
-                        <ul class="list-disc list-inside space-y-1 ml-4">
-                            <li><span class="font-semibold">Tempo de Setup:</span> ${task.setupTime} minutos</li>
-                            <li><span class="font-semibold">Tempo de Ciclo:</span> ${task.cycleTime} minutos/peça</li>
-                            <li><span class="font-semibold">Tempo Total Estimado:</span> ${expectedTimeText}</li>
-                        </ul>
-                    </div>
-                    
-                    <!-- Instruções / Como Fazer -->
-                    ${task.instructions ? `
-                    <div class="mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded-lg text-sm text-gray-800">
-                        <p class="font-bold flex items-center mb-1"><span data-lucide="book-open" class="w-4 h-4 mr-1"></span> Como Fazer (Instruções):</p>
-                        <p>${task.instructions}</p>
-                    </div>
-                    ` : ''}
-
-                    <div class="border-t pt-4 flex justify-between items-center">
-                        <p class="text-sm text-gray-600">Peças a Produzir: <span class="font-bold">${task.quantityToProduce}</span></p>
-                        ${actionButtonHtml}
-                    </div>
-                `;
-                tasksListContainer.appendChild(taskElement);
-                lucide.createIcons();
             });
-        }
 
-        /** Renderiza o modal de Configuração de Roteiros. */
-        function showRoteiroSetupModal() {
-            const roteirosArray = Object.values(allRoteiros);
-
-            const roteiroListHtml = roteirosArray.map(r => `
-                <li class="flex justify-between items-center p-3 border-b last:border-b-0 bg-gray-50 rounded-xl mb-2 shadow-sm">
-                    <div class="flex-1">
-                        <p class="font-semibold text-gray-800">${r.name}</p>
-                        <p class="text-sm text-blue-600 font-mono">CÓDIGO: ${r.productCode}</p> 
-                        <p class="text-xs text-gray-500">${r.steps.length} passos configurados</p>
-                    </div>
-                    <!-- Delete Button -->
-                    <button onclick="deleteRoteiro('${r.id}')" class="text-red-500 hover:text-red-700 transition duration-150 ml-4">
-                        <span data-lucide="trash-2" class="w-5 h-5"></span>
-                    </button>
-                </li>
-            `).join('');
-
-            const contentHtml = `
-                <div class="flex justify-between items-center border-b pb-3 mb-4">
-                    <h3 class="text-xl font-bold text-gray-800">Configurar Roteiros de Produção</h3>
-                    <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
-                        <span data-lucide="x" class="w-6 h-6"></span>
-                    </button>
-                </div>
-
-                <div class="space-y-4">
-                    <h4 class="font-bold text-lg text-gray-700">Roteiros Existentes:</h4>
-                    <ul class="max-h-60 overflow-y-auto pr-2">
-                        ${roteiroListHtml || '<p class="text-center text-gray-500 py-4">Nenhum roteiro configurado.</p>'}
-                    </ul>
-
-                    <button onclick="showCreateRoteiroModal()" class="w-full bg-green-500 text-white px-4 py-2 rounded-xl font-semibold hover:bg-green-600 transition duration-150 flex items-center justify-center shadow-md">
-                        <span data-lucide="plus" class="w-5 h-5 mr-2"></span> Novo Roteiro
-                    </button>
-                </div>
-                
-                <div class="mt-6 flex justify-end">
-                    <button onclick="closeModal()" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:bg-gray-400 transition duration-150">Fechar</button>
-                </div>
-            `;
-
-            document.getElementById('modal-content').innerHTML = contentHtml;
-            lucide.createIcons();
-            document.getElementById('modal-backdrop').classList.remove('hidden');
-            document.getElementById('modal-backdrop').classList.add('flex');
-            
-            // Animação de entrada
-            setTimeout(() => {
-                document.getElementById('modal-content').classList.remove('opacity-0', 'scale-95');
-                document.getElementById('modal-content').classList.add('opacity-100', 'scale-100');
-            }, 50);
-        }
-
-        /** Exibe o modal para criar um novo roteiro. */
-        function showCreateRoteiroModal() {
-            const contentHtml = `
-                <div class="flex justify-between items-center border-b pb-3 mb-4">
-                    <h3 class="text-xl font-bold text-gray-800">Criar Novo Roteiro</h3>
-                    <button onclick="showRoteiroSetupModal()" class="text-gray-400 hover:text-gray-600">
-                        <span data-lucide="arrow-left" class="w-6 h-6"></span>
-                    </button>
-                </div>
-
-                <form id="create-roteiro-form" class="space-y-4">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <!-- Código do Chicote (ID) -->
-                        <div>
-                            <label for="roteiro-product-code" class="block text-sm font-medium text-gray-700">Código do Chicote</label>
-                            <input type="text" id="roteiro-product-code" required class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 uppercase" placeholder="EX: CHICOTE-A01">
-                        </div>
-                        <!-- Nome do Roteiro -->
-                        <div>
-                            <label for="roteiro-name" class="block text-sm font-medium text-gray-700">Nome do Roteiro</label>
-                            <input type="text" id="roteiro-name" required class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: Roteiro Padrão">
-                        </div>
-                    </div>
-
-                    <h4 class="font-bold text-gray-700 pt-2 border-t mt-4">Passos de Produção (Atividades):</h4>
-                    <div id="roteiro-steps-container" class="space-y-3 max-h-60 overflow-y-auto pr-2">
-                        <!-- Steps will be added here -->
-                    </div>
-                    
-                    <button type="button" onclick="addRoteiroStep()" class="text-blue-600 font-semibold flex items-center hover:text-blue-800 transition duration-150">
-                        <span data-lucide="plus-square" class="w-5 h-5 mr-1"></span> Adicionar Passo
-                    </button>
-
-                    <div class="pt-4 border-t mt-6 flex justify-end gap-3">
-                        <button type="button" onclick="showRoteiroSetupModal()" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:bg-gray-400">Cancelar</button>
-                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700">Salvar Roteiro</button>
-                    </div>
-                </form>
-            `;
-
-            document.getElementById('modal-content').innerHTML = contentHtml;
-            lucide.createIcons();
-            
-            // Adiciona o listener de submissão
-            document.getElementById('create-roteiro-form').addEventListener('submit', handleCreateRoteiro);
-            
-            // Adiciona o primeiro passo por padrão
-            addRoteiroStep('Corte', 5, 0.5, 'Corte inicial dos cabos, verificar bitola.');
-        }
-        
-        /** * Adiciona um campo para um novo passo de roteiro no modal, incluindo Setup, Ciclo e Instruções.
-         * @param {string} name - Nome da atividade.
-         * @param {number} setupTime - Tempo de setup (min).
-         * @param {number} cycleTime - Tempo de ciclo (min/peça).
-         * @param {string} instructions - Como fazer.
-         */
-        function addRoteiroStep(name = '', setupTime = 0, cycleTime = 0, instructions = '') {
-            const container = document.getElementById('roteiro-steps-container');
-            const stepId = Date.now() + Math.random(); // ID temporário para o elemento
-            
-            const stepHtml = `
-                <div id="step-${stepId}" class="bg-white p-4 border border-gray-200 rounded-xl shadow-inner space-y-3">
-                    <div class="flex justify-end">
-                        <button type="button" onclick="document.getElementById('step-${stepId}').remove(); lucide.createIcons();" class="text-red-500 hover:text-red-700 transition duration-150">
-                            <span data-lucide="x" class="w-5 h-5"></span>
-                        </button>
-                    </div>
-
-                    <!-- Nome da Atividade -->
-                    <div>
-                        <label class="block text-xs font-medium text-gray-700">Nome da Atividade</label>
-                        <input type="text" placeholder="Ex: Crimpagem dos Terminais" value="${name}" class="step-name mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 text-sm focus:ring-purple-500 focus:border-purple-500" required>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-3">
-                        <!-- Tempo de Setup -->
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700">Tempo de Setup (min)</label>
-                            <input type="number" placeholder="Ex: 15" value="${setupTime}" min="0" class="step-setup-time mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 text-sm text-right focus:ring-purple-500 focus:border-purple-500" required>
-                        </div>
-                        <!-- Tempo de Ciclo -->
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700">Tempo de Ciclo (min/peça)</label>
-                            <input type="number" placeholder="Ex: 0.8" value="${cycleTime}" min="0" step="0.01" class="step-cycle-time mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 text-sm text-right focus:ring-purple-500 focus:border-purple-500" required>
-                        </div>
-                    </div>
-                    
-                    <!-- Como Fazer / Instruções -->
-                    <div>
-                        <label class="block text-xs font-medium text-gray-700">Instruções / Como Fazer</label>
-                        <textarea rows="3" placeholder="Detalhes de execução e padrão de qualidade" class="step-instructions mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 text-sm focus:ring-purple-500 focus:border-purple-500">${instructions}</textarea>
-                    </div>
-                </div>
-            `;
-            container.insertAdjacentHTML('beforeend', stepHtml);
-            lucide.createIcons();
-        }
-
-        /** Manipula a submissão do formulário de criação de roteiro. */
-        function handleCreateRoteiro(event) {
-            event.preventDefault();
-            
-            const productCode = document.getElementById('roteiro-product-code').value.trim().toUpperCase();
-            const name = document.getElementById('roteiro-name').value.trim();
-
-            if (!name || !productCode) {
-                showMessageModal("Erro de Validação", "O Código do Chicote e o Nome do Roteiro são obrigatórios.");
+            if (newRoteiro.some(step => step.name === '')) {
+                showMessage(roteiroMessage, 'Todas as etapas devem ter um nome.', 'error');
                 return;
             }
 
-            // Verifica se o ID já existe
-            if (allRoteiros[productCode]) {
-                showMessageModal("Erro", `O Código do Chicote **${productCode}** já está sendo usado como Roteiro. Por favor, escolha um código diferente.`);
+            const docRef = doc(db, `artifacts/${appId}/public/data/config`, 'roteiro_padrao');
+            try {
+                await setDoc(docRef, { steps: newRoteiro, lastUpdated: new Date().toISOString() });
+                defaultRoteiro = newRoteiro; // Atualiza variável local
+                showMessage(roteiroMessage, 'Roteiro padrão salvo com sucesso!', 'success');
+                setTimeout(() => hideModal('setup-roteiro-modal'), 1500);
+
+            } catch (e) {
+                console.error("Erro ao salvar roteiro:", e);
+                showMessage(roteiroMessage, 'Erro ao salvar roteiro no Firestore.', 'error');
+            }
+        }
+
+        // --- Criação de OF ---
+
+        async function createOFInFirestore(e) {
+            e.preventDefault();
+            
+            const productCode = document.getElementById('of-product-code').value.trim();
+            const productName = document.getElementById('of-product-name').value.trim();
+            const quantity = parseInt(document.getElementById('of-quantity').value, 10);
+            const priority = document.getElementById('of-priority').value;
+            
+            if (!productCode || !productName || quantity < 1) {
+                showMessage(ofMessage, 'Preencha todos os campos obrigatórios.', 'error');
                 return;
             }
 
-            const steps = [];
-            let isValid = true;
-            
-            const stepElements = document.querySelectorAll('#roteiro-steps-container > div');
-            
-            stepElements.forEach((el, index) => {
-                const stepName = el.querySelector('.step-name').value.trim();
-                // Usa parseFloat para aceitar decimais no tempo
-                const setupTime = parseFloat(el.querySelector('.step-setup-time').value);
-                const cycleTime = parseFloat(el.querySelector('.step-cycle-time').value);
-                const instructions = el.querySelector('.step-instructions').value.trim();
+            // Cria as tarefas iniciais baseadas no roteiro Padrão
+            const initialTasks = defaultRoteiro.map((step, index) => ({
+                stepId: index + 1,
+                stepName: step.name,
+                sector: step.sector,
+                status: index === 0 ? 'Pendente' : 'Aguardando', 
+                timeElapsed: 0,
+                currentOperatorId: '',
+                startTime: null,
+                endTime: null,
+                isActive: false
+            }));
 
-                // Validação: Setup/Ciclo não podem ser NaN ou negativos (apenas > 0 ou 0)
-                if (!stepName || isNaN(setupTime) || setupTime < 0 || isNaN(cycleTime) || cycleTime < 0) {
-                    isValid = false;
+            const newOF = {
+                productCode,
+                productName,
+                quantity,
+                priority,
+                status: 'Pendente', 
+                currentStepIndex: 0, // Índice da tarefa atual no array tasks
+                creationDate: new Date().toISOString(),
+                tasks: initialTasks, 
+                creationUserId: userId
+            };
+
+            const ofsColRef = collection(db, `artifacts/${appId}/public/data/ofs`);
+            
+            try {
+                const docRef = await addDoc(ofsColRef, newOF);
+                showMessage(ofMessage, `OF #${docRef.id.substring(0, 8)} criada com sucesso!`, 'success');
+                formCreateOF.reset();
+                setTimeout(() => hideModal('create-of-modal'), 1500);
+
+            } catch (error) {
+                console.error("Erro ao criar OF:", error);
+                showMessage(ofMessage, 'Erro ao salvar OF no Firestore.', 'error');
+            }
+        }
+
+
+        // --- Renderização de Dados (Lógica de Apresentação) ---
+
+        function renderStatusBadge(status) {
+            let className, text;
+            switch(status) {
+                case 'Em Progresso':
+                case 'Em Execução':
+                    className = 'status-badge-progress';
+                    text = status;
+                    break;
+                case 'Concluído':
+                    className = 'status-badge-complete';
+                    text = status;
+                    break;
+                case 'Pendente':
+                case 'Aguardando':
+                default:
+                    className = 'status-badge-pending';
+                    text = status || 'Pendente';
+            }
+            return `<span class="status-badge ${className}">${text}</span>`;
+        }
+
+        function renderKPIs(totalOfs = 0, inProgress = 0, completedToday = 0) {
+            document.getElementById('kpi-total-ofs').textContent = totalOfs.toString();
+            document.getElementById('kpi-in-progress').textContent = inProgress.toString();
+            document.getElementById('kpi-completed-today').textContent = completedToday.toString();
+        }
+
+
+        function renderOFs() {
+            if (!isAuthReady || !db) return;
+
+            const ofsCollectionPath = `artifacts/${appId}/public/data/ofs`;
+            const ofsColRef = collection(db, ofsCollectionPath);
+            const q = query(ofsColRef); // Sem orderBy para evitar erro de índice
+
+            ofsListContainer.innerHTML = `<div class="p-6 text-center text-sm text-gray-500 bg-white card-shadow">Carregando Ordens de Fabricação (Firestore)...</div>`;
+
+            onSnapshot(q, (snapshot) => {
+                let ofsHTML = '';
+                let totalOfs = 0;
+                let inProgress = 0;
+                let completedToday = 0;
+                const today = new Date().toDateString();
+
+                if (snapshot.empty) {
+                    ofsListContainer.innerHTML = `<div class="p-6 text-center text-sm text-gray-500 bg-white card-shadow">Nenhuma Ordem de Fabricação encontrada.</div>`;
+                    renderKPIs(0, 0, 0); 
                     return;
                 }
-                
-                steps.push({
-                    id: index + 1,
-                    name: stepName,
-                    setupTime: setupTime, // tempo em minutos
-                    cycleTime: cycleTime, // tempo em minutos/peça
-                    instructions: instructions
+
+                snapshot.forEach(doc => {
+                    const of = doc.data();
+                    of.id = doc.id;
+                    totalOfs++;
+
+                    const currentTask = of.tasks[of.currentStepIndex] || null;
+                    const status = of.status || 'Pendente';
+
+                    if (status === 'Em Progresso') {
+                        inProgress++;
+                    }
+                    if (status === 'Concluído' && of.completionDate && new Date(of.completionDate).toDateString() === today) {
+                        completedToday++;
+                    }
+                    
+                    const currentStepName = currentTask ? `${currentTask.stepName} (${currentTask.sector})` : 'Completa';
+                    const listBorderColor = status === 'Concluído' ? 'border-green-500' : status === 'Em Progresso' ? 'border-yellow-500' : 'border-blue-500';
+
+                    ofsHTML += `
+                        <div class="bg-white p-4 rounded-xl shadow border-l-4 ${listBorderColor} flex flex-col sm:flex-row justify-between items-start sm:items-center hover:shadow-lg transition">
+                            <div class="space-y-1 mb-2 sm:mb-0">
+                                <p class="font-bold text-lg text-gray-800">OF #${of.id.substring(0, 8)}</p>
+                                <p class="text-sm text-gray-600">${of.productCode || 'N/A'} - ${of.productName || 'Sem descrição'}</p>
+                                <p class="text-xs text-gray-500">Etapa Atual: <span class="font-semibold text-blue-600">${currentStepName}</span> | Qtd: ${of.quantity || '0'}</p>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                ${renderStatusBadge(status)}
+                                <button onclick="editOF('${of.id}')" class="text-blue-500 hover:text-blue-700 p-2 rounded-full hover:bg-blue-50 transition">
+                                    <i data-lucide="edit" class="w-5 h-5"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
                 });
+                
+                ofsListContainer.innerHTML = ofsHTML;
+                lucide.createIcons();
+                renderKPIs(totalOfs, inProgress, completedToday);
+
+            }, (error) => {
+                console.error("Erro ao carregar OFs (Firestore):", error);
+                ofsListContainer.innerHTML = `<div class="p-6 text-center text-red-700 text-sm bg-red-100 rounded-xl card-shadow">Erro ao carregar Ordens de Fabricação.</div>`;
             });
-
-            if (!isValid) {
-                showMessageModal("Erro de Validação", "Todos os passos devem ter nome, Tempo de Setup (>=0) e Tempo de Ciclo (>=0) válidos.");
-                return;
-            }
-            if (steps.length === 0) {
-                showMessageModal("Erro", "Um roteiro deve ter pelo menos um passo.");
-                return;
-            }
-
-            // Adiciona o novo roteiro usando o Código do Chicote como ID
-            allRoteiros[productCode] = { 
-                id: productCode, 
-                productCode: productCode, 
-                name: name, 
-                steps: steps 
-            };
-            
-            saveDataToFirebase();
-            closeModal();
-            showMessageModal("Sucesso", `O Roteiro **${name}** para o Código **${productCode}** foi criado com sucesso.`);
-            updateView('PCP'); // Re-renderiza a view PCP após a criação
         }
         
-        /**
-         * Deleta um roteiro e previne a exclusão se houver OFs dependentes (lógica de protótipo).
-         * @param {string} roteiroId - ID do roteiro.
-         */
-        function deleteRoteiro(roteiroId) {
-            // Verifica dependências (simulação)
-            const hasDependentOFs = Object.values(allOFs).some(of => of.roteiroId === roteiroId && of.status !== 'Finalizada');
-
-            if (hasDependentOFs) {
-                showMessageModal(
-                    "Impossível Excluir", 
-                    "Não é possível excluir o roteiro enquanto houver Ordens de Fabricação (OFs) ativas ou pendentes que dependem dele. Finalize as OFs primeiro."
-                );
-                return;
-            }
-
-            if (confirm(`Tem certeza que deseja excluir o roteiro ${roteiroId}?`)) {
-                delete allRoteiros[roteiroId];
-                // Também deletaria todas as tarefas pendentes relacionadas se fosse um sistema real.
-                
-                saveDataToFirebase();
-                closeModal();
-                showMessageModal("Sucesso", `O roteiro ${roteiroId} foi excluído.`);
-                showRoteiroSetupModal(); // Reabre o modal de configuração
-            }
-        }
-
-
-        /** Renderiza o modal de Nova OF. */
-        function showCreateOFModal() {
-            const roteirosArray = Object.values(allRoteiros);
+        function renderTasks() {
+            if (!isAuthReady || !db || !userSector) return;
             
-            if (roteirosArray.length === 0) {
-                showMessageModal("Atenção", "Você precisa configurar pelo menos um Roteiro de Produção antes de criar uma OF. Clique em 'Configurar Roteiros'.");
-                return;
-            }
+            // Exibe ID do usuário no painel do operador
+            document.getElementById('operator-id-display').textContent = userId.substring(0, 8) + '...';
+
+            const ofsCollectionPath = `artifacts/${appId}/public/data/ofs`;
+            const ofsColRef = collection(db, ofsCollectionPath);
+            // Query para buscar OFs que não estejam Concluídas
+            const q = query(ofsColRef, where("status", "!=", "Concluído"));
             
-            const roteiroOptions = roteirosArray.map(r => 
-                `<option value="${r.id}">${r.productCode} - ${r.name} (${r.steps.length} Passos)</option>`
-            ).join('');
+            tasksListContainer.innerHTML = `<div class="p-6 text-center text-sm text-gray-500 bg-white card-shadow">Buscando tarefas no setor ${userSector}...</div>`;
+            
+            onSnapshot(q, (snapshot) => {
+                let tasksHTML = '';
+                let tasksFound = false;
 
-            const contentHtml = `
-                <div class="flex justify-between items-center border-b pb-3 mb-4">
-                    <h3 class="text-xl font-bold text-gray-800">Criar Nova Ordem de Fabricação (OF)</h3>
-                    <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
-                        <span data-lucide="x" class="w-6 h-6"></span>
-                    </button>
-                </div>
-
-                <form id="create-of-form" class="space-y-4">
-                    <div>
-                        <label for="of-product" class="block text-sm font-medium text-gray-700">Nome do Produto (Descrição)</label>
-                        <input type="text" id="of-product" required class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: Chicote da Porta Lateral">
-                    </div>
-                    <div>
-                        <label for="of-roteiro" class="block text-sm font-medium text-gray-700">Código/Roteiro de Produção</label>
-                        <select id="of-roteiro" required class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
-                            ${roteiroOptions}
-                        </select>
-                    </div>
-                    <div>
-                        <label for="of-quantity" class="block text-sm font-medium text-gray-700">Quantidade a Fabricar</label>
-                        <input type="number" id="of-quantity" required min="1" value="1" class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 text-right">
-                    </div>
+                snapshot.forEach(doc => {
+                    const of = doc.data();
+                    of.id = doc.id;
                     
+                    // Encontrar a tarefa (etapa) que está Pendente ou Em Execução e pertence ao setor do operador
+                    const task = of.tasks.find(t => 
+                        t.sector === userSector && 
+                        (t.status === 'Pendente' || t.status === 'Em Execução')
+                    );
+                    
+                    if (task) {
+                        tasksFound = true;
+                        
+                        // Lógica de status da tarefa em relação ao operador atual
+                        const isExecuting = task.status === 'Em Execução' && task.currentOperatorId === userId;
+                        const isBlocked = task.status === 'Em Execução' && task.currentOperatorId !== userId;
+                        
+                        const buttonText = isExecuting ? 'Pausar' : isBlocked ? 'Bloqueado' : 'Iniciar';
+                        const buttonIcon = isExecuting ? 'pause' : isBlocked ? 'lock' : 'play';
+                        const buttonColor = isExecuting ? 'bg-red-600 hover:bg-red-700' : isBlocked ? 'bg-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700';
 
-                    <div class="pt-4 border-t mt-6 flex justify-end gap-3">
-                        <button type="button" onclick="closeModal()" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:bg-gray-400">Cancelar</button>
-                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700">Gerar OF</button>
-                    </div>
-                </form>
-            `;
-
-            document.getElementById('modal-content').innerHTML = contentHtml;
-            lucide.createIcons();
-            
-            document.getElementById('create-of-form').addEventListener('submit', (e) => {
-                e.preventDefault();
-                const product = document.getElementById('of-product').value.trim();
-                const quantity = parseInt(document.getElementById('of-quantity').value);
-                const roteiroId = document.getElementById('of-roteiro').value;
-
-                if (product && quantity > 0 && roteiroId) {
-                    const newId = createOF(product, quantity, roteiroId);
-                    if (newId) {
-                        closeModal();
-                        showMessageModal("Sucesso", `A Ordem de Fabricação **${newId}** para **${product}** (Cód: ${roteiroId}) foi criada e as tarefas geradas.`);
-                        renderOFs(); // Re-renderiza a lista de OFs
+                        tasksHTML += `
+                            <div class="bg-white p-4 rounded-xl shadow border-l-4 ${isExecuting ? 'border-red-500' : 'border-blue-500'} flex flex-col sm:flex-row justify-between items-start sm:items-center hover:shadow-lg transition">
+                                <div class="space-y-1 mb-2 sm:mb-0">
+                                    <p class="font-bold text-lg text-gray-800">OF #${of.id.substring(0, 8)} - <span class="text-blue-600">${task.stepName}</span></p>
+                                    <p class="text-sm text-gray-600">Produto: ${of.productCode} | Qtd: ${of.quantity}</p>
+                                    <p class="text-xs text-gray-500">
+                                        Status: ${renderStatusBadge(task.status)} 
+                                        | Tempo Registrado: <span class="font-semibold">${(task.timeElapsed / 60).toFixed(1)} min</span>
+                                        ${isBlocked ? `| Em uso por: ${task.currentOperatorId.substring(0, 8)}...` : ''}
+                                    </p>
+                                </div>
+                                <button onclick="${isBlocked ? '' : `startTask('${of.id}', ${task.stepId})`}" ${isBlocked ? 'disabled' : ''} class="${buttonColor} text-white transition px-4 py-2 rounded-lg text-sm font-bold shadow-md flex items-center gap-1">
+                                    <i data-lucide="${buttonIcon}" class="w-4 h-4"></i>
+                                    ${buttonText}
+                                </button>
+                            </div>
+                        `;
                     }
+                });
+
+                if (!tasksFound) {
+                    tasksListContainer.innerHTML = `<div class="p-6 text-center text-sm text-gray-500 bg-white card-shadow">Nenhuma tarefa ativa encontrada para o setor ${userSector}.</div>`;
                 } else {
-                    showMessageModal("Erro de Validação", "Por favor, preencha todos os campos corretamente (quantidade deve ser maior que zero).");
+                    tasksListContainer.innerHTML = tasksHTML;
                 }
+                lucide.createIcons();
+            }, (error) => {
+                console.error("Erro ao carregar Tarefas (Firestore):", error);
+                tasksListContainer.innerHTML = `<div class="p-6 text-center text-red-700 text-sm bg-red-100 rounded-xl card-shadow">Erro ao carregar Tarefas.</div>`;
             });
-
-            document.getElementById('modal-backdrop').classList.remove('hidden');
-            document.getElementById('modal-backdrop').classList.add('flex');
-            // Animação de entrada
-            setTimeout(() => {
-                document.getElementById('modal-content').classList.remove('opacity-0', 'scale-95');
-                document.getElementById('modal-content').classList.add('opacity-100', 'scale-100');
-            }, 50);
         }
+        
+        // --- 7. FUNÇÃO DE SETUP E INICIALIZAÇÃO ---
 
-        /** Renderiza o painel de relatórios */
-        function renderReports() {
-            const ofsFinalizadas = Object.values(allOFs).filter(of => of.status === 'Finalizada');
-            let totalActualTime = 0;
-            
-            // Calcula o tempo total de produção
-            Object.values(allReports).forEach(dailyReports => {
-                dailyReports.forEach(entry => {
-                    totalActualTime += entry.actualTime;
-                });
-            });
+        function setupDomAndStart() {
+            // 1. Recupera elementos DOM dos Modais (Global)
+            modalGlobal = document.getElementById('global-modal');
+            modalTitle = document.getElementById('modal-title');
+            modalBody = document.getElementById('modal-body');
+            modalFooter = document.getElementById('modal-footer');
+            modalBtnCancel = document.getElementById('modal-btn-cancel');
+            modalBtnConfirm = document.getElementById('modal-btn-confirm');
 
-            // Conta a quantidade total de peças finalizadas
-            const totalFinishedQuantity = ofsFinalizadas.reduce((sum, of) => sum + of.quantity, 0);
-
-            // Calcula o tempo médio por peça
-            const avgTimePerPiece = totalFinishedQuantity > 0 ? (totalActualTime / totalFinishedQuantity) : 0;
-            
-            const totalMinutes = Math.floor(avgTimePerPiece);
-            const totalSeconds = Math.round((avgTimePerPiece % 1) * 60);
-
-            const avgTimePerPieceText = `${totalMinutes} min ${totalSeconds} s`;
-
-            // Atualiza o painel de KPIs no relatório
-            document.getElementById('report-ofs-finished').textContent = ofsFinalizadas.length;
-            document.getElementById('report-avg-time').textContent = avgTimePerPieceText;
-            document.getElementById('report-wip').textContent = Object.values(allOFs).filter(of => of.status === 'Em Andamento').length;
-
-            // Log de relatório detalhado (Para exportação)
-            console.log("Relatório Detalhado de Produção:", allReports);
-        }
-
-        /** Exporta o relatório de produção para CSV. */
-        function exportReport() {
-            const headers = ['Data', 'OF ID', 'Tarefa', 'Operador', 'Tempo Esperado (min)', 'Tempo Real (min)', 'Desvio (min)'];
-            let csvContent = headers.join(';') + '\n';
-            
-            // Itera sobre todos os relatórios diários
-            Object.values(allReports).forEach(dailyReports => {
-                dailyReports.forEach(entry => {
-                    const desvio = (entry.actualTime - entry.expectedTime).toFixed(2);
-                    const row = [
-                        new Date(entry.date).toLocaleDateString('pt-BR'),
-                        entry.ofId,
-                        entry.stepName,
-                        entry.operator,
-                        entry.expectedTime.toFixed(2),
-                        entry.actualTime.toFixed(2),
-                        desvio
-                    ];
-                    csvContent += row.join(';') + '\n';
-                });
-            });
-
-            // Cria um blob e um link para download
-            const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            
-            link.setAttribute("href", url);
-            link.setAttribute("download", `Relatorio_PCP_${new Date().toISOString().split('T')[0]}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            showMessageModal("Exportação Concluída", "O relatório de produção foi exportado com sucesso como arquivo CSV.");
-        }
-
-        // ----------------------------------------------------
-        // INICIALIZAÇÃO DA APLICAÇÃO
-        // ----------------------------------------------------
-
-        /** Configura listeners e inicializa a UI. */
-        function initializeApp() {
-            // Referências aos elementos DOM
+            // 2. Recupera outros elementos DOM
             pcpView = document.getElementById('pcp-view');
             operatorView = document.getElementById('operator-view');
             reportsView = document.getElementById('reports-view');
@@ -1171,31 +884,74 @@
             userViewSelect = document.getElementById('user-view-select');
             btnCreateOF = document.getElementById('btn-create-of');
             btnSetupRoteiro = document.getElementById('btn-setup-roteiro');
-            btnExportReport = document.getElementById('btn-export-report');
+            btnProfile = document.getElementById('btn-profile');
+            userIdDisplay = document.getElementById('user-id-display');
+            operatorUserId = document.getElementById('operator-user-id');
+            headerControls = document.getElementById('header-controls');
+            appContent = document.getElementById('app-content');
+            loginView = document.getElementById('login-view');
+            authIdDisplay = document.getElementById('auth-id-display');
+            operatorSectorSelect = document.getElementById('operator-sector-select');
+            pcpPasswordInput = document.getElementById('pcp-password-input');
+            btnLoginPCP = document.getElementById('btn-login');
+            btnLoginOperatorStart = document.getElementById('btn-login-operator-start');
+            loginMessage = document.getElementById('login-message');
+            operatorSectorDisplay = document.getElementById('operator-sector-display');
 
-            // Listeners de eventos
-            userViewSelect.addEventListener('change', (e) => updateView(e.target.value));
-            btnCreateOF.addEventListener('click', showCreateOFModal);
-            btnSetupRoteiro.addEventListener('click', showRoteiroSetupModal);
-            btnExportReport.addEventListener('click', exportReport);
-
-            // Inicia o Firebase e os listeners de dados
-            setupFirebase();
+            radioPCP = document.getElementById('radio-pcp');
+            radioOperator = document.getElementById('radio-operator');
+            loginFormPCP = document.getElementById('login-form-pcp');
+            loginFormOperator = document.getElementById('login-form-operator');
+            labelPCPMaster = document.getElementById('label-pcp-master');
+            labelOperator = document.getElementById('label-operator');
             
-            // Atualiza periodicamente as tarefas do operador (a cada 10 segundos)
-            // Isso garante que o status da tarefa é sempre atualizado no painel do operador
-            setInterval(() => {
-                if (operatorView.classList.contains('hidden') === false) {
-                    renderTasks();
-                }
-                if (pcpView.classList.contains('hidden') === false) {
-                    renderKPIs();
-                }
-            }, 10000); // 10 segundos
+            // Elementos dos Modais de Ação
+            roteiroStepsContainer = document.getElementById('roteiro-steps-container');
+            btnAddStep = document.getElementById('btn-add-step');
+            btnSaveRoteiro = document.getElementById('btn-save-roteiro');
+            roteiroMessage = document.getElementById('roteiro-message');
+            formCreateOF = document.getElementById('form-create-of');
+            ofMessage = document.getElementById('of-message');
+            roteiroStepsSummary = document.getElementById('roteiro-steps-summary');
+
+
+            // 3. Event Listeners de UI
+            userViewSelect.addEventListener('change', (e) => updateView(e.target.value));
+            
+            // Login events
+            radioPCP.addEventListener('change', toggleLoginForm);
+            radioOperator.addEventListener('change', toggleLoginForm);
+            btnLoginPCP.addEventListener('click', handleLogin);
+            btnLoginOperatorStart.addEventListener('click', handleLogin);
+
+            // Botões do Painel (Agora abrem Modais)
+            btnCreateOF.addEventListener('click', () => showModal('create-of-modal'));
+            btnSetupRoteiro.addEventListener('click', () => showModal('setup-roteiro-modal'));
+            
+            // Botões e Forms dos Modais de Ação
+            btnAddStep.addEventListener('click', addRoteiroStep);
+            btnSaveRoteiro.addEventListener('click', saveRoteiro);
+            formCreateOF.addEventListener('submit', createOFInFirestore);
+
+
+            // Stubs de Mensagens Rápidas
+            btnProfile.addEventListener('click', () => customAlert('Configurações de Perfil', `ID de Usuário: ${userId}`, 'info'));
+            document.getElementById('btn-export-report').addEventListener('click', () => customAlert('Exportar Relatório', 'Funcionalidade de Exportação de Relatório em desenvolvimento.', 'info'));
+
+
+            // 4. Inicializa visual do Login Form
+            toggleLoginForm();
+
+            // 5. Inicia o processo de autenticação e carga de dados
+            initializeFirebase();
         }
 
         // Inicia a aplicação quando o DOM estiver completamente carregado
-        document.addEventListener('DOMContentLoaded', initializeApp);
+        document.addEventListener('DOMContentLoaded', setupDomAndStart);
+        
+        // Expondo funções para o escopo global (para onclick no HTML)
+        window.hideModal = hideModal;
+
     </script>
 </body>
 </html>
