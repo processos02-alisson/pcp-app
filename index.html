@@ -308,22 +308,30 @@
         async function saveEntity(entityType, key, data) {
             try { await database.ref(`${DB_ROOT}/${entityType}/${key}`).set(data); } catch(e){ console.error("Falha ao salvar", entityType, key, e); }
         }
+        
+        // CORREÇÃO: Função de load mais robusta
         async function loadAllData() {
             try {
                 const snapshot = await database.ref(DB_ROOT).once('value');
                 const data = snapshot.val() || {};
+                
+                // Atribui os dados carregados, usando um objeto vazio como fallback
                 allOFs = data.allOFs || {};
                 allTasks = data.allTasks || {};
                 allRoteiros = data.allRoteiros || {};
                 allOcurrencesLog = data.allOcurrencesLog || [];
 
+                // Recalcula o contador
                 const roteiroKeys = Object.keys(allRoteiros);
                 if (roteiroKeys.length > 0) {
                     const maxId = roteiroKeys.reduce((max, key) => Math.max(max, parseInt(key.replace('r','') || 0)), 0);
                     roteiroCounter = maxId + 1;
                 }
                 return true;
-            } catch(e) { console.error("Falha ao carregar:", e); return false; }
+            } catch(e) { 
+                console.error("Falha ao carregar:", e); 
+                return false; 
+            }
         }
 
         function setUser(u){ currentUser = u; localStorage.setItem("pcp_current_user", JSON.stringify(u)); }
@@ -438,13 +446,13 @@
 
             const restored = await loadAllData();
 
-            if (Object.keys(allRoteiros).length === 0){
+            // CORREÇÃO CRÍTICA: Verifica se os dados principais estão vazios para carregar defaults.
+            if (Object.keys(allRoteiros).length === 0 && Object.keys(allOFs).length === 0){
                 allRoteiros = { ...DEFAULT_ROTEIROS };
-                if (Object.keys(allOFs).length === 0) {
-                    createOF('OF-001', 10, 'CHICOTE-001', true);
-                    createOF('OF-002', 20, 'CHICOTE-B', true);
-                }
-                await saveStateToFirebase({ allRoteiros, allOFs, allTasks, allOcurrencesLog });
+                createOF('OF-001', 10, 'CHICOTE-001', true);
+                createOF('OF-002', 20, 'CHICOTE-B', true);
+                // SALVA OS DEFAULTS UMA ÚNICA VEZ SE O DB ESTIVER VAZIO
+                await saveStateToFirebase({ allRoteiros, allOFs, allTasks, allOcurrencesLog }); 
             }
 
             const savedUser = getUser();
@@ -679,6 +687,7 @@
                 document.getElementById('roteiro-setup-time').value = '';
                 document.getElementById('roteiro-cycle-time').value = '';
                 document.getElementById('roteiro-instruction-text').value = '';
+                document.getElementById('roteiro-message').textContent = ''; // Limpa a mensagem ao abrir
             } else if (id === 'create-of-modal') {
                 setupOFChicoteDropdown();
             }
@@ -1018,7 +1027,6 @@
 
             if (!chicote || !setor || !atividade || isNaN(setupTime) || isNaN(cycleTime)){
                 message.textContent = "Preencha todos os campos corretamente (Nome, Atividade, Setor e Tempos).";
-                // Este return é o que fazia o código "parar" silenciosamente se algum ID não fosse lido, pois a mensagem não era exibida ou o erro de null/undefined era engolido.
                 return; 
             }
             message.textContent = '';
@@ -1042,16 +1050,16 @@
             document.getElementById('roteiro-setup-time').value = '';
             document.getElementById('roteiro-cycle-time').value = '';
             document.getElementById('roteiro-instruction-text').value = '';
-
+            
+            // CORREÇÃO: Força o re-render da lista imediatamente
             renderRoteiroList();
+
             message.textContent = `Atividade '${atividade}' adicionada ao chicote '${chicote}'.`;
             message.classList.remove('text-red-600');
             message.classList.add('text-green-600');
             setTimeout(() => { message.textContent = ''; message.classList.remove('text-green-600'); message.classList.add('text-red-600'); }, 3000);
         }
-        // REMOVEMOS A LINHA window.addRoteiroActivity = addRoteiroActivity; 
-        // e anexamos o listener no setupUIRefresh
-
+        
         async function deleteRoteiroActivity(roteiroId){
             if (confirm("Tem certeza que deseja DELETAR esta atividade do roteiro mestre? Isso não afeta OFs existentes, mas afeta futuras OFs.") ){
                 delete allRoteiros[roteiroId];
@@ -1143,7 +1151,10 @@
 
             if (!initialLoad){
                 closeModal('create-of-modal');
-                updateView('PCP');
+                // CORREÇÃO: Garante que as novas OFs e Tarefas sejam renderizadas imediatamente
+                updateView('PCP'); 
+                renderTasks(); // Atualiza a visão do operador (se estiver logado como MASTER)
+
                 alert(`OF ${id} criada com sucesso para ${qty} peças do chicote ${chic}.`);
             }
         }
@@ -1244,7 +1255,7 @@
             btnProfile = document.getElementById('btn-profile');
             btnExportReport = document.getElementById('btn-export-report');
             
-            // NOVO: Adiciona o Event Listener para o botão Adicionar Atividade
+            // Adiciona o Event Listener para o botão Adicionar Atividade
             const btnAddRoteiro = document.getElementById('btn-add-roteiro-activity');
             if (btnAddRoteiro) {
                 btnAddRoteiro.addEventListener('click', addRoteiroActivity);
@@ -1259,6 +1270,7 @@
                 }
                 if (document.getElementById('pcp-view').classList.contains('hidden') === false) {
                     renderKPIs();
+                    renderOFs(); // Adiciona renderização de OFs para refletir mudanças de status rapidamente
                 }
             }, 10000); // 10 segundos
         }
