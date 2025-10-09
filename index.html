@@ -253,13 +253,13 @@
 
     <script>
         // ----------------------------------------------------
-        // CONFIGURAÇÃO FIREBASE (CORRIGIDA)
+        // CONFIGURAÇÃO FIREBASE (CORRIGIDA COM SUAS CREDENCIAIS)
         // ----------------------------------------------------
         const firebaseConfig = {
             apiKey: "AIzaSyDIJJe4WIVj50KYTtR-HQscrxIzxNK9eY", 
             authDomain: "pcp-app-24c56.firebaseapp.com",
             projectId: "pcp-app-24c56",
-            // IMPORTANTE: databaseURL CORRIGIDO para o formato necessário pelo sistema
+            // CORREÇÃO CRUCIAL PARA O REALTIME DATABASE (URL parse error)
             databaseURL: "https://pcp-app-24c56-default-rtdb.firebaseio.com", 
             storageBucket: "pcp-app-24c56.appspot.com",
             messagingSenderId: "67529598467",
@@ -429,8 +429,8 @@
             }
         }
 
+        // ⚠️ CORREÇÃO DE ORDEM DE EXECUÇÃO: A função initializeApp só usa elementos da UI depois de setupUIRefresh ser chamado
         async function initializeApp(){
-            // O loadingIndicator agora está definido graças à chamada no DOMContentLoaded
             loadingIndicator.innerHTML = `
                 <div class="p-3 sm:p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg shadow-md" role="alert">
                     <p class="font-bold">Aviso: Persistência em Nuvem (Firebase)</p>
@@ -455,7 +455,6 @@
             setTimeout(()=>{
                 loadingIndicator.classList.add('hidden');
                 openUserModal(savedUser ? null : undefined);
-                // setupUIRefresh(); // ⚠️ LINHA REMOVIDA
                 updateView(savedUser?.role === 'MASTER' ? 'PCP' : (savedUser ? 'Operador' : 'PCP'));
             }, 300);
         }
@@ -491,7 +490,6 @@
         }
 
         function updateView(view){
-            // ⚠️ CORREÇÃO: As variáveis globais (pcpView, operatorView, etc.) agora estão definidas antes de updateView ser chamada.
             if (isOperador() && view !== 'Operador'){ view = 'Operador'; }
 
             const isPCP = view === 'PCP';
@@ -744,7 +742,6 @@
                 if (pin === MASTER_PIN) {
                     setUser({ role: 'MASTER', sector: null });
                     closeModal('user-modal');
-                    // ⚠️ CORREÇÃO: updateView agora funciona sem erro
                     updateView('PCP');
                 } else {
                     alert("PIN Master Incorreto.");
@@ -752,7 +749,6 @@
             } else if (role === 'OPERADOR') {
                 setUser({ role: 'OPERADOR', sector: sector });
                 closeModal('user-modal');
-                // ⚠️ CORREÇÃO: updateView agora funciona sem erro
                 updateView('Operador');
             }
         }
@@ -1043,7 +1039,6 @@
             await saveEntity('allRoteiros', newId, newRoteiro);
             
             // Limpa os campos após a adição, mantendo o nome do chicote para facilitar
-            // document.getElementById('roteiro-chicote-name').value = chicote;
             document.getElementById('roteiro-activity-name').value = '';
             document.getElementById('roteiro-setup-time').value = '';
             document.getElementById('roteiro-cycle-time').value = '';
@@ -1055,7 +1050,8 @@
             message.classList.add('text-green-600');
             setTimeout(() => { message.textContent = ''; message.classList.remove('text-green-600'); message.classList.add('text-red-600'); }, 3000);
         }
-        window.addRoteiroActivity = addRoteiroActivity;
+        // ⚠️ CORREÇÃO: ADICIONANDO AO WINDOW PARA GARANTIR QUE O ONCLICK FUNCIONE
+        window.addRoteiroActivity = addRoteiroActivity; 
 
         async function deleteRoteiroActivity(roteiroId){
             if (confirm("Tem certeza que deseja DELETAR esta atividade do roteiro mestre? Isso não afeta OFs existentes, mas afeta futuras OFs.") ){
@@ -1258,16 +1254,16 @@
                 }
                 if (document.getElementById('pcp-view').classList.contains('hidden') === false) {
                     renderKPIs();
-                    // O renderOFs não é atualizado automaticamente para evitar piscar constante, mas pode ser adicionado
                 }
             }, 10000); // 10 segundos
         }
 
         // Inicia a aplicação quando o DOM estiver completamente carregado
         document.addEventListener('DOMContentLoaded', () => {
-            // ⚠️ CORREÇÃO DE ORDEM DE EXECUÇÃO: SETUP da UI ANTES do APP
-            // Isso garante que todas as variáveis globais da UI tenham valor antes de initializeApp tentar usá-las.
+            // CORREÇÃO DE ORDEM DE EXECUÇÃO: SETUP da UI ANTES do APP
             setupUIRefresh(); 
+            // PREENCHIMENTO DOS DROPDOWNS DE SETOR ANTES DO APP INICIALIZAR
+            setupSectorDropdowns();
             initializeApp();
         });
     </script>
