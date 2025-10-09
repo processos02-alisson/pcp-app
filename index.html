@@ -134,7 +134,7 @@
         let btnCreateOF, btnSetupRoteiro, btnExportReport;
 
         // ----------------------------------------------------
-        // CONFIGURAÇÃO FIREBASE (CORRIGIDA)
+        // CONFIGURAÇÃO FIREBASE
         // ----------------------------------------------------
         /*
          * ESTA É A CONFIGURAÇÃO REAL DO SEU PROJETO FIREBASE.
@@ -238,7 +238,8 @@
                     if (data) {
                         // Carrega dados existentes
                         allOFs = data.allOFs || {};
-                        allRoteiros = data.allRoteiros || generateDefaultRoteiros();
+                        // Garante que roteiros padrão são gerados se a estrutura estiver vazia
+                        allRoteiros = data.allRoteiros && Object.keys(data.allRoteiros).length > 0 ? data.allRoteiros : generateDefaultRoteiros();
                         allTasks = data.allTasks || {};
                         allReports = data.allReports || {};
                         console.log("Dados carregados do Firebase com sucesso.");
@@ -247,11 +248,10 @@
                         console.log("Nenhum dado encontrado. Inicializando com dados padrões.");
                         allRoteiros = generateDefaultRoteiros();
                         
-                        // Garante que a OFs só sejam criadas se estiverem vazias
+                        // Cria OFs iniciais se estiverem vazias, usando os novos IDs de roteiro
                         if (Object.keys(allOFs).length === 0) {
-                            // Cria OFs iniciais para popular a tela
-                            createOF('Chicote Básico', 50, 'ROTEIRO-A');
-                            createOF('Chicote Intermediário', 30, 'ROTEIRO-B');
+                            createOF('Chicote Básico', 50, 'CHICOTE-001');
+                            createOF('Chicote Intermediário', 30, 'CHICOTE-002');
                         }
                         
                         saveDataToFirebase(); // Salva a estrutura inicial no DB
@@ -266,14 +266,10 @@
                     // Se a permissão for negada, remove o listener para evitar retries infinitos.
                     dbRef.off(); 
 
-                    // =========================================================================================================
-                    // ESTE ERRO ACONTECE DEVIDO ÀS REGRAS DE SEGURANÇA.
-                    // SOLUÇÃO: Verifique no console do Firebase (Realtime Database -> Regras) se está configurado como:
-                    // { "rules": { ".read": "true", ".write": "true" } }
-                    // =========================================================================================================
+                    // Mensagem de erro robusta
                     showMessageModal(
                         "Erro de Permissão (FIREBASE)", 
-                        "O servidor Firebase negou o acesso. Por favor, verifique se as **Regras de Segurança** do seu **Realtime Database** estão configuradas para `\".read\": \"true\"` e `\".write\": \"true\"`. Se o erro persistir APÓS a correção das regras, tente recarregar a página."
+                        "O servidor Firebase negou o acesso. Por favor, verifique se as **Regras de Segurança** do seu **Realtime Database** estão configuradas para `\".read\": \"true\"` e `\".write\": \"true\"`. Se o erro persistir APÓS a correção das regras, pode ser um problema de cache do navegador. Tente recarregar a página."
                     );
                     toggleLoading(false);
                 });
@@ -313,28 +309,30 @@
         // ----------------------------------------------------
 
         /**
-         * Gera roteiros padrão para inicialização.
+         * Gera roteiros padrão para inicialização com a nova estrutura.
          * @returns {Object} Dicionário de roteiros padrão.
          */
         function generateDefaultRoteiros() {
             return {
-                'ROTEIRO-A': {
-                    id: 'ROTEIRO-A',
+                'CHICOTE-001': { // Usando o Código do Chicote como ID
+                    id: 'CHICOTE-001',
+                    productCode: 'CHICOTE-001',
                     name: 'Roteiro Básico',
                     steps: [
-                        { id: 1, name: 'Corte de Cabos', time: 5 }, // tempo em minutos por peça
-                        { id: 2, name: 'Pré-Montagem de Conectores', time: 8 },
-                        { id: 3, name: 'Montagem Final e Teste', time: 10 }
+                        { id: 1, name: 'Corte de Cabos', setupTime: 10, cycleTime: 0.5, instructions: 'Usar máquina de corte A, verificar comprimento no padrão X.' },
+                        { id: 2, name: 'Pré-Montagem de Conectores', setupTime: 5, cycleTime: 0.8, instructions: 'Crimpagem dos terminais nas posições 1, 2, 3.' },
+                        { id: 3, name: 'Montagem Final e Teste', setupTime: 15, cycleTime: 1.2, instructions: 'Montar capa e testar continuidade no aparelho Y. Registrar resultado do teste.' }
                     ]
                 },
-                'ROTEIRO-B': {
-                    id: 'ROTEIRO-B',
+                'CHICOTE-002': { // Usando o Código do Chicote como ID
+                    id: 'CHICOTE-002',
+                    productCode: 'CHICOTE-002',
                     name: 'Roteiro Intermediário',
                     steps: [
-                        { id: 1, name: 'Corte e Estanhamento', time: 7 },
-                        { id: 2, name: 'Montagem de Terminais', time: 12 },
-                        { id: 3, name: 'Injeção/Crimpagem', time: 15 },
-                        { id: 4, name: 'Inspeção Final', time: 5 }
+                        { id: 1, name: 'Corte e Estanhamento', setupTime: 15, cycleTime: 0.7, instructions: 'Estanhar pontas conforme desenho 002-E.' },
+                        { id: 2, name: 'Montagem de Terminais', setupTime: 10, cycleTime: 1.0, instructions: 'Montar conectores 1 e 2 no painel. Verificar torque.' },
+                        { id: 3, name: 'Injeção/Crimpagem', setupTime: 20, cycleTime: 1.5, instructions: 'Realizar injeção de plástico no corpo do conector. Inspecionar visualmente o encaixe.' },
+                        { id: 4, name: 'Inspeção Final', setupTime: 5, cycleTime: 0.3, instructions: 'Inspeção visual e dimensional. Liberar para expedição.' }
                     ]
                 }
             };
@@ -344,7 +342,7 @@
          * Cria uma nova Ordem de Fabricação (OF) e gera as tarefas.
          * @param {string} productName - Nome do produto.
          * @param {number} quantity - Quantidade a ser fabricada.
-         * @param {string} roteiroId - ID do roteiro a ser usado.
+         * @param {string} roteiroId - ID do roteiro (Código do Chicote) a ser usado.
          * @returns {string} O ID da nova OF.
          */
         function createOF(productName, quantity, roteiroId) {
@@ -361,6 +359,7 @@
             const newOF = {
                 id: ofId,
                 product: productName,
+                productCode: roteiro.productCode, // Adiciona o código do chicote
                 quantity: quantity,
                 roteiroId: roteiroId,
                 status: 'Pendente', // Pendente, Em Andamento, Finalizada
@@ -371,17 +370,25 @@
             // Gera tarefas (Tasks) para cada passo do roteiro
             roteiro.steps.forEach(step => {
                 const taskId = `${ofId}-${step.id}`;
+                
+                // NOVO CÁLCULO DE TEMPO: Setup Time + (Cycle Time * Quantity)
+                const expectedTime = (step.setupTime || 0) + ((step.cycleTime || 0) * quantity);
+
                 const task = {
                     id: taskId,
                     ofId: ofId,
                     stepId: step.id,
                     stepName: step.name,
-                    expectedTime: step.time * quantity, // Tempo total esperado (em minutos)
+                    expectedTime: expectedTime, // Tempo total esperado (em minutos)
                     status: 'Pendente', // Pendente, Em Andamento, Concluída
                     startDate: null,
                     endDate: null,
                     assignedOperator: null,
-                    quantityToProduce: quantity
+                    quantityToProduce: quantity,
+                    // Novos campos para a tarefa (para referência)
+                    setupTime: step.setupTime || 0,
+                    cycleTime: step.cycleTime || 0,
+                    instructions: step.instructions || 'Nenhuma instrução detalhada fornecida.'
                 };
                 newOF.tasks[taskId] = task;
                 allTasks[taskId] = task; // Adiciona ao índice global de tarefas
@@ -576,7 +583,7 @@
                             <h4 class="text-xl font-bold text-blue-700">${of.id} - ${of.product}</h4>
                             <span class="px-3 py-1 text-xs font-semibold text-white rounded-full ${statusColor}">${statusText}</span>
                         </div>
-                        <p class="text-sm text-gray-600 mb-2">Quantidade: <span class="font-semibold">${of.quantity}</span> | Roteiro: <span class="font-semibold">${roteiroName}</span></p>
+                        <p class="text-sm text-gray-600 mb-2">Código: <span class="font-semibold text-purple-600">${of.productCode}</span> | Quantidade: <span class="font-semibold">${of.quantity}</span> | Roteiro: <span class="font-semibold">${roteiroName}</span></p>
                         
                         <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
                             <div class="h-2.5 rounded-full ${statusColor}" style="width: ${progress}%"></div>
@@ -612,17 +619,27 @@
                     statusColor = 'text-green-600';
                     icon = 'check-circle';
                 }
+                
+                // Formata o tempo total estimado para horas e minutos
+                const totalMinutes = Math.ceil(task.expectedTime);
+                const expectedTimeText = `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}min`;
 
                 return `
-                    <li class="flex items-center justify-between p-3 border-b last:border-b-0">
-                        <div class="flex items-center">
-                            <span data-lucide="${icon}" class="${statusColor} w-5 h-5 mr-3"></span>
-                            <div>
-                                <p class="font-medium text-gray-700">${task.stepName}</p>
-                                <p class="text-xs text-gray-500">Tempo Estimado: ${Math.ceil(task.expectedTime / 60)}h ${task.expectedTime % 60}min</p>
+                    <li class="flex flex-col p-3 border-b last:border-b-0 hover:bg-gray-100 transition duration-100">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center">
+                                <span data-lucide="${icon}" class="${statusColor} w-5 h-5 mr-3 flex-shrink-0"></span>
+                                <div>
+                                    <p class="font-medium text-gray-700">${task.stepName}</p>
+                                    <p class="text-xs text-gray-500">
+                                        Setup: ${task.setupTime} min | Ciclo: ${task.cycleTime} min/peça 
+                                        (<span class="font-semibold">Total Estimado: ${expectedTimeText}</span>)
+                                    </p>
+                                </div>
                             </div>
+                            <span class="text-sm font-semibold ${statusColor}">${task.status}</span>
                         </div>
-                        <span class="text-sm font-semibold ${statusColor}">${task.status}</span>
+                        ${task.instructions ? `<p class="text-xs italic text-gray-600 mt-2 pl-8 border-l-2 border-dashed border-gray-300 ml-4">Como Fazer: ${task.instructions}</p>` : ''}
                     </li>
                 `;
             }).join('');
@@ -634,11 +651,11 @@
                         <span data-lucide="x" class="w-6 h-6"></span>
                     </button>
                 </div>
-                <p class="text-lg font-semibold text-blue-700 mb-2">${of.product} (${of.quantity} peças)</p>
+                <p class="text-lg font-semibold text-blue-700 mb-2">${of.product} (Cód: ${of.productCode}, ${of.quantity} peças)</p>
                 <p class="text-sm text-gray-600 mb-4">Status: <span class="font-bold ${of.status === 'Em Andamento' ? 'text-yellow-600' : of.status === 'Finalizada' ? 'text-green-600' : 'text-gray-600'}">${of.status}</span></p>
 
                 <h4 class="font-bold text-gray-700 mt-4 mb-2">Roteiro de Produção:</h4>
-                <ul class="bg-gray-50 border rounded-lg divide-y divide-gray-200">
+                <ul class="bg-white border rounded-xl divide-y divide-gray-200 shadow-inner max-h-80 overflow-y-auto">
                     ${tasksListHtml}
                 </ul>
                 <div class="mt-6 flex justify-end">
@@ -685,6 +702,7 @@
                 const isStarted = task.status === 'Em Andamento';
                 
                 let actionButtonHtml;
+                const expectedTimeText = `${Math.floor(task.expectedTime)} min ${Math.round((task.expectedTime % 1) * 60)} s`;
 
                 if (isPending) {
                     actionButtonHtml = `
@@ -717,15 +735,32 @@
                         <span class="px-3 py-1 text-xs font-semibold text-white rounded-full ${isPending ? 'bg-gray-400' : 'bg-yellow-500'}">${task.status}</span>
                     </div>
                     
+                    <!-- Detalhes de Tempo -->
+                    <div class="mb-4 text-sm text-gray-700 bg-blue-50 p-3 rounded-lg border border-blue-200">
+                        <p class="font-bold mb-1">Detalhes de Tempo:</p>
+                        <ul class="list-disc list-inside space-y-1 ml-4">
+                            <li><span class="font-semibold">Tempo de Setup:</span> ${task.setupTime} minutos</li>
+                            <li><span class="font-semibold">Tempo de Ciclo:</span> ${task.cycleTime} minutos/peça</li>
+                            <li><span class="font-semibold">Tempo Total Estimado:</span> ${expectedTimeText}</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Instruções / Como Fazer -->
+                    ${task.instructions ? `
+                    <div class="mb-4 p-3 bg-yellow-50 border border-yellow-300 rounded-lg text-sm text-gray-800">
+                        <p class="font-bold flex items-center mb-1"><span data-lucide="book-open" class="w-4 h-4 mr-1"></span> Como Fazer (Instruções):</p>
+                        <p>${task.instructions}</p>
+                    </div>
+                    ` : ''}
+
                     <div class="border-t pt-4 flex justify-between items-center">
-                        <p class="text-sm text-gray-600">Tempo Estimado: <span class="font-bold">${task.expectedTime}</span> minutos</p>
+                        <p class="text-sm text-gray-600">Peças a Produzir: <span class="font-bold">${task.quantityToProduce}</span></p>
                         ${actionButtonHtml}
                     </div>
                 `;
                 tasksListContainer.appendChild(taskElement);
+                lucide.createIcons();
             });
-
-            lucide.createIcons();
         }
 
         /** Renderiza o modal de Configuração de Roteiros. */
@@ -733,11 +768,13 @@
             const roteirosArray = Object.values(allRoteiros);
 
             const roteiroListHtml = roteirosArray.map(r => `
-                <li class="flex justify-between items-center p-3 border-b last:border-b-0 bg-gray-50 rounded-lg mb-2">
+                <li class="flex justify-between items-center p-3 border-b last:border-b-0 bg-gray-50 rounded-xl mb-2 shadow-sm">
                     <div class="flex-1">
-                        <p class="font-semibold text-gray-800">${r.name} (<span class="text-blue-600">${r.id}</span>)</p>
-                        <p class="text-sm text-gray-500">${r.steps.length} passos</p>
+                        <p class="font-semibold text-gray-800">${r.name}</p>
+                        <p class="text-sm text-blue-600 font-mono">CÓDIGO: ${r.productCode}</p> 
+                        <p class="text-xs text-gray-500">${r.steps.length} passos configurados</p>
                     </div>
+                    <!-- Delete Button -->
                     <button onclick="deleteRoteiro('${r.id}')" class="text-red-500 hover:text-red-700 transition duration-150 ml-4">
                         <span data-lucide="trash-2" class="w-5 h-5"></span>
                     </button>
@@ -758,7 +795,7 @@
                         ${roteiroListHtml || '<p class="text-center text-gray-500 py-4">Nenhum roteiro configurado.</p>'}
                     </ul>
 
-                    <button onclick="showCreateRoteiroModal()" class="w-full bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition duration-150 flex items-center justify-center">
+                    <button onclick="showCreateRoteiroModal()" class="w-full bg-green-500 text-white px-4 py-2 rounded-xl font-semibold hover:bg-green-600 transition duration-150 flex items-center justify-center shadow-md">
                         <span data-lucide="plus" class="w-5 h-5 mr-2"></span> Novo Roteiro
                     </button>
                 </div>
@@ -791,12 +828,21 @@
                 </div>
 
                 <form id="create-roteiro-form" class="space-y-4">
-                    <div>
-                        <label for="roteiro-name" class="block text-sm font-medium text-gray-700">Nome do Roteiro</label>
-                        <input type="text" id="roteiro-name" required class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: Crimpagem e Teste">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Código do Chicote (ID) -->
+                        <div>
+                            <label for="roteiro-product-code" class="block text-sm font-medium text-gray-700">Código do Chicote</label>
+                            <input type="text" id="roteiro-product-code" required class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 uppercase" placeholder="EX: CHICOTE-A01">
+                        </div>
+                        <!-- Nome do Roteiro -->
+                        <div>
+                            <label for="roteiro-name" class="block text-sm font-medium text-gray-700">Nome do Roteiro</label>
+                            <input type="text" id="roteiro-name" required class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: Roteiro Padrão">
+                        </div>
                     </div>
-                    <h4 class="font-bold text-gray-700 pt-2">Passos de Produção (com tempo por peça em minutos):</h4>
-                    <div id="roteiro-steps-container" class="space-y-3 max-h-40 overflow-y-auto pr-2">
+
+                    <h4 class="font-bold text-gray-700 pt-2 border-t mt-4">Passos de Produção (Atividades):</h4>
+                    <div id="roteiro-steps-container" class="space-y-3 max-h-60 overflow-y-auto pr-2">
                         <!-- Steps will be added here -->
                     </div>
                     
@@ -818,21 +864,51 @@
             document.getElementById('create-roteiro-form').addEventListener('submit', handleCreateRoteiro);
             
             // Adiciona o primeiro passo por padrão
-            addRoteiroStep();
+            addRoteiroStep('Corte', 5, 0.5, 'Corte inicial dos cabos, verificar bitola.');
         }
         
-        /** Adiciona um campo para um novo passo de roteiro no modal. */
-        function addRoteiroStep(name = '', time = '') {
+        /** * Adiciona um campo para um novo passo de roteiro no modal, incluindo Setup, Ciclo e Instruções.
+         * @param {string} name - Nome da atividade.
+         * @param {number} setupTime - Tempo de setup (min).
+         * @param {number} cycleTime - Tempo de ciclo (min/peça).
+         * @param {string} instructions - Como fazer.
+         */
+        function addRoteiroStep(name = '', setupTime = 0, cycleTime = 0, instructions = '') {
             const container = document.getElementById('roteiro-steps-container');
-            const stepId = Date.now(); // ID temporário para o elemento
+            const stepId = Date.now() + Math.random(); // ID temporário para o elemento
             
             const stepHtml = `
-                <div id="step-${stepId}" class="flex gap-2 items-center bg-white p-3 border rounded-lg shadow-sm">
-                    <input type="text" placeholder="Nome do Passo (ex: Crimpagem)" value="${name}" class="step-name flex-1 border border-gray-300 rounded-lg p-2 text-sm focus:ring-purple-500 focus:border-purple-500" required>
-                    <input type="number" placeholder="Minutos/Peça" value="${time}" min="1" class="step-time w-24 border border-gray-300 rounded-lg p-2 text-sm text-right focus:ring-purple-500 focus:border-purple-500" required>
-                    <button type="button" onclick="document.getElementById('step-${stepId}').remove()" class="text-red-500 hover:text-red-700">
-                        <span data-lucide="minus-circle" class="w-5 h-5"></span>
-                    </button>
+                <div id="step-${stepId}" class="bg-white p-4 border border-gray-200 rounded-xl shadow-inner space-y-3">
+                    <div class="flex justify-end">
+                        <button type="button" onclick="document.getElementById('step-${stepId}').remove(); lucide.createIcons();" class="text-red-500 hover:text-red-700 transition duration-150">
+                            <span data-lucide="x" class="w-5 h-5"></span>
+                        </button>
+                    </div>
+
+                    <!-- Nome da Atividade -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700">Nome da Atividade</label>
+                        <input type="text" placeholder="Ex: Crimpagem dos Terminais" value="${name}" class="step-name mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 text-sm focus:ring-purple-500 focus:border-purple-500" required>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <!-- Tempo de Setup -->
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700">Tempo de Setup (min)</label>
+                            <input type="number" placeholder="Ex: 15" value="${setupTime}" min="0" class="step-setup-time mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 text-sm text-right focus:ring-purple-500 focus:border-purple-500" required>
+                        </div>
+                        <!-- Tempo de Ciclo -->
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700">Tempo de Ciclo (min/peça)</label>
+                            <input type="number" placeholder="Ex: 0.8" value="${cycleTime}" min="0" step="0.01" class="step-cycle-time mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 text-sm text-right focus:ring-purple-500 focus:border-purple-500" required>
+                        </div>
+                    </div>
+                    
+                    <!-- Como Fazer / Instruções -->
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700">Instruções / Como Fazer</label>
+                        <textarea rows="3" placeholder="Detalhes de execução e padrão de qualidade" class="step-instructions mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 text-sm focus:ring-purple-500 focus:border-purple-500">${instructions}</textarea>
+                    </div>
                 </div>
             `;
             container.insertAdjacentHTML('beforeend', stepHtml);
@@ -843,10 +919,20 @@
         function handleCreateRoteiro(event) {
             event.preventDefault();
             
+            const productCode = document.getElementById('roteiro-product-code').value.trim().toUpperCase();
             const name = document.getElementById('roteiro-name').value.trim();
-            if (!name) return;
 
-            const newId = 'ROTEIRO-' + (Object.keys(allRoteiros).length + 1);
+            if (!name || !productCode) {
+                showMessageModal("Erro de Validação", "O Código do Chicote e o Nome do Roteiro são obrigatórios.");
+                return;
+            }
+
+            // Verifica se o ID já existe
+            if (allRoteiros[productCode]) {
+                showMessageModal("Erro", `O Código do Chicote **${productCode}** já está sendo usado como Roteiro. Por favor, escolha um código diferente.`);
+                return;
+            }
+
             const steps = [];
             let isValid = true;
             
@@ -854,24 +940,28 @@
             
             stepElements.forEach((el, index) => {
                 const stepName = el.querySelector('.step-name').value.trim();
-                const stepTime = parseInt(el.querySelector('.step-time').value);
+                // Usa parseFloat para aceitar decimais no tempo
+                const setupTime = parseFloat(el.querySelector('.step-setup-time').value);
+                const cycleTime = parseFloat(el.querySelector('.step-cycle-time').value);
+                const instructions = el.querySelector('.step-instructions').value.trim();
 
-                if (!stepName || isNaN(stepTime) || stepTime <= 0) {
+                // Validação: Setup/Ciclo não podem ser NaN ou negativos (apenas > 0 ou 0)
+                if (!stepName || isNaN(setupTime) || setupTime < 0 || isNaN(cycleTime) || cycleTime < 0) {
                     isValid = false;
-                    // Em um app real, aqui você mostraria um erro no campo específico
-                    console.error("Passo inválido:", stepName, stepTime);
                     return;
                 }
                 
                 steps.push({
                     id: index + 1,
                     name: stepName,
-                    time: stepTime
+                    setupTime: setupTime, // tempo em minutos
+                    cycleTime: cycleTime, // tempo em minutos/peça
+                    instructions: instructions
                 });
             });
 
             if (!isValid) {
-                showMessageModal("Erro de Validação", "Todos os passos devem ter nome e tempo de produção válido (maior que zero).");
+                showMessageModal("Erro de Validação", "Todos os passos devem ter nome, Tempo de Setup (>=0) e Tempo de Ciclo (>=0) válidos.");
                 return;
             }
             if (steps.length === 0) {
@@ -879,12 +969,47 @@
                 return;
             }
 
-            allRoteiros[newId] = { id: newId, name: name, steps: steps };
+            // Adiciona o novo roteiro usando o Código do Chicote como ID
+            allRoteiros[productCode] = { 
+                id: productCode, 
+                productCode: productCode, 
+                name: name, 
+                steps: steps 
+            };
+            
             saveDataToFirebase();
             closeModal();
-            showMessageModal("Sucesso", `O roteiro **${name}** foi criado com sucesso com o ID **${newId}**.`);
+            showMessageModal("Sucesso", `O Roteiro **${name}** para o Código **${productCode}** foi criado com sucesso.`);
             updateView('PCP'); // Re-renderiza a view PCP após a criação
         }
+        
+        /**
+         * Deleta um roteiro e previne a exclusão se houver OFs dependentes (lógica de protótipo).
+         * @param {string} roteiroId - ID do roteiro.
+         */
+        function deleteRoteiro(roteiroId) {
+            // Verifica dependências (simulação)
+            const hasDependentOFs = Object.values(allOFs).some(of => of.roteiroId === roteiroId && of.status !== 'Finalizada');
+
+            if (hasDependentOFs) {
+                showMessageModal(
+                    "Impossível Excluir", 
+                    "Não é possível excluir o roteiro enquanto houver Ordens de Fabricação (OFs) ativas ou pendentes que dependem dele. Finalize as OFs primeiro."
+                );
+                return;
+            }
+
+            if (confirm(`Tem certeza que deseja excluir o roteiro ${roteiroId}?`)) {
+                delete allRoteiros[roteiroId];
+                // Também deletaria todas as tarefas pendentes relacionadas se fosse um sistema real.
+                
+                saveDataToFirebase();
+                closeModal();
+                showMessageModal("Sucesso", `O roteiro ${roteiroId} foi excluído.`);
+                showRoteiroSetupModal(); // Reabre o modal de configuração
+            }
+        }
+
 
         /** Renderiza o modal de Nova OF. */
         function showCreateOFModal() {
@@ -896,7 +1021,7 @@
             }
             
             const roteiroOptions = roteirosArray.map(r => 
-                `<option value="${r.id}">${r.name} (${r.id}) - ${r.steps.length} Passos</option>`
+                `<option value="${r.id}">${r.productCode} - ${r.name} (${r.steps.length} Passos)</option>`
             ).join('');
 
             const contentHtml = `
@@ -909,19 +1034,20 @@
 
                 <form id="create-of-form" class="space-y-4">
                     <div>
-                        <label for="of-product" class="block text-sm font-medium text-gray-700">Nome do Produto</label>
-                        <input type="text" id="of-product" required class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: Chicote 10 Vias">
+                        <label for="of-product" class="block text-sm font-medium text-gray-700">Nome do Produto (Descrição)</label>
+                        <input type="text" id="of-product" required class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: Chicote da Porta Lateral">
+                    </div>
+                    <div>
+                        <label for="of-roteiro" class="block text-sm font-medium text-gray-700">Código/Roteiro de Produção</label>
+                        <select id="of-roteiro" required class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
+                            ${roteiroOptions}
+                        </select>
                     </div>
                     <div>
                         <label for="of-quantity" class="block text-sm font-medium text-gray-700">Quantidade a Fabricar</label>
                         <input type="number" id="of-quantity" required min="1" value="1" class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 text-right">
                     </div>
-                    <div>
-                        <label for="of-roteiro" class="block text-sm font-medium text-gray-700">Roteiro de Produção</label>
-                        <select id="of-roteiro" required class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500">
-                            ${roteiroOptions}
-                        </select>
-                    </div>
+                    
 
                     <div class="pt-4 border-t mt-6 flex justify-end gap-3">
                         <button type="button" onclick="closeModal()" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg font-semibold hover:bg-gray-400">Cancelar</button>
@@ -943,11 +1069,11 @@
                     const newId = createOF(product, quantity, roteiroId);
                     if (newId) {
                         closeModal();
-                        showMessageModal("Sucesso", `A Ordem de Fabricação **${newId}** para **${product}** foi criada e as tarefas geradas.`);
+                        showMessageModal("Sucesso", `A Ordem de Fabricação **${newId}** para **${product}** (Cód: ${roteiroId}) foi criada e as tarefas geradas.`);
                         renderOFs(); // Re-renderiza a lista de OFs
                     }
                 } else {
-                    showMessageModal("Erro de Validação", "Por favor, preencha todos os campos corretamente.");
+                    showMessageModal("Erro de Validação", "Por favor, preencha todos os campos corretamente (quantidade deve ser maior que zero).");
                 }
             });
 
@@ -964,27 +1090,24 @@
         function renderReports() {
             const ofsFinalizadas = Object.values(allOFs).filter(of => of.status === 'Finalizada');
             let totalActualTime = 0;
-            let totalQuantity = 0;
             
-            // Calcula o tempo total de produção e a quantidade total
+            // Calcula o tempo total de produção
             Object.values(allReports).forEach(dailyReports => {
                 dailyReports.forEach(entry => {
                     totalActualTime += entry.actualTime;
-                    // A quantidade total é a quantidade produzida na OF daquela tarefa
-                    const of = allOFs[entry.ofId];
-                    if (of) {
-                        // totalQuantity += of.quantity; // Comentado para evitar contagem duplicada
-                    }
                 });
             });
 
-            // Garante que a quantidade total não é duplicada (pois a task armazena a quantidade da OF)
-            // Vamos contar apenas a quantidade das OFs finalizadas
+            // Conta a quantidade total de peças finalizadas
             const totalFinishedQuantity = ofsFinalizadas.reduce((sum, of) => sum + of.quantity, 0);
 
             // Calcula o tempo médio por peça
             const avgTimePerPiece = totalFinishedQuantity > 0 ? (totalActualTime / totalFinishedQuantity) : 0;
-            const avgTimePerPieceText = `${Math.floor(avgTimePerPiece)} min ${Math.round((avgTimePerPiece % 1) * 60)} s`;
+            
+            const totalMinutes = Math.floor(avgTimePerPiece);
+            const totalSeconds = Math.round((avgTimePerPiece % 1) * 60);
+
+            const avgTimePerPieceText = `${totalMinutes} min ${totalSeconds} s`;
 
             // Atualiza o painel de KPIs no relatório
             document.getElementById('report-ofs-finished').textContent = ofsFinalizadas.length;
