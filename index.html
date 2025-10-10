@@ -77,16 +77,6 @@
           <span class="hidden sm:inline">Setup Roteiro</span>
         </button>
 
-        <!-- ⚙️ Configurar design (somente Master logado – Opção 1) -->
-        <button id="btn-theme-master"
-                class="text-white bg-indigo-600 hover:bg-indigo-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden"
-                onclick="openThemeModal()">
-          <i data-lucide="palette" class="w-5 h-5 inline-block mr-1"></i>
-          <span class="hidden sm:inline">Configurar design</span>
-        </button>
-      </div>
-    </div>
-  </header>
 
   <!-- Main -->
   <main class="max-w-7xl mx-auto p-3 sm:p-6 lg:p-8">
@@ -311,7 +301,7 @@
         <div id="user-pin-wrap" class="hidden">
           <label class="block text-sm font-medium text-gray-700">PIN do Master</label>
           <input type="password" id="user-pin" class="w-full border border-gray-300 rounded-lg p-2 mt-1" placeholder="****">
-          <p class="text-xs text-gray-500 mt-1">PIN padrão: 7889</p>
+          <p class="text-xs text-gray-500 mt-1">Apenas numeros</p>
         </div>
         <!-- (Na opção 1, NÃO há botão de design aqui. Ele aparece só após login Master no header.) -->
       </div>
@@ -464,7 +454,6 @@ const userViewSelect = document.getElementById("user-view-select");
 const btnCreateOF = document.getElementById("btn-create-of");
 const btnSetupRoteiro = document.getElementById("btn-setup-roteiro");
 const btnProfile = document.getElementById("btn-profile");
-const btnThemeMaster = document.getElementById("btn-theme-master");
 const btnExportReport = document.getElementById("btn-export-report");
 const btnDeleteOF = document.getElementById("btn-delete-of");
 
@@ -1464,3 +1453,4 @@ window.saveTheme = saveTheme;
 </script>
 </body>
 </html>
+
