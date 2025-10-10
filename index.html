@@ -77,6 +77,16 @@
           <span class="hidden sm:inline">Setup Roteiro</span>
         </button>
 
+        <!-- ⚙️ Configurar design (somente Master logado – Opção 1) -->
+        <button id="btn-theme-master"
+                class="text-white bg-indigo-600 hover:bg-indigo-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden"
+                onclick="openThemeModal()">
+          <i data-lucide="palette" class="w-5 h-5 inline-block mr-1"></i>
+          <span class="hidden sm:inline">Configurar design</span>
+        </button>
+      </div>
+    </div>
+  </header>
 
   <!-- Main -->
   <main class="max-w-7xl mx-auto p-3 sm:p-6 lg:p-8">
@@ -367,7 +377,6 @@ const firebaseConfig = {
   appId: "1:675295958467:web:9d79700af6fc1c28db5976",
   measurementId: "G-DH06WDCKJY"
 };
-
 // Inicialização Firebase
 if (firebaseConfig && firebaseConfig.projectId && firebaseConfig.projectId !== "SEU_PROJECT_ID") {
   firebase.initializeApp(firebaseConfig);
@@ -454,6 +463,7 @@ const userViewSelect = document.getElementById("user-view-select");
 const btnCreateOF = document.getElementById("btn-create-of");
 const btnSetupRoteiro = document.getElementById("btn-setup-roteiro");
 const btnProfile = document.getElementById("btn-profile");
+const btnThemeMaster = document.getElementById("btn-theme-master");
 const btnExportReport = document.getElementById("btn-export-report");
 const btnDeleteOF = document.getElementById("btn-delete-of");
 
@@ -1453,4 +1463,3 @@ window.saveTheme = saveTheme;
 </script>
 </body>
 </html>
-
