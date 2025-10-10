@@ -1,48 +1,54 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sistema PCP: Controle de Produção e Roteiros (Firebase Edition)</title>
+  <title>PCP – Controle de Produção</title>
+
+  <!-- Tailwind & Ícones -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
-  <!-- Firebase compat para manter a API atual -->
+
+  <!-- Firebase compat (App, Firestore, Storage) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
-    :root { color-scheme: light dark; }
-    body { font-family: "Inter", sans-serif; }
-    .bg-gradient-header { background: linear-gradient(90deg, #1e40af 0%, #3b82f6 100%); }
-    .modal-fixed { position: fixed; inset: 0; }
-    #instruction-modal-content a { color: #3b82f6; text-decoration: underline; font-weight: 600; }
-    .highlight-red { color: #dc2626; font-weight: 600; }
-    .modal-panel { max-height: calc(100dvh - 2rem); }
-    @media (max-width: 640px) {
-      .modal-panel {
-        width: 100vw !important; max-width: 100vw !important;
-        height: 100dvh !important; max-height: 100dvh !important;
-        border-radius: 0 !important; margin: 0 !important;
-        display: flex; flex-direction: column;
-      }
-      .modal-body-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }
-      .sticky-footer { position: sticky; bottom: 0; background: white; padding-top: .5rem; }
-      .card-tap-big { padding: 1rem; }
+    :root {
+      color-scheme: light dark;
+      --app-bg-color: #f3f4f6;  /* default */
+      --app-bg-image: none;
     }
     body {
+      font-family: "Inter", sans-serif;
+      background: var(--app-bg-color) fixed no-repeat center/cover;
+      background-image: var(--app-bg-image);
+
       padding-left: max(env(safe-area-inset-left), 0px);
       padding-right: max(env(safe-area-inset-right), 0px);
     }
+    .bg-gradient-header { background: linear-gradient(90deg, #1e40af 0%, #3b82f6 100%); }
+    .modal-fixed { position: fixed; inset: 0; }
+    .modal-panel { max-height: calc(100dvh - 2rem); }
+    .modal-body-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .sticky-footer { position: sticky; bottom: 0; background: white; padding-top: .5rem; }
+    .highlight-red { color: #dc2626; font-weight: 600; }
+    @media (max-width: 640px){
+      .modal-panel{ width:100vw!important; max-width:100vw!important; height:100dvh!important; max-height:100dvh!important; border-radius:0!important; margin:0!important; display:flex; flex-direction:column; }
+      .card-tap-big{ padding:1rem; }
+    }
   </style>
 </head>
-<body class="min-h-screen bg-gray-100 antialiased">
+<body class="min-h-screen bg-gray-100/0 antialiased">
 
   <!-- Header -->
-  <header id="header-container" class="bg-gradient-header shadow-lg p-3 sm:p-4 sticky top-0 z-10">
+  <header class="bg-gradient-header shadow-lg p-3 sm:p-4 sticky top-0 z-10">
     <div class="max-w-7xl mx-auto flex justify-between items-center gap-2">
       <h1 class="text-2xl sm:text-3xl font-extrabold text-white flex items-center">
         <i data-lucide="factory" class="w-7 h-7 sm:w-8 sm:h-8 mr-2"></i>
-        Controle de Produção e Processos
+        Controle de Produção
       </h1>
       <div class="flex gap-2 items-center">
         <button id="btn-profile"
@@ -52,14 +58,14 @@
           <span class="hidden sm:inline">Perfil</span>
         </button>
 
-        <select id="user-view-select"
-                onchange="updateView(this.value)"
+        <select id="user-view-select" onchange="updateView(this.value)"
                 class="bg-blue-800 text-white text-xs sm:text-sm font-semibold py-2 px-2 rounded-lg transition hover:bg-blue-700 focus:ring-2 focus:ring-blue-300">
-          <option value="PCP">Visão: PCP (Gerencial)</option>
+          <option value="PCP">Visão: PCP</option>
           <option value="Operador">Visão: Operador</option>
           <option value="Relatorio">Visão: Relatório</option>
         </select>
 
+        <!-- Botões só para Master -->
         <button onclick="openModal('create-of-modal')" id="btn-create-of"
                 class="text-white bg-green-600 hover:bg-green-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden">
           <i data-lucide="plus" class="w-5 h-5 inline-block mr-1"></i>
@@ -69,6 +75,14 @@
                 class="text-white bg-yellow-600 hover:bg-yellow-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden">
           <i data-lucide="settings" class="w-5 h-5 inline-block mr-1"></i>
           <span class="hidden sm:inline">Setup Roteiro</span>
+        </button>
+
+        <!-- ⚙️ Configurar design (somente Master logado – Opção 1) -->
+        <button id="btn-theme-master"
+                class="text-white bg-indigo-600 hover:bg-indigo-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden"
+                onclick="openThemeModal()">
+          <i data-lucide="palette" class="w-5 h-5 inline-block mr-1"></i>
+          <span class="hidden sm:inline">Configurar design</span>
         </button>
       </div>
     </div>
@@ -85,12 +99,11 @@
     <div id="pcp-view" class="space-y-4 sm:space-y-6 hidden">
       <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
         <i data-lucide="bar-chart-3" class="w-5 h-5 sm:w-6 sm:h-6 mr-2"></i>
-        Painel PCP: Acompanhamento de OFs
+        Painel PCP
       </h2>
-      <!-- Campo de busca por OF (injetado por JS; deixo um placeholder caso JS falhe) -->
+      <!-- Busca por OF (PCP) -->
       <div id="pcp-of-search-wrap" class="mb-2 hidden">
-        <input id="pcp-of-search" type="text"
-               placeholder="Pesquisar OF..."
+        <input id="pcp-of-search" type="text" placeholder="Pesquisar OF..."
                class="w-full sm:w-64 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500">
       </div>
       <div id="kpis-container" class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4"></div>
@@ -109,11 +122,10 @@
           <select id="sector-filter" onchange="updateSectorFilter(this.value)"
                   class="p-2 border border-blue-300 rounded-lg bg-blue-50 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48"></select>
         </div>
-        <!-- Campo de filtro de OF no Operador (injetado por JS; placeholder) -->
+        <!-- Busca por OF (Operador) -->
         <div id="operator-of-search-wrap" class="flex items-center gap-2 w-full sm:w-auto hidden">
           <label class="text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">OF:</label>
-          <input id="operator-of-search" type="text"
-                 placeholder="Filtrar por OF..."
+          <input id="operator-of-search" type="text" placeholder="Filtrar por OF..."
                  class="p-2 border border-blue-300 rounded-lg bg-blue-50 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48">
         </div>
       </div>
@@ -124,11 +136,11 @@
     <div id="report-view" class="space-y-4 sm:space-y-6 hidden">
       <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
         <i data-lucide="file-text" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-purple-600"></i>
-        Relatório Detalhado de Pausas e Atrasos
+        Relatório de Ocorrências
       </h2>
       <div class="bg-white p-3 sm:p-4 rounded-xl shadow-lg">
         <div class="flex justify-between items-center mb-3 sm:mb-4">
-          <h3 class="text-base sm:text-xl font-semibold text-gray-700">Ocorrências Registradas (Desvios)</h3>
+          <h3 class="text-base sm:text-xl font-semibold text-gray-700">Pausas & Atrasos</h3>
           <button id="btn-export-report" onclick="exportReportCSV()"
                   class="px-3 sm:px-4 py-2 bg-purple-600 text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-purple-700 transition">
             <i data-lucide="download" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Exportar (CSV)
@@ -180,7 +192,7 @@
   </div>
 
   <!-- Modal de instrução -->
-  <div id="instruction-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
+  <div id="instruction-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal('instruction-modal')">
     <div class="bg-white rounded-xl shadow-2xl p-5 sm:p-8 w-full max-w-2xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
       <h3 class="text-xl sm:text-2xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2 flex items-center">
         <i data-lucide="book-open-text" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-indigo-600"></i> Instrução de Trabalho
@@ -218,7 +230,7 @@
       </div>
       <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3 sticky-footer">
         <button onclick="closeModal('create-of-modal')" class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition">Cancelar</button>
-        <button onclick="createOF()" class="px-3 sm:px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition">
+        <button onclick="createOF()" class="px-3 sm:px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700">
           <i data-lucide="factory" class="w-5 h-5 inline-block mr-1"></i> Gerar OF
         </button>
       </div>
@@ -263,14 +275,10 @@
     <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-3xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
       <div class="flex items-center justify-between mb-2">
         <h3 id="of-details-title" class="text-xl sm:text-2xl font-bold text-gray-800"></h3>
-        <button class="p-2 rounded-lg hover:bg-gray-100" onclick="closeModal('of-details-modal')">
-          <i data-lucide="x" class="w-6 h-6"></i>
-        </button>
+        <button class="p-2 rounded-lg hover:bg-gray-100" onclick="closeModal('of-details-modal')"><i data-lucide="x" class="w-6 h-6"></i></button>
       </div>
       <div id="of-details-summary" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 sm:mb-4"></div>
-      <div class="w-full bg-gray-200 rounded-full h-2 mb-3 sm:mb-4">
-        <div id="of-details-progress" class="h-2 rounded-full bg-blue-500" style="width:0%"></div>
-      </div>
+      <div class="w-full bg-gray-200 rounded-full h-2 mb-3 sm:mb-4"><div id="of-details-progress" class="h-2 rounded-full bg-blue-500" style="width:0%"></div></div>
       <div id="of-details-content" class="max-h-[60vh] overflow-y-auto space-y-3 sm:space-y-4 modal-body-scroll"></div>
       <div class="mt-4 sm:mt-5 flex justify-between gap-3 sticky-footer">
         <button id="btn-delete-of" class="px-3 sm:px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition hidden" onclick="deleteOF(window.__ofDetailsOpenId)">
@@ -303,12 +311,55 @@
         <div id="user-pin-wrap" class="hidden">
           <label class="block text-sm font-medium text-gray-700">PIN do Master</label>
           <input type="password" id="user-pin" class="w-full border border-gray-300 rounded-lg p-2 mt-1" placeholder="****">
-          <p class="text-xs text-gray-500 mt-1">PIN </p>
+          <p class="text-xs text-gray-500 mt-1">PIN padrão: 7889</p>
         </div>
+        <!-- (Na opção 1, NÃO há botão de design aqui. Ele aparece só após login Master no header.) -->
       </div>
       <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3">
         <button class="px-3 sm:px-4 py-2 bg-gray-200 rounded-lg font-semibold hover:bg-gray-300" onclick="closeModal('user-modal')">Cancelar</button>
         <button class="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700" onclick="confirmUser()">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Tema (apenas acionado pelo Master logado) -->
+  <div id="theme-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal('theme-modal')">
+    <div class="bg-white rounded-xl shadow-2xl p-4 w-full max-w-md" onclick="event.stopPropagation()">
+      <h3 class="text-lg font-bold text-gray-800 mb-3">Configurar design</h3>
+      <div class="space-y-3">
+        <div>
+          <label class="font-semibold text-sm">Modo</label>
+          <select id="theme-mode" class="w-full border rounded-lg p-2 mt-1">
+            <option value="color">Cor fixa</option>
+            <option value="image">Imagem</option>
+          </select>
+        </div>
+
+        <div id="theme-color-wrap">
+          <label class="font-semibold text-sm">Cor</label>
+          <div class="flex gap-2 mt-1">
+            <input id="theme-color" type="color" value="#0ea5e9" class="h-10 w-16 border rounded"/>
+            <select id="theme-palette" class="border rounded p-2">
+              <option value="#0ea5e9">Azul</option>
+              <option value="#111827">Preto</option>
+              <option value="#10b981">Verde</option>
+              <option value="#f59e0b">Laranja</option>
+              <option value="#6b7280">Cinza</option>
+              <option value="#3b82f6">Azul Claro</option>
+              <option value="#1f2937">Grafite</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="theme-image-wrap" class="hidden">
+          <label class="font-semibold text-sm">Imagem (upload)</label>
+          <input id="theme-image-file" type="file" accept="image/*" class="mt-1"/>
+        </div>
+      </div>
+
+      <div class="mt-4 flex justify-end gap-2">
+        <button class="px-3 py-2 bg-gray-200 rounded" onclick="closeModal('theme-modal')">Cancelar</button>
+        <button class="px-3 py-2 bg-indigo-600 text-white rounded" onclick="saveTheme()">Salvar</button>
       </div>
     </div>
   </div>
@@ -327,28 +378,31 @@ const firebaseConfig = {
   measurementId: "G-DH06WDCKJY"
 };
 
-// Inicialização do Firebase (se houver config)
-if (Object.keys(firebaseConfig).length > 0 && firebaseConfig.projectId) {
+// Inicialização Firebase
+if (firebaseConfig && firebaseConfig.projectId && firebaseConfig.projectId !== "SEU_PROJECT_ID") {
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
+  const storage = firebase.storage();
+  window.db = db;
+  window.storage = storage;
+
   // Coleções
   const OF_COLLECTION = 'ofs';
   const TASK_COLLECTION = 'tasks';
   const ROTEIRO_COLLECTION = 'roteiros';
   const OCORRENCIA_COLLECTION = 'ocorrencias';
-
-  window.db = db;
   window.OF_COLLECTION = OF_COLLECTION;
   window.TASK_COLLECTION = TASK_COLLECTION;
   window.ROTEIRO_COLLECTION = ROTEIRO_COLLECTION;
   window.OCORRENCIA_COLLECTION = OCORRENCIA_COLLECTION;
 } else {
-  alert("AVISO: Configurações do Firebase ausentes. O sistema usará dados iniciais e não salvará no banco de dados.");
+  console.warn("Firebase não configurado — rodando em modo simulado.");
   window.db = null;
+  window.storage = null;
 }
 
 /* ============================
-   VARIÁVEIS GLOBAIS
+   CONSTANTES & ESTADO
    ============================ */
 const MASTER_PIN = "7889";
 const SECTORS = [
@@ -382,18 +436,18 @@ let roteiroCounter = 7;
 
 const DEFAULT_ROTEIROS = {
   "r1": { id:"r1", chicote_nome:"CHICOTE-001", setor:"Corte", nome_atividade:"Corte dos Fios", tempo_setup:5, tempo_ciclo:0.2,
-    instrucao_trabalho:"<b>1. Preparação:</b> Verifique se a faca está calibrada para o fio 1.0mm.<br><b>2. Medição:</b> Corte 50 peças com 150mm cada.<br><b>3. Conferência:</b> Faça uma conferência visual."
+    instrucao_trabalho:"<b>1. Preparação:</b> Verifique a faca...<br><b>2. Medição:</b> Corte 50 peças de 150mm.<br><b>3. Conferência:</b> Visual."
   },
   "r2": { id:"r2", chicote_nome:"CHICOTE-001", setor:"Pré-Montagem", nome_atividade:"Crimpagem de Terminais", tempo_setup:8, tempo_ciclo:0.5,
-    instrucao_trabalho:"<b>1. Fio Preto:</b> ...<br><b>2. Fio Vermelho:</b> ...<br><b>3. Teste:</b> > 10Kgf."
+    instrucao_trabalho:"<b>Fio Preto:</b> ...<br><b>Fio Vermelho:</b> ...<br><b>Teste:</b> > 10Kgf."
   },
   "r3": { id:"r3", chicote_nome:"CHICOTE-001", setor:"Montagem Final", nome_atividade:"Montagem de Conectores", tempo_setup:15, tempo_ciclo:1.0,
-    instrucao_trabalho:"<b>Atenção:</b> Conectar posições 35 e 33. Proibido forçar."
+    instrucao_trabalho:"Conectar posições 35 e 33. Proibido forçar."
   },
   "r4": { id:"r4", chicote_nome:"CHICOTE-001", setor:"Qualidade", nome_atividade:"Teste de Continuidade", tempo_setup:3, tempo_ciclo:0.1,
     instrucao_trabalho:"Usar jig JIG-10B. 100% devem passar."
   },
-  "r5": { id:"r5", chicote_nome:"CHICOTE-B", setor:"Corte", nome_atividade:"Corte Fios Reforçados", tempo_setup:10, tempo_ciclo:0.3, instrucao_trabalho:"Instrução básica B."},
+  "r5": { id:"r5", chicote_nome:"CHICOTE-B", setor:"Corte", nome_atividade:"Corte Reforçado", tempo_setup:10, tempo_ciclo:0.3, instrucao_trabalho:"Instrução básica B."},
   "r6": { id:"r6", chicote_nome:"CHICOTE-B", setor:"Montagem Final", nome_atividade:"Montagem Simples", tempo_setup:5, tempo_ciclo:0.8, instrucao_trabalho:"Conectar 4 vias."},
 };
 
@@ -410,38 +464,73 @@ const userViewSelect = document.getElementById("user-view-select");
 const btnCreateOF = document.getElementById("btn-create-of");
 const btnSetupRoteiro = document.getElementById("btn-setup-roteiro");
 const btnProfile = document.getElementById("btn-profile");
+const btnThemeMaster = document.getElementById("btn-theme-master");
 const btnExportReport = document.getElementById("btn-export-report");
 const btnDeleteOF = document.getElementById("btn-delete-of");
 
 /* ============================
    HELPERS & PERMISSÕES
    ============================ */
-function msToMinutes(ms){ 
-  if (typeof ms !== 'number' || ms < 0) return 0;
-  return parseFloat((ms / (1000*60)).toFixed(2));
-}
+function msToMinutes(ms){ if (typeof ms !== 'number' || ms < 0) return 0; return parseFloat((ms / (1000*60)).toFixed(2)); }
 function formatMinutes(v){ return `${Number(v||0).toFixed(2)} min`; }
 
-function setUser(u){ 
-  currentUser = u; 
-  localStorage.setItem("pcp_current_user", JSON.stringify(u)); 
+function setUser(u){
+  currentUser = u;
+  try { sessionStorage.setItem("pcp_current_user", JSON.stringify(u)); } catch(_){}
 }
-function getUser(){ 
-  try{ return JSON.parse(localStorage.getItem("pcp_current_user")||"null"); }
+function getUser(){
+  try { return JSON.parse(sessionStorage.getItem("pcp_current_user") || "null"); }
   catch(e){ return null; }
 }
+function clearUser(){ try{ sessionStorage.removeItem("pcp_current_user"); }catch(_){} currentUser=null; }
+
 function isMaster(){ return currentUser && currentUser.role === "MASTER"; }
 function isOperador(){ return currentUser && currentUser.role === "OPERADOR"; }
 
-function getDBTimestamp(timestampField) {
-  if (!timestampField) return null;
-  if (typeof timestampField.toDate === 'function') {
-    return timestampField.toDate().getTime();
+function getDBTimestamp(ts) {
+  if (!ts) return null;
+  if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+  if (ts instanceof Date) return ts.getTime();
+  return ts;
+}
+
+/* ============================
+   THEME (Global via Firestore)
+   ============================ */
+function listenTheme(){
+  if (!window.db) return;
+  db.collection('settings').doc('ui').onSnapshot(doc=>{
+    const s = doc.exists ? doc.data() : null;
+    applyTheme(s);
+  });
+}
+function applyTheme(s){
+  const r = document.documentElement.style;
+  if (!s || s.mode === 'color'){
+    r.setProperty('--app-bg-color', s?.color || '#f3f4f6');
+    r.setProperty('--app-bg-image', 'none');
+  } else {
+    r.setProperty('--app-bg-color', '#000000');
+    r.setProperty('--app-bg-image', `url("${s.imageUrl}")`);
   }
-  if (timestampField instanceof Date) {
-    return timestampField.getTime();
+}
+
+function openThemeModal(){ document.getElementById('theme-modal').style.display = 'flex'; }
+function saveTheme(){
+  if (!window.db) { alert('Configure o Firebase para salvar o tema.'); return; }
+  const mode = document.getElementById('theme-mode').value;
+  if (mode === 'color'){
+    const color = document.getElementById('theme-color').value || document.getElementById('theme-palette').value;
+    db.collection('settings').doc('ui').set({ mode:'color', color }, { merge:true }).then(()=> closeModal('theme-modal'));
+  } else {
+    const file = document.getElementById('theme-image-file').files[0];
+    if (!file) { alert('Escolha uma imagem.'); return; }
+    const ref = storage.ref().child(`ui/${Date.now()}_${file.name}`);
+    ref.put(file).then(()=> ref.getDownloadURL()).then(url=>{
+      return db.collection('settings').doc('ui').set({ mode:'image', imageUrl:url }, { merge:true });
+    }).then(()=> closeModal('theme-modal'))
+      .catch(e=> alert('Erro ao enviar imagem: ' + e.message));
   }
-  return timestampField;
 }
 
 /* ============================
@@ -452,16 +541,13 @@ function calculateTempoReal(task){
   const now = Date.now();
   if (task.status === 'Em Processo' && task.timestamp_inicio){
     let inicioMs = getDBTimestamp(task.timestamp_inicio);
-    if (inicioMs) {
-      let tempoTrabalhadoDesdeInicio = msToMinutes(now - inicioMs);
-      tempoReal += tempoTrabalhadoDesdeInicio;
-    }
+    if (inicioMs) tempoReal += msToMinutes(now - inicioMs);
   }
   return parseFloat(tempoReal.toFixed(2));
 }
 function calculateDesvio(task){
   const tempoReal = calculateTempoReal(task);
-  const desvio = (task.tempo_planejado||0) - tempoReal; 
+  const desvio = (task.tempo_planejado||0) - tempoReal; // negativo = atraso
   return parseFloat(desvio.toFixed(2));
 }
 function calculateTotalPauseMinutes(task){
@@ -472,9 +558,7 @@ function calculateTotalPauseMinutes(task){
   }
   return msToMinutes(totalMs);
 }
-function calculateTotalPauseMinutesFinal(task){
-  return msToMinutes(task.total_pause_time_ms || 0);
-}
+function calculateTotalPauseMinutesFinal(task){ return msToMinutes(task.total_pause_time_ms || 0); }
 
 /* ============================
    INICIALIZAÇÃO & LISTENERS
@@ -486,7 +570,7 @@ function setupSectorDropdowns(){
   [roteiroSetorSelect, sectorFilterSelect, userSectorSelect].forEach(sel => { if (sel) sel.innerHTML = ''; });
 
   SECTORS.forEach(sector=>{
-    const o1 = document.createElement('option'); o1.value=sector; o1.textContent=sector; 
+    const o1 = document.createElement('option'); o1.value=sector; o1.textContent=sector;
     const o2 = o1.cloneNode(true);
     if (roteiroSetorSelect) roteiroSetorSelect.appendChild(o1);
     if (userSectorSelect) userSectorSelect.appendChild(o2);
@@ -496,10 +580,9 @@ function setupSectorDropdowns(){
     if (isOperador()){
       const o = document.createElement('option');
       o.value=currentUser.sector; o.textContent=currentUser.sector; sectorFilterSelect.appendChild(o);
-      sectorFilterSelect.value=currentUser.sector;
-      sectorFilterSelect.disabled = true;
+      sectorFilterSelect.value=currentUser.sector; sectorFilterSelect.disabled = true;
       currentSectorFilter = currentUser.sector;
-    }else{
+    } else {
       SECTORS.forEach(sector=>{
         const o2 = document.createElement('option'); o2.value=sector; o2.textContent=sector; sectorFilterSelect.appendChild(o2);
       });
@@ -509,10 +592,7 @@ function setupSectorDropdowns(){
     }
   }
 }
-function updateSectorFilter(sector){
-  currentSectorFilter = sector;
-  renderTasks();
-}
+function updateSectorFilter(sector){ currentSectorFilter = sector; renderTasks(); }
 
 function loadRoteiroDropdowns() {
   const select = document.getElementById('of-chicote');
@@ -533,11 +613,16 @@ function loadRoteiroDropdowns() {
 
 async function initializeApp(){
   loadingIndicator.classList.remove('hidden');
+
   // Esconde tudo enquanto não loga
   pcpView.classList.add('hidden');
   operatorView.classList.add('hidden');
   reportView.classList.add('hidden');
 
+  // Tema global (escuta sempre)
+  listenTheme();
+
+  // Restaura sessão (sessionStorage)
   const savedUser = getUser();
   if (savedUser){ setUser(savedUser); }
 
@@ -545,11 +630,6 @@ async function initializeApp(){
     setupFirebaseListeners();
   } else {
     // SIMULAÇÃO
-    document.getElementById('loading-indicator').innerHTML = `
-      <div class="p-3 sm:p-4 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg shadow-md" role="alert">
-        <p class="font-bold">Aviso: Modo de Simulação (Sem Firebase)</p>
-        <p class="text-xs sm:text-sm">Os dados serão voláteis e não persistirão entre sessões. Use a configuração do Firebase para persistência.</p>
-      </div>`;
     allRoteiros = { ...DEFAULT_ROTEIROS };
     if (!localStorage.getItem('sim_data_initialized')) {
       await createOF('OF-001', 10, 'CHICOTE-001', true);
@@ -565,7 +645,6 @@ async function initializeApp(){
       openUserModal(savedUser ? null : undefined);
       setupUIRefresh();
       loadRoteiroDropdowns();
-      // injeta os campos de busca
       injectSearchInputs();
     }, 300);
   }
@@ -613,9 +692,7 @@ function setupFirebaseListeners() {
 
   db.collection(OCORRENCIA_COLLECTION).onSnapshot(snapshot => {
     allOcurrencesLog = [];
-    snapshot.forEach(doc => {
-      allOcurrencesLog.push({ id: doc.id, ...doc.data() });
-    });
+    snapshot.forEach(doc => { allOcurrencesLog.push({ id: doc.id, ...doc.data() }); });
     allOcurrencesLog.sort((a,b) => getDBTimestamp(b.timestamp) - getDBTimestamp(a.timestamp));
     updateView(userViewSelect.value);
     loadingIndicator.classList.add('hidden');
@@ -661,11 +738,11 @@ async function addRoteiroActivity(){
   } else {
     const newId = `r${roteiroCounter++}`;
     allRoteiros[newId] = {
-      id: newId, chicote_nome: chicote_name, setor, 
-      nome_atividade: activity_name, tempo_setup: setup_time, tempo_ciclo: cycle_time, 
+      id: newId, chicote_nome: chicote_name, setor,
+      nome_atividade: activity_name, tempo_setup: setup_time, tempo_ciclo: cycle_time,
       instrucao_trabalho: instruction_text
     };
-    messageEl.textContent = `Etapa "${activity_name}" adicionada ao roteiro mestre ${chicote_name} (Simulação).`;
+    messageEl.textContent = `Etapa "${activity_name}" adicionada (Simulação).`;
     messageEl.classList.remove('text-red-500');
     messageEl.classList.add('text-green-600');
     renderRoteiros();
@@ -686,7 +763,7 @@ async function createOF(ofIdOverride, quantityOverride, chicoteOverride, isSimul
   messageEl.classList.add('hidden');
 
   if (!of_id || isNaN(quantity) || quantity <= 0 || !chicote_name){
-    messageEl.textContent = "Preencha todos os campos corretamente. A quantidade deve ser um número positivo.";
+    messageEl.textContent = "Preencha todos os campos corretamente.";
     messageEl.classList.remove('hidden');
     return;
   }
@@ -698,15 +775,13 @@ async function createOF(ofIdOverride, quantityOverride, chicoteOverride, isSimul
 
   const roteiroEtapas = Object.values(allRoteiros).filter(r => r.chicote_nome === chicote_name);
   if (roteiroEtapas.length === 0){
-    messageEl.textContent = `Nenhuma etapa encontrada para o chicote "${chicote_name}". Cadastre o roteiro mestre primeiro.`;
+    messageEl.textContent = `Nenhuma etapa encontrada para "${chicote_name}".`;
     messageEl.classList.remove('hidden');
     return;
   }
 
   const newOF = {
-    id: of_id,
-    chicote: chicote_name,
-    quantidade: quantity,
+    id: of_id, chicote: chicote_name, quantidade: quantity,
     status: 'Pendente',
     data_criacao: window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date(),
     task_count: roteiroEtapas.length,
@@ -714,40 +789,32 @@ async function createOF(ofIdOverride, quantityOverride, chicoteOverride, isSimul
   };
 
   try {
-    if (window.db) {
-      await db.collection(OF_COLLECTION).doc(of_id).set(newOF);
-    } else {
-      allOFs[of_id] = newOF;
-    }
+    if (window.db) { await db.collection(OF_COLLECTION).doc(of_id).set(newOF); }
+    else { allOFs[of_id] = newOF; }
 
     const batch = window.db ? db.batch() : null;
     let order = 1;
     for (const etapa of roteiroEtapas) {
       const tempo_planejado = etapa.tempo_setup + (etapa.tempo_ciclo * quantity);
       const newTask = {
-        id_of: of_id,
-        id_roteiro: etapa.id,
-        chicote: chicote_name,
-        nome_atividade: etapa.nome_atividade,
-        setor: etapa.setor,
-        tempo_setup: etapa.tempo_setup,
-        tempo_ciclo: etapa.tempo_ciclo,
+        id_of: of_id, id_roteiro: etapa.id, chicote: chicote_name,
+        nome_atividade: etapa.nome_atividade, setor: etapa.setor,
+        tempo_setup: etapa.tempo_setup, tempo_ciclo: etapa.tempo_ciclo,
         tempo_planejado: parseFloat(tempo_planejado.toFixed(2)),
         instrucao_trabalho: etapa.instrucao_trabalho,
         quantidade_pecas: quantity,
-        // 🔓 Execução paralela: todas em "Em Espera"
+        // Paralelo: todas Em Espera
         status: 'Em Espera',
         ordem: order++,
-        timestamp_inicio: null,
-        timestamp_fim: null,
+        timestamp_inicio: null, timestamp_fim: null,
         tempo_real_acumulado: 0,
         total_pause_time_ms: 0,
         pause_start_timestamp: null,
-        search_index: of_id.toLowerCase() + '-' + etapa.nome_atividade.toLowerCase() + '-' + etapa.setor.toLowerCase()
+        search_index: of_id.toLowerCase()+'-'+etapa.nome_atividade.toLowerCase()+'-'+etapa.setor.toLowerCase()
       };
       if (window.db) {
-        const newTaskDocRef = db.collection(TASK_COLLECTION).doc();
-        batch.set(newTaskDocRef, newTask);
+        const newTaskRef = db.collection(TASK_COLLECTION).doc();
+        batch.set(newTaskRef, newTask);
       } else {
         const simTaskId = `t${taskCounter++}`;
         newTask.id = simTaskId;
@@ -767,7 +834,6 @@ async function createOF(ofIdOverride, quantityOverride, chicoteOverride, isSimul
   } catch(e) {
     messageEl.textContent = "Erro ao criar OF: " + (e.message || e);
     messageEl.classList.remove('hidden');
-    console.error("Erro na criação da OF:", e);
   }
 }
 
@@ -785,9 +851,7 @@ async function updateTaskStatus(taskId, newStatus, logType = null, justification
       updateData.total_pause_time_ms = (task.total_pause_time_ms || 0) + currentPauseTimeMs;
       updateData.pause_start_timestamp = null;
     }
-    if (task.status === 'Em Espera') {
-      updateData.timestamp_inicio = now;
-    }
+    if (task.status === 'Em Espera') updateData.timestamp_inicio = now;
   } 
   else if (newStatus === 'Pausada') {
     const currentTempoReal = calculateTempoReal(task);
@@ -811,7 +875,6 @@ async function updateTaskStatus(taskId, newStatus, logType = null, justification
     if (window.db) {
       const ofRef = db.collection(OF_COLLECTION).doc(task.id_of);
 
-      // Verifica conclusão da OF (todas as tasks concluídas)
       const tasksDaOF = Object.values(allTasks).filter(t => t.id_of === task.id_of);
       const totalConcluidas = tasksDaOF.filter(t => (t.id === taskId) ? true : t.status === 'Concluído').length;
       const ofConcluida = totalConcluidas >= tasksDaOF.length;
@@ -822,7 +885,6 @@ async function updateTaskStatus(taskId, newStatus, logType = null, justification
         concluded_tasks: firebase.firestore.FieldValue.increment(1),
         status: ofConcluida ? 'Concluído' : 'Em Andamento'
       });
-      // ❌ Não libera “próxima” — paralelismo total
       await batch.commit();
     } else {
       const of = allOFs[task.id_of];
@@ -849,14 +911,9 @@ async function updateTaskStatus(taskId, newStatus, logType = null, justification
 
 async function createOcorrenciaLog(task, type, justification, justificationText) {
   const logData = {
-    ID_TASK: task.id,
-    OF: task.id_of,
-    CHICOTE: task.chicote,
-    ATIVIDADE: task.nome_atividade,
-    OPERADOR: currentUser?.name || currentUser?.sector || '',
-    SECTOR: task.setor,
-    MOTIVO_PRINCIPAL: justification,
-    MOTIVO_DETALHES: justificationText,
+    ID_TASK: task.id, OF: task.id_of, CHICOTE: task.chicote, ATIVIDADE: task.nome_atividade,
+    OPERADOR: currentUser?.name || currentUser?.sector || '', SECTOR: task.setor,
+    MOTIVO_PRINCIPAL: justification, MOTIVO_DETALHES: justificationText,
     timestamp: window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date()
   };
   if (type === 'PAUSA') {
@@ -874,9 +931,8 @@ async function createOcorrenciaLog(task, type, justification, justificationText)
     logData.MOTIVO_PAUSA = null;
     logData.MOTIVO_ATRASO = justification;
   }
-  if (window.db) {
-    await db.collection(OCORRENCIA_COLLECTION).add(logData);
-  } else {
+  if (window.db) await db.collection(OCORRENCIA_COLLECTION).add(logData);
+  else {
     logData.id = `log${allOcurrencesLog.length + 1}`;
     allOcurrencesLog.push(logData);
     localStorage.setItem('sim_ocorrencias', JSON.stringify(allOcurrencesLog));
@@ -884,58 +940,50 @@ async function createOcorrenciaLog(task, type, justification, justificationText)
 }
 
 /* ============================
-   AÇÕES DE BOTÃO
+   AÇÕES
    ============================ */
 function startTask(taskId){ updateTaskStatus(taskId, 'Em Processo'); }
 function finishTask(taskId){ showActionModal(taskId, 'Finalizar', DELAY_REASONS); }
 function pauseTask(taskId){ showActionModal(taskId, 'Pausar', PAUSE_REASONS); }
 
 async function deleteRoteiroActivity(roteiroId) {
-  if (!confirm("Tem certeza que deseja EXCLUIR esta etapa de roteiro?")) return;
+  if (!isMaster() || !confirm("Excluir esta etapa de roteiro?")) return;
   if (window.db) {
-    try { await db.collection(ROTEIRO_COLLECTION).doc(roteiroId).delete(); alert("Etapa de roteiro excluída."); }
-    catch(e) { alert("Erro ao excluir etapa: " + e.message); }
+    try { await db.collection(ROTEIRO_COLLECTION).doc(roteiroId).delete(); alert("Etapa excluída."); }
+    catch(e) { alert("Erro ao excluir: " + e.message); }
   } else {
     delete allRoteiros[roteiroId];
     renderRoteiros();
     loadRoteiroDropdowns();
-    alert("Etapa de roteiro excluída (Simulação).");
   }
 }
 
 async function deleteOF(ofId) {
   if (!isMaster() || !ofId) return;
-  if (!confirm(`Tem certeza que deseja EXCLUIR a OF ${ofId} e TODAS as suas tarefas e logs? Esta ação é irreversível.`)) return;
+  if (!confirm(`Excluir OF ${ofId} e TODAS as suas tarefas e logs?`)) return;
 
   try {
     if (window.db) {
       const batch = db.batch();
-      const ofRef = db.collection(OF_COLLECTION).doc(ofId);
-      batch.delete(ofRef);
-
+      batch.delete(db.collection(OF_COLLECTION).doc(ofId));
       const tasksSnapshot = await db.collection(TASK_COLLECTION).where('id_of', '==', ofId).get();
       tasksSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-
       const ocorrenciasSnapshot = await db.collection(OCORRENCIA_COLLECTION).where('OF', '==', ofId).get();
       ocorrenciasSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-
       await batch.commit();
     } else {
       delete allOFs[ofId];
-      Object.keys(allTasks).forEach(taskId => {
-        if (allTasks[taskId].id_of === ofId) delete allTasks[taskId];
-      });
-      allOcurrencesLog = allOcurrencesLog.filter(log => log.OF !== ofId);
+      Object.keys(allTasks).forEach(id => { if (allTasks[id].id_of === ofId) delete allTasks[id]; });
+      allOcurrencesLog = allOcurrencesLog.filter(l => l.OF !== ofId);
       localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
       localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
       localStorage.setItem('sim_ocorrencias', JSON.stringify(allOcurrencesLog));
     }
     closeModal('of-details-modal');
-    alert(`OF ${ofId} excluída com sucesso.`);
+    alert(`OF ${ofId} excluída.`);
     renderOFs();
   } catch(e) {
     alert("Erro ao excluir OF: " + (e.message || e));
-    console.error(e);
   }
 }
 
@@ -989,8 +1037,8 @@ function showActionModal(taskId, type, reasons){
       justificationRequired.textContent = `🚨 Justificativa obrigatória devido ao ATRASO de ${formatMinutes(Math.abs(desvio))}!`;
       isRequired = true;
     } else {
-      justificationRequired.textContent = `Justificativa opcional. Tempo restante: ${formatMinutes(desvio)}.`;
-      if (isMaster() && desvio < 1) { isRequired = true; } 
+      justificationRequired.textContent = `✅ Concluído dentro/antes do tempo. Nenhuma justificativa necessária.`;
+      isRequired = false;
     }
   } else if (type === 'Pausar') {
     justificationRequired.textContent = `Motivo da pausa é altamente recomendado.`;
@@ -1014,7 +1062,7 @@ async function handleConfirmedAction(){
   justificationRequired.classList.add('hidden');
 
   if (type === 'Finalizar') {
-    await updateTaskStatus(taskId, 'Concluído', 'FIM_ATRASO', justification, justificationText);
+    await updateTaskStatus(taskId, 'Concluído', null, justification, justificationText);
     updateView(userViewSelect.value);
   } else if (type === 'Pausar') {
     await updateTaskStatus(taskId, 'Pausada', 'PAUSA', justification, justificationText);
@@ -1032,44 +1080,61 @@ function openInstructionModal(taskId) {
   lucide.createIcons();
 }
 
+function openUserModal() {
+  const modal = document.getElementById('user-modal');
+  if(modal) modal.style.display = 'flex';
+  setTimeout(()=>{
+    const roleSel = document.getElementById('user-role');
+    const pinWrap = document.getElementById('user-pin-wrap');
+    const sectorWrap = document.getElementById('user-sector-wrap');
+    roleSel.onchange = () => {
+      const isM = roleSel.value === 'MASTER';
+      pinWrap.classList.toggle('hidden', !isM);
+      sectorWrap.classList.toggle('hidden', isM);
+    };
+    roleSel.dispatchEvent(new Event('change'));
+  }, 50);
+}
+function confirmUser(){
+  const role = document.getElementById('user-role').value;
+  const sector = document.getElementById('user-sector').value;
+  if (role === 'MASTER') {
+    const pin = document.getElementById('user-pin').value;
+    if (pin !== MASTER_PIN) { alert("PIN incorreto."); return; }
+    setUser({ role: 'MASTER', name: 'Master' });
+  } else {
+    if (!sector) { alert("Selecione o setor."); return; }
+    setUser({ role: 'OPERADOR', sector, name: 'Operador' });
+  }
+  document.getElementById('user-modal').style.display = 'none';
+  setupSectorDropdowns();
+  updateView(userViewSelect.value);
+  injectSearchInputs();
+}
+
 /* ============================
    RENDERIZAÇÃO
    ============================ */
 function setupUIRefresh(){
-  // Atualização leve a cada 10s (ex.: cronômetro de tempo real)
   setInterval(()=>{
-    if (!pcpView.classList.contains('hidden')) renderOFs();
+    if (!pcpView.classList.contains('hidden')) { renderOFs(); renderKPIs(); }
     if (!operatorView.classList.contains('hidden')) renderTasks();
   }, 10000);
 }
 function injectSearchInputs(){
   // PCP search
-  const kpis = document.getElementById('kpis-container');
   const wrap = document.getElementById('pcp-of-search-wrap');
-  if (kpis && wrap && !wrap.dataset.ready){
-    wrap.classList.remove('hidden');
-    wrap.dataset.ready = "1";
+  if (wrap && !wrap.dataset.ready){
+    wrap.classList.remove('hidden'); wrap.dataset.ready = "1";
     const input = document.getElementById('pcp-of-search');
-    if (input) {
-      input.addEventListener('input', (e)=>{
-        pcpSearchOF = (e.target.value || "").trim().toUpperCase();
-        renderOFs();
-      });
-    }
+    if (input) input.addEventListener('input', (e)=>{ pcpSearchOF = (e.target.value||"").trim().toUpperCase(); renderOFs(); });
   }
   // Operator search
-  const opHeader = document.querySelector('#operator-view .bg-white');
   const opWrap = document.getElementById('operator-of-search-wrap');
-  if (opHeader && opWrap && !opWrap.dataset.ready){
-    opWrap.classList.remove('hidden');
-    opWrap.dataset.ready = "1";
+  if (opWrap && !opWrap.dataset.ready){
+    opWrap.classList.remove('hidden'); opWrap.dataset.ready = "1";
     const input = document.getElementById('operator-of-search');
-    if (input) {
-      input.addEventListener('input', (e)=>{
-        operatorSearchOF = (e.target.value || "").trim().toUpperCase();
-        renderTasks();
-      });
-    }
+    if (input) input.addEventListener('input', (e)=>{ operatorSearchOF = (e.target.value||"").trim().toUpperCase(); renderTasks(); });
   }
 }
 
@@ -1104,15 +1169,13 @@ function renderKPIs(){
 }
 
 function updateView(view){
-  // 🔒 Bloqueia qualquer visão enquanto não houver usuário logado
-  if (!currentUser) { 
-    pcpView.classList.add('hidden');
-    operatorView.classList.add('hidden');
-    reportView.classList.add('hidden');
-    openUserModal();
-    return; 
+  // 🔒 Se não houver usuário, força login
+  if (!currentUser) {
+    pcpView.classList.add('hidden'); operatorView.classList.add('hidden'); reportView.classList.add('hidden');
+    openUserModal(); return;
   }
 
+  // Operador não pode trocar para PCP/Relatório
   if (isOperador() && view !== 'Operador'){ view = 'Operador'; }
 
   const isPCP = view === 'PCP';
@@ -1123,20 +1186,18 @@ function updateView(view){
   reportView.classList.toggle('hidden', !isReport);
   userViewSelect.value = view;
 
+  // Botões por permissão
   btnCreateOF.classList.toggle('hidden', !isMaster());
   btnSetupRoteiro.classList.toggle('hidden', !isMaster());
+  btnThemeMaster.classList.toggle('hidden', !isMaster());
   btnProfile.classList.remove('hidden');
   userViewSelect.disabled = isOperador();
   if (btnExportReport) btnExportReport.classList.toggle('hidden', !isMaster());
 
-  if (isPCP){ 
-    renderKPIs(); 
-    renderOFs(); 
-  } else if (view === 'Operador'){
-    renderTasks(); 
-  } else if (isReport){ 
-    renderReport(); 
-  }
+  if (isPCP){ renderKPIs(); renderOFs(); }
+  else if (view === 'Operador'){ renderTasks(); }
+  else if (isReport){ renderReport(); }
+
   injectSearchInputs();
   lucide.createIcons();
 }
@@ -1170,14 +1231,11 @@ function renderOFs(){
     let ofs = Object.values(allOFs).filter(of => of.status !== 'Concluído');
 
     // 🔎 filtro por OF na tela PCP
-    if (pcpSearchOF) {
-      ofs = ofs.filter(of => (of.id || "").toUpperCase().includes(pcpSearchOF));
-    }
+    if (pcpSearchOF) ofs = ofs.filter(of => (of.id || "").toUpperCase().includes(pcpSearchOF));
 
     const ofsHtml = ofs.map(of=>{
       const tasks = Object.values(allTasks).filter(t=> t.id_of === of.id);
-      // ✅ progresso sempre pela contagem real de tasks concluídas
-      const completed = tasks.filter(t => t.status === 'Concluído').length;
+      const completed = tasks.filter(t => t.status === 'Concluído').length; // contagem real
       const nextTask = tasks.find(t=> t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada');
 
       let statusColor = 'bg-gray-100 border-gray-300';
@@ -1187,12 +1245,12 @@ function renderOFs(){
         progress = Math.floor((completed / tasks.length) * 100);
         if (progress === 0) statusColor = 'bg-gray-200 border-gray-400';
         else if (progress < 100) statusColor = 'bg-blue-100 border-blue-400';
-        const anyTaskDelayed = tasks.some(t => calculateDesvio(t) < -5); 
+        const anyTaskDelayed = tasks.some(t => calculateDesvio(t) < -5);
         if (anyTaskDelayed) statusColor = 'bg-red-100 border-red-500';
       }
 
       return `
-        <div class="${statusColor} p-4 rounded-xl shadow-lg border-l-4 ${statusColor.replace('bg-', 'border-')}" 
+        <div class="${statusColor} p-4 rounded-xl shadow-lg border-l-4 ${statusColor.replace('bg-', 'border-')}"
              onclick="openOFDetails('${of.id}')">
           <h3 class="text-lg font-bold text-gray-800 mb-1 flex justify-between items-center">
             ${of.id}
@@ -1271,9 +1329,7 @@ function renderTasks(){
             <div><span class="text-gray-500">Pausa:</span> <span class="font-semibold">${formatMinutes(totalPauseMinutes)}</span></div>
           </div>
           <div class="mt-2 flex justify-between items-center">
-            <span class="text-xs font-semibold ${desvio < 0 ? 'text-red-600' : 'text-gray-700'}">
-              Desvio: ${desvio < 0 ? '-' : ''}${formatMinutes(Math.abs(desvio))}
-            </span>
+            <span class="text-xs font-semibold ${desvio < 0 ? 'text-red-600' : 'text-gray-700'}">Desvio: ${desvio < 0 ? '-' : ''}${formatMinutes(Math.abs(desvio))}</span>
             <span class="text-xs font-medium text-gray-600">${statusText}</span>
           </div>
           <div class="mt-3 flex gap-2">${actions}</div>
@@ -1287,7 +1343,7 @@ function renderTasks(){
 }
 
 /* ============================
-   DETALHES DA OF / EXPORTS
+   DETALHES / EXPORTS
    ============================ */
 function openOFDetails(ofId){
   window.__ofDetailsOpenId = ofId;
@@ -1332,14 +1388,9 @@ function openOFDetails(ofId){
 }
 
 function exportReportCSV(){
-  const rows = [
-    ["OF","CHICOTE","ATIVIDADE","MOTIVO_PAUSA","MOTIVO_ATRASO","T. PAUSA (min)","T. ATRASO (min)"]
-  ];
+  const rows = [["OF","CHICOTE","ATIVIDADE","MOTIVO_PAUSA","MOTIVO_ATRASO","T. PAUSA (min)","T. ATRASO (min)"]];
   allOcurrencesLog.forEach(l => {
-    rows.push([
-      l.OF, l.CHICOTE, l.ATIVIDADE, l.MOTIVO_PAUSA||"", l.MOTIVO_ATRASO||"",
-      (l.TEMPO_PAUSA||0).toFixed(2), (l.TEMPO_ATRASO||0).toFixed(2)
-    ]);
+    rows.push([l.OF, l.CHICOTE, l.ATIVIDADE, l.MOTIVO_PAUSA||"", l.MOTIVO_ATRASO||"", (l.TEMPO_PAUSA||0).toFixed(2), (l.TEMPO_ATRASO||0).toFixed(2)]);
   });
   downloadCSV(rows, `relatorio_ocorrencias_${new Date().toISOString().slice(0,10)}.csv`);
 }
@@ -1349,11 +1400,8 @@ function exportOFTasksCSV(ofId){
   tasks.forEach(t => {
     rows.push([
       t.id_of, t.nome_atividade, t.setor, t.status,
-      Number(t.tempo_setup).toFixed(2),
-      Number(t.tempo_ciclo).toFixed(2),
-      Number(t.tempo_planejado).toFixed(2),
-      calculateTempoReal(t).toFixed(2),
-      calculateDesvio(t).toFixed(2),
+      Number(t.tempo_setup).toFixed(2), Number(t.tempo_ciclo).toFixed(2),
+      Number(t.tempo_planejado).toFixed(2), calculateTempoReal(t).toFixed(2), calculateDesvio(t).toFixed(2),
     ]);
   });
   downloadCSV(rows, `of_${ofId}_tasks_${new Date().toISOString().slice(0,10)}.csv`);
@@ -1362,8 +1410,7 @@ function downloadCSV(rows, filename){
   const csvContent = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob([csvContent], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -1380,52 +1427,10 @@ function renderRoteiros(){
         <p class="text-xs text-gray-600">Atividade: ${r.nome_atividade}</p>
         <p class="text-xs text-gray-600">Setup: ${Number(r.tempo_setup).toFixed(2)} | Ciclo: ${Number(r.tempo_ciclo).toFixed(2)}</p>
       </div>
-      <button class="px-2 py-1 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700"
-              onclick="deleteRoteiroActivity('${r.id}')">Excluir</button>
+      <button class="px-2 py-1 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700" onclick="deleteRoteiroActivity('${r.id}')">Excluir</button>
     </div>
   `).join('');
   list.innerHTML = items || '<div class="p-4 text-center text-gray-500 bg-white rounded-lg">Nenhum roteiro cadastrado.</div>';
-}
-
-/* ============================
-   LOGIN
-   ============================ */
-function openUserModal() {
-  const modal = document.getElementById('user-modal');
-  if(modal) modal.style.display = 'flex';
-  // Ajusta visibilidade do PIN conforme role
-  setTimeout(()=>{
-    const roleSel = document.getElementById('user-role');
-    const pinWrap = document.getElementById('user-pin-wrap');
-    const sectorWrap = document.getElementById('user-sector-wrap');
-    roleSel.onchange = () => {
-      const role = roleSel.value;
-      if (role === 'MASTER') {
-        pinWrap.classList.remove('hidden');
-        sectorWrap.classList.add('hidden');
-      } else {
-        pinWrap.classList.add('hidden');
-        sectorWrap.classList.remove('hidden');
-      }
-    };
-    roleSel.dispatchEvent(new Event('change'));
-  }, 50);
-}
-function confirmUser(){
-  const role = document.getElementById('user-role').value;
-  const sector = document.getElementById('user-sector').value;
-  if (role === 'MASTER') {
-    const pin = document.getElementById('user-pin').value;
-    if (pin !== MASTER_PIN) { alert("PIN incorreto."); return; }
-    setUser({ role: 'MASTER', name: 'Master' });
-  } else {
-    if (!sector) { alert("Selecione o setor."); return; }
-    setUser({ role: 'OPERADOR', sector });
-  }
-  document.getElementById('user-modal').style.display = 'none';
-  setupSectorDropdowns();
-  updateView(userViewSelect.value);
-  injectSearchInputs();
 }
 
 /* ============================
@@ -1435,7 +1440,27 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeApp();
   lucide.createIcons();
 });
+
+// Exposição global
+window.startTask = startTask;
+window.pauseTask = pauseTask;
+window.finishTask = finishTask;
+window.openOFDetails = openOFDetails;
+window.openInstructionModal = openInstructionModal;
+window.handleConfirmedAction = handleConfirmedAction;
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.createOF = createOF;
+window.addRoteiroActivity = addRoteiroActivity;
+window.deleteRoteiroActivity = deleteRoteiroActivity;
+window.deleteOF = deleteOF;
+window.exportReportCSV = exportReportCSV;
+window.exportOFTasksCSV = exportOFTasksCSV;
+window.openUserModal = openUserModal;
+window.confirmUser = confirmUser;
+window.updateSectorFilter = updateSectorFilter;
+window.openThemeModal = openThemeModal;
+window.saveTheme = saveTheme;
 </script>
 </body>
 </html>
-
