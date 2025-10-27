@@ -102,7 +102,8 @@
   <header class="bg-gradient-header shadow-lg p-3 sm:p-4 sticky top-0 z-10">
     <div class="max-w-7xl mx-auto flex justify-between items-center gap-2">
       <h1 class="text-2xl sm:text-3xl font-extrabold text-white flex items-center">
-        <img src="ats_bg.jpg" alt="Logo ATS" class="h-8 sm:h-10 mr-2 rounded-lg border border-white/50 shadow-md">
+        <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAEAAAAAAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAgACADASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAD/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAD/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCuAoAKICgIoAKICgAKICg//9k=" 
+          alt="Logo ATS" class="h-8 sm:h-10 mr-2 rounded-lg border border-white/50 shadow-md">
         Controle de Produção
       </h1>
       <div class="flex gap-2 items-center">
@@ -131,14 +132,7 @@
           <i data-lucide="settings" class="w-5 h-5 inline-block mr-1"></i>
           <span class="hidden sm:inline">Setup Roteiro</span>
         </button>
-
-        <button id="btn-theme-master"
-                class="text-white bg-[var(--cor-info)] hover:bg-[var(--cor-info-hover)] font-semibold py-2 px-3 rounded-lg shadow-md transition hidden"
-                onclick="openThemeModal()">
-          <i data-lucide="palette" class="w-5 h-5 inline-block mr-1"></i>
-          <span class="hidden sm:inline">Configurar design</span>
-        </button>
-      </div>
+        </div>
     </div>
   </header>
 
@@ -382,61 +376,15 @@
     p-2 mt-1 focus-ring-primary" placeholder="****">
           <p class="text-xs text-gray-500 mt-1">Apenas numeros</p>
         </div>
-        </div>
+      </div>
       <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3">
         <button class="px-3 sm:px-4 py-2 bg-gray-200 rounded-lg font-semibold hover:bg-gray-300" onclick="closeModal('user-modal')">Cancelar</button>
         <button class="px-3 sm:px-4 py-2 bg-[var(--cor-primaria)] text-white rounded-lg font-semibold hover:bg-[var(--cor-primaria-hover)]" onclick="confirmUser()">Entrar</button>
       </div>
     </div>
   </div>
-
-  <div id="theme-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal('theme-modal')">
-    <div class="bg-white rounded-xl 
-    shadow-2xl p-4 w-full max-w-md" onclick="event.stopPropagation()">
-      <h3 class="text-lg font-bold text-gray-800 mb-3">Configurar design</h3>
-      <div class="space-y-3">
-        <div>
-          <label class="font-semibold text-sm">Modo</label>
-          <select id="theme-mode" class="w-full border rounded-lg p-2 mt-1">
-            <option value="color">Cor fixa</option>
-            <option value="image">Imagem</option>
-          </select>
-     
-    </div>
-
-        <div id="theme-color-wrap">
-          <label class="font-semibold text-sm">Cor</label>
-          <div class="flex gap-2 mt-1">
-            <input id="theme-color" type="color" value="#0ea5e9" class="h-10 w-16 border rounded"/>
-            <select id="theme-palette" class="border rounded p-2">
-              <option value="#0ea5e9">Azul</option>
-             
-    <option value="#111827">Preto</option>
-              <option value="#10b981">Verde</option>
-              <option value="#f59e0b">Laranja</option>
-              <option value="#6b7280">Cinza</option>
-              <option value="#3b82f6">Azul Claro</option>
-              <option value="#1f2937">Grafite</option>
-            </select>
-          
-    </div>
-        </div>
-
-        <div id="theme-image-wrap" class="hidden">
-          <label class="font-semibold text-sm">Imagem (upload)</label>
-          <input id="theme-image-file" type="file" accept="image/*" class="mt-1"/>
-        </div>
-      </div>
-
-      <div class="mt-4 flex justify-end gap-2">
-        <button class="px-3 py-2 bg-gray-200 rounded" onclick="closeModal('theme-modal')">Cancelar</button>
-        <button class="px-3 py-2 bg-[var(--cor-primaria)] text-white rounded" onclick="saveTheme()">Salvar</button>
-    
-    </div>
-    </div>
-  </div>
-
-<script>
+  
+  <script>
 /* ============================
    FIREBASE CONFIG
    ============================ */
@@ -532,7 +480,7 @@ const userViewSelect = document.getElementById("user-view-select");
 const btnCreateOF = document.getElementById("btn-create-of");
 const btnSetupRoteiro = document.getElementById("btn-setup-roteiro");
 const btnProfile = document.getElementById("btn-profile");
-const btnThemeMaster = document.getElementById("btn-theme-master");
+// const btnThemeMaster = document.getElementById("btn-theme-master"); // REMOVIDO
 const btnExportReport = document.getElementById("btn-export-report");
 const btnDeleteOF = document.getElementById("btn-delete-of");
 
@@ -577,6 +525,8 @@ function getDBTimestamp(ts) {
 /* ============================
    THEME (Global via Firestore)
    ============================ */
+// Funções de Theme foram removidas (apenas os listeners, a função applyTheme ainda existe no código, mas não é usada)
+// Mantendo a estrutura para um eventual re-uso.
 function listenTheme(){
   if (!window.db) return;
   db.collection('settings').doc('ui').onSnapshot(doc=>{
@@ -596,33 +546,7 @@ function applyTheme(s){
   }
 }
 
-function openThemeModal(){
-  document.getElementById('theme-modal').style.display = 'flex';
-}
-
-function saveTheme(){
-  if (!window.db) {
-    alert('Configure o Firebase para salvar o tema.');
-    return;
-  }
-  const mode = document.getElementById('theme-mode').value;
-  if (mode === 'color'){
-    const color = document.getElementById('theme-color').value || document.getElementById('theme-palette').value;
-    db.collection('settings').doc('ui').set({ mode:'color', color }, { merge:true }).then(()=> closeModal('theme-modal'));
-  } else {
-    const file = document.getElementById('theme-image-file').files[0];
-    if (!file) {
-      alert('Escolha uma imagem.');
-      return;
-    }
-    const ref = storage.ref().child(`themes/${file.name}`);
-    ref.put(file).then(snapshot => {
-      snapshot.ref.getDownloadURL().then(url => {
-        db.collection('settings').doc('ui').set({ mode:'image', imageUrl: url }, { merge:true }).then(()=> closeModal('theme-modal'));
-      });
-    }).catch(e=> alert('Erro ao fazer upload da imagem: ' + e.message));
-  }
-}
+// openThemeModal e saveTheme removidas
 
 /* ============================
    INIT & LISTENERS
@@ -776,7 +700,12 @@ async function initializeApp(){
   if (!currentUser){
     openUserModal();
   } else {
-    updateView(userViewSelect.value);
+    // CORREÇÃO: Força a view correta ao iniciar
+    if (isOperador()) {
+      updateView('Operador');
+    } else {
+      updateView('PCP');
+    }
   }
 
   loadingIndicator.classList.add('hidden');
@@ -1264,6 +1193,16 @@ function openUserModal() {
       pinWrap.classList.add('hidden');
       sectorWrap.classList.remove('hidden');
     }
+    // Habilita/desabilita inputs no modal de login (somente para controle visual)
+    roleSel.addEventListener('change', (e) => {
+      if (e.target.value === 'MASTER') {
+        pinWrap.classList.remove('hidden');
+        sectorWrap.classList.add('hidden');
+      } else {
+        pinWrap.classList.add('hidden');
+        sectorWrap.classList.remove('hidden');
+      }
+    });
   }, 100);
 }
 
@@ -1271,11 +1210,14 @@ function confirmUser() {
   const role = document.getElementById('user-role').value;
   const pin = document.getElementById('user-pin').value;
   const sector = document.getElementById('user-sector').value;
+  const viewSelect = document.getElementById('user-view-select');
 
   if (role === 'MASTER') {
     if (pin === MASTER_PIN) {
       setUser({ role: 'MASTER', name: 'Master' });
       closeModal('user-modal');
+      // MASTER: Exibe o seletor de visão
+      viewSelect.classList.remove('hidden');
       updateView('PCP');
     } else {
       alert("PIN Master incorreto.");
@@ -1287,6 +1229,8 @@ function confirmUser() {
     }
     setUser({ role: 'OPERADOR', name: `Op. ${sector}`, sector: sector });
     closeModal('user-modal');
+    // OPERADOR: Esconde o seletor de visão e força a tela de Operador
+    viewSelect.classList.add('hidden');
     updateView('Operador');
   }
 }
@@ -1362,11 +1306,18 @@ function updateView(view){
   // 🔒 Se não houver usuário, força o modal de login
   if (!currentUser) { openUserModal(); return; }
 
+  // 🔒 RESTRIÇÃO DE ACESSO: Operador só pode ver 'Operador'
+  if (isOperador() && view !== 'Operador') {
+    alert("Acesso negado. Operadores só podem ver a visão de 'Operador'.");
+    view = 'Operador';
+    userViewSelect.value = 'Operador';
+  }
+
   // Restaura o estado dos botões do Header
   btnCreateOF.classList.add('hidden');
   btnSetupRoteiro.classList.add('hidden');
-  btnThemeMaster.classList.add('hidden');
   btnProfile.classList.remove('hidden');
+  userViewSelect.classList.toggle('hidden', isOperador()); // Esconde o seletor para Operador
 
   // Ajusta a visibilidade das views
   pcpView.classList.add('hidden');
@@ -1395,7 +1346,6 @@ function updateView(view){
   if (isMaster()){
     btnCreateOF.classList.remove('hidden');
     btnSetupRoteiro.classList.remove('hidden');
-    btnThemeMaster.classList.remove('hidden');
   }
 
   // Se o operador tiver o filtro fixo, re-renderiza as tarefas
@@ -1707,8 +1657,6 @@ window.deleteOF = deleteOF;
 window.updateView = updateView;
 window.openUserModal = openUserModal;
 window.confirmUser = confirmUser;
-window.openThemeModal = openThemeModal;
-window.saveTheme = saveTheme;
 window.exportReportCSV = exportReportCSV;
 window.exportOFTasksCSV = exportOFTasksCSV;
 window.updateSectorFilter = updateSectorFilter;
