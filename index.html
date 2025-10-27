@@ -102,7 +102,7 @@
   <header class="bg-gradient-header shadow-lg p-3 sm:p-4 sticky top-0 z-10">
     <div class="max-w-7xl mx-auto flex justify-between items-center gap-2">
       <h1 class="text-2xl sm:text-3xl font-extrabold text-white flex items-center">
-        <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAEAAAAAAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAgACADASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAD/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAD/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCuAoAKICgIoAKICgAKICg//9k=" 
+        <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAEAAAAAAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAgACADASIAAhEBAEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAD/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAD/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCuAoAKICgIoAKICgAKICg//9k=" 
           alt="Logo ATS" class="h-8 sm:h-10 mr-2 rounded-lg border border-white/50 shadow-md">
         Controle de Produção
       </h1>
@@ -188,10 +188,17 @@
         <div class="flex justify-between items-center mb-3 sm:mb-4">
           <h3 
     class="text-base sm:text-xl font-semibold text-gray-700">Pausas & Atrasos</h3>
-          <button id="btn-export-report" onclick="exportReportCSV()"
-                  class="px-3 sm:px-4 py-2 bg-[var(--cor-info)] text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-[var(--cor-info-hover)] transition">
-            <i data-lucide="download" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Exportar (CSV)
-          </button>
+          <div class="flex gap-2">
+            <button id="btn-clear-report" onclick="clearReportLogs()"
+                    class="px-3 sm:px-4 py-2 bg-[var(--cor-perigo)] text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-[var(--cor-perigo-hover)] transition hidden">
+              <i data-lucide="trash-2" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Limpar Logs (Master)
+            </button>
+            
+            <button id="btn-export-report" onclick="exportReportCSV()"
+                    class="px-3 sm:px-4 py-2 bg-[var(--cor-info)] text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-[var(--cor-info-hover)] transition">
+              <i data-lucide="download" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Exportar (CSV)
+            </button>
+          </div>
         </div>
         <div class="overflow-x-auto">
        
@@ -442,6 +449,8 @@ let allRoteiros = {};
 let allOcurrencesLog = [];
 let currentAction = {};
 let currentSectorFilter = SECTORS[0];
+
+// Guarda a referência ao usuário logado
 let currentUser = null;
 
 // Busca por OF nas telas
@@ -487,8 +496,11 @@ const btnDeleteOF = document.getElementById("btn-delete-of");
 /* ============================
    HELPERS & PERMISSÕES
    ============================ */
-function msToMinutes(ms){ if (typeof ms !== 'number' || ms < 0) return 0;
-return parseFloat((ms / (1000*60)).toFixed(2)); }
+// CORREÇÃO: Função msToMinutes agora é o único ponto de conversão
+function msToMinutes(ms){ 
+  if (typeof ms !== 'number' || ms < 0) return 0;
+  return parseFloat((ms / (1000*60)).toFixed(2)); 
+}
 function formatMinutes(v){ return `${Number(v||0).toFixed(2)} min`; }
 
 function setUser(u){
@@ -519,14 +531,14 @@ function getDBTimestamp(ts) {
   if (!ts) return null;
   if (typeof ts.toDate === 'function') return ts.toDate().getTime();
   if (ts instanceof Date) return ts.getTime();
-  return ts;
+  return ts; // Retorna o valor direto se for um número (timestamp em milissegundos)
 }
 
 /* ============================
    THEME (Global via Firestore)
    ============================ */
-// Funções de Theme foram removidas (apenas os listeners, a função applyTheme ainda existe no código, mas não é usada)
-// Mantendo a estrutura para um eventual re-uso.
+// Funções de Theme removidas ou simplificadas, mantendo apenas a estrutura
+
 function listenTheme(){
   if (!window.db) return;
   db.collection('settings').doc('ui').onSnapshot(doc=>{
@@ -545,8 +557,6 @@ function applyTheme(s){
     r.setProperty('--app-bg-image', `url("${s.imageUrl}")`);
   }
 }
-
-// openThemeModal e saveTheme removidas
 
 /* ============================
    INIT & LISTENERS
@@ -679,6 +689,7 @@ async function initializeApp(){
     // SIMULAÇÃO
     allRoteiros = { ...DEFAULT_ROTEIROS };
     if (!localStorage.getItem('sim_data_initialized')) {
+      // Simulação: Adiciona um pequeno atraso para simular a criação assíncrona
       await createOF('OF-001', 10, 'CHICOTE-001', true);
       await createOF('OF-002', 20, 'CHICOTE-B', true);
       localStorage.setItem('sim_data_initialized', 'true');
@@ -824,11 +835,11 @@ async function createOF(ofIdOverride, quantityOverride, chicoteOverride, isSimul
           setor: roteiro.setor,
           tempo_setup: roteiro.tempo_setup,
           tempo_ciclo: roteiro.tempo_ciclo,
-          tempo_planejado: tempo_planejado,
+          tempo_planejado: tempo_planejado, // Valor em Minutos
           instrucao_trabalho: roteiro.instrucao_trabalho,
           status: nextEtapa === 1 ? 'Em Espera' : 'Bloqueada', // Primeira tarefa fica Em Espera
-          tempo_real_acumulado: 0,
-          total_pause_time_ms: 0,
+          tempo_real_acumulado: 0, // VALOR SEMPRE EM MILISSEGUNDOS
+          total_pause_time_ms: 0,  // VALOR SEMPRE EM MILISSEGUNDOS
           timestamp_inicio: null,
           timestamp_fim: null,
           etapa: nextEtapa++,
@@ -861,12 +872,12 @@ async function createOF(ofIdOverride, quantityOverride, chicoteOverride, isSimul
   }
 }
 
-// ... (Funções de cálculo: calculateTempoReal, calculateTempoPlanejado, calculateDesvio, etc) ...
-
-function calculateTempoReal(task){
-  if (task.status === 'Concluído') return task.tempo_real_acumulado;
-  if (task.status !== 'Em Processo' && task.status !== 'Pausada') return task.tempo_real_acumulado || 0;
-
+// NOVO: Função para obter o valor acumulado em milissegundos
+function calculateTempoRealMs(task){
+  // Se concluído ou bloqueado/espera, retorna o valor salvo em MS
+  if (task.status === 'Concluído' || task.status === 'Bloqueada' || task.status === 'Em Espera') return task.tempo_real_acumulado || 0;
+  
+  // Se estiver em processo ou pausado, calcula o tempo corrido
   const now = Date.now();
   let tempoAcumulado = task.tempo_real_acumulado || 0;
   let ultimaAtividade = getDBTimestamp(task.timestamp_inicio);
@@ -876,15 +887,15 @@ function calculateTempoReal(task){
   if (task.status === 'Em Processo'){
     // Adiciona o tempo desde o último início
     tempoAcumulado += (now - ultimaAtividade);
-  } else if (task.status === 'Pausada' && task.pause_start_timestamp){
-    // Se está pausada, o tempo real acumulado é o último valor salvo. 
-    // O tempo de pausa já foi subtraído no total_pause_time_ms
-    // Aqui não se calcula mais nada, pois não está 'Em Processo'
-    // Apenas garante que se ela pausou, o tempo acumulado é o valor antes da pausa.
-    tempoAcumulado = task.tempo_real_acumulado; // Já é o valor correto.
   }
+  // Se Pausada, tempoAcumulado é o tempo_real_acumulado salvo no momento da pausa.
   
-  return msToMinutes(tempoAcumulado);
+  return tempoAcumulado; // Retorna o valor em milissegundos
+}
+
+// CORREÇÃO: Funções que retornam minutos (usando a nova calculateTempoRealMs)
+function calculateTempoRealMinutes(task){
+  return msToMinutes(calculateTempoRealMs(task));
 }
 
 function calculateTempoPlanejado(task, ofQuantity){
@@ -894,11 +905,11 @@ function calculateTempoPlanejado(task, ofQuantity){
 function calculateDesvio(task){
   const of = allOFs[task.id_of];
   if (!of) return 0;
-  const real = calculateTempoReal(task);
-  const planned = calculateTempoPlanejado(task, of.quantidade);
-  // Desvio: Real - Planejado. Positivo = adiantado/dentro. Negativo = atrasado.
-  // Invertido para a lógica de desvio: Desvio = Planejado - Real.
-  return parseFloat((planned - real).toFixed(2));
+  const realMinutes = calculateTempoRealMinutes(task); // Tempo real em minutos
+  const planned = calculateTempoPlanejado(task, of.quantidade); // Tempo planejado em minutos
+  
+  // Desvio (min): Planejado - Real. Positivo = Adiantado/Dentro. Negativo = Atrasado.
+  return parseFloat((planned - realMinutes).toFixed(2));
 }
 
 function calculateTotalPauseMinutes(task){
@@ -925,22 +936,31 @@ async function updateTaskStatus(taskId, newStatus, logType = null, justification
     if (task.status === 'Pausada' && task.pause_start_timestamp) {
       const pauseStartMs = getDBTimestamp(task.pause_start_timestamp);
       const currentPauseTimeMs = Date.now() - pauseStartMs;
-      updateData.total_pause_time_ms = (task.total_pause_time_ms || 0) + currentPauseTimeMs;
+      updateData.total_pause_time_ms = (task.total_pause_time_ms || 0) + currentPauseTimeMs; // Acumula pausa em MS
       updateData.pause_start_timestamp = null;
     }
-    if (task.status === 'Em Espera') updateData.timestamp_inicio = now;
+    // Se saiu de Em Espera, registra o primeiro início
+    if (task.status === 'Em Espera') updateData.timestamp_inicio = now; 
 
   } else if (newStatus === 'Pausada') {
-    const currentTempoReal = calculateTempoReal(task);
-    updateData.tempo_real_acumulado = currentTempoReal;
-    updateData.pause_start_timestamp = now;
+    // CORREÇÃO: Salva o tempo real *acumulado em milissegundos* antes da pausa
+    const currentTempoRealMs = calculateTempoRealMs(task); 
+    updateData.tempo_real_acumulado = currentTempoRealMs; // Armazena em MS
+    updateData.pause_start_timestamp = now; // Inicia a contagem da pausa
+
     if (logType === 'PAUSA' && (justification || justificationText)) {
+      // O log de ocorrência será criado, mas o tempo de pausa só é calculado na retomada ou no fim
+      // No log de pausa, vamos registrar o motivo. O tempo será ajustado (log de pausa usa o tempo entre start e stop).
+      // Para manter a simplicidade: o log de PAUSA registra o motivo no *início da pausa*.
       await createOcorrenciaLog(task, 'PAUSA', justification, justificationText);
     }
+
   } else if (newStatus === 'Concluído') {
-    const finalTempoReal = calculateTempoReal(task);
+    // CORREÇÃO: Salva o tempo real *final em milissegundos*
+    const finalTempoRealMs = calculateTempoRealMs(task); 
     const desvio = calculateDesvio(task);
-    updateData.tempo_real_acumulado = finalTempoReal;
+    
+    updateData.tempo_real_acumulado = finalTempoRealMs; // Armazena em MS
     updateData.timestamp_fim = now;
     updateData.pause_start_timestamp = null;
 
@@ -969,7 +989,7 @@ async function updateTaskStatus(taskId, newStatus, logType = null, justification
     allTasks[taskId] = { ...oldTask, ...updateData };
     if (updateData.timestamp_inicio && !oldTask.timestamp_inicio) allTasks[taskId].timestamp_inicio = updateData.timestamp_inicio;
     if (updateData.timestamp_fim && !oldTask.timestamp_fim) allTasks[taskId].timestamp_fim = updateData.timestamp_fim;
-    if (!oldTask.timestamp_inicio && newStatus === 'Em Processo') allTasks[taskId].timestamp_inicio = new Date(); // Simulação de data de início
+    if (updateData.tempo_real_acumulado) allTasks[taskId].tempo_real_acumulado = updateData.tempo_real_acumulado;
     if (updateData.total_pause_time_ms) allTasks[taskId].total_pause_time_ms = updateData.total_pause_time_ms;
     if (updateData.pause_start_timestamp) allTasks[taskId].pause_start_timestamp = updateData.pause_start_timestamp;
 
@@ -991,22 +1011,21 @@ async function createOcorrenciaLog(task, type, justification, justificationText)
     justificativa_principal: justification,
     justificativa_detalhe: justificationText,
     timestamp: window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date(),
+    TIPO: type,
+    TEMPO_PAUSA: 0,
+    TEMPO_ATRASO: 0,
+    MOTIVO_PAUSA: null,
+    MOTIVO_ATRASO: null,
   };
 
   if (type === 'PAUSA'){
-    // Calcula o tempo de pausa (incluindo o que já existia)
-    const pauseTimeMs = Date.now() - getDBTimestamp(task.pause_start_timestamp);
-    logData.TIPO = 'PAUSA';
-    logData.TEMPO_PAUSA = msToMinutes(pauseTimeMs);
-    logData.TEMPO_ATRASO = 0;
+    // O log de PAUSA registra o momento e motivo que a pausa foi acionada. 
+    // O TEMPO_PAUSA real é registrado quando a pausa é encerrada (retomada/fim da task)
     logData.MOTIVO_PAUSA = justification;
-    logData.MOTIVO_ATRASO = null;
   } else if (type === 'FIM_ATRASO') {
     const desvio = calculateDesvio(task);
-    logData.TIPO = 'ATRASO';
-    logData.TEMPO_PAUSA = calculateTotalPauseMinutesFinal(task);
-    logData.TEMPO_ATRASO = parseFloat(Math.abs(desvio).toFixed(2));
-    logData.MOTIVO_PAUSA = null;
+    logData.TEMPO_PAUSA = calculateTotalPauseMinutesFinal(task); // Tempo total de pausa final
+    logData.TEMPO_ATRASO = parseFloat(Math.abs(desvio).toFixed(2)); // Atraso (desvio negativo)
     logData.MOTIVO_ATRASO = justification;
   }
 
@@ -1032,6 +1051,34 @@ function finishTask(taskId){
 function pauseTask(taskId){
   showActionModal(taskId, 'Pausar', PAUSE_REASONS);
 }
+
+// NOVO: Função para limpar os logs de ocorrência (Relatórios)
+async function clearReportLogs(){
+  if (!isMaster() || !confirm("Tem certeza que deseja EXCLUIR TODOS os logs de ocorrência? Esta ação é irreversível.")) return;
+
+  try {
+    if (window.db) {
+      const collectionRef = db.collection(OCORRENCIA_COLLECTION);
+      // Limpeza eficiente (requer que a segurança do Firebase permita deleção)
+      const snapshot = await collectionRef.get();
+      if (snapshot.size === 0) return alert("Nenhum log para excluir.");
+      
+      const batch = db.batch();
+      snapshot.docs.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+      alert(`Logs de ocorrência (${snapshot.size} itens) excluídos com sucesso do Firebase!`);
+    } else {
+      // Simulação
+      allOcurrencesLog = [];
+      localStorage.setItem('sim_ocorrencias', "[]");
+      alert("Logs de ocorrência excluídos em modo simulação.");
+    }
+    renderReport();
+  } catch(e) {
+    alert("Erro ao excluir logs: " + e.message);
+  }
+}
+
 
 async function deleteRoteiroActivity(roteiroId) {
   if (!isMaster() || !confirm("Excluir esta etapa de roteiro?")) return;
@@ -1160,6 +1207,7 @@ async function handleConfirmedAction(){
   justificationRequired.classList.add('hidden');
 
   if (type === 'Finalizar') {
+    // LogType 'FIM_ATRASO' só é usado dentro de updateTaskStatus se houver atraso.
     await updateTaskStatus(taskId, 'Concluído', null, justification, justificationText);
     updateView(userViewSelect.value);
   } else if (type === 'Pausar') {
@@ -1324,9 +1372,12 @@ function updateView(view){
   operatorView.classList.add('hidden');
   reportView.classList.add('hidden');
   
-  // Ajusta a visibilidade da busca no PCP
+  // Ajusta a visibilidade da busca
   document.getElementById('pcp-of-search-wrap').classList.add('hidden');
   document.getElementById('operator-of-search-wrap').classList.add('hidden');
+  
+  // Esconde o botão de Limpeza
+  document.getElementById('btn-clear-report').classList.add('hidden');
 
   // Muda a view
   if (view === 'PCP'){
@@ -1340,6 +1391,8 @@ function updateView(view){
   } else if (view === 'Relatorio'){
     reportView.classList.remove('hidden');
     renderReport();
+    // PERMISSÃO: Exibe o botão Limpar Logs se for Master
+    document.getElementById('btn-clear-report').classList.toggle('hidden', !isMaster()); 
   }
   
   // Exibe botões master se for o caso
@@ -1431,7 +1484,7 @@ function openOFDetails(ofId){
 
   // Cálculos de KPI de detalhe
   const tempoTotalPlanejado = tasks.reduce((s, t) => s + t.tempo_planejado, 0);
-  const tempoTotalReal = tasks.reduce((s, t) => s + calculateTempoReal(t), 0);
+  const tempoTotalReal = tasks.reduce((s, t) => s + calculateTempoRealMinutes(t), 0);
   const totalDesvio = tempoTotalPlanejado - tempoTotalReal;
 
   const summaryData = [
@@ -1458,7 +1511,7 @@ function openOFDetails(ofId){
     else if (task.status === 'Concluído') statusColor = 'border-gray-500 bg-white';
     else if (task.status === 'Bloqueada') statusColor = 'border-red-500 bg-red-50';
 
-    const real = calculateTempoReal(task);
+    const real = calculateTempoRealMinutes(task);
     const desvio = calculateDesvio(task);
     
     return `
@@ -1564,7 +1617,10 @@ function renderReport(){
   const tbody = document.getElementById('report-table-body');
   if (!tbody) return;
 
-  const logs = allOcurrencesLog.map(l => `
+  // Filtra logs de pausa que não têm tempo (Pausas recém-criadas sem fim)
+  const logsParaExibir = allOcurrencesLog.filter(l => l.TIPO === 'ATRASO' || (l.TIPO === 'PAUSA' && l.TEMPO_PAUSA > 0));
+
+  const logs = logsParaExibir.map(l => `
     <tr>
       <td class="px-3 sm:px-6 py-2 sm:py-3 whitespace-nowrap">${l.id_of}</td>
       <td class="px-3 sm:px-6 py-2 sm:py-3 whitespace-nowrap">${l.chicote}</td>
@@ -1582,6 +1638,9 @@ function renderReport(){
 function exportReportCSV(){
   const rows = [["OF","CHICOTE","ATIVIDADE","SETOR","TIPO","MOTIVO_PRINCIPAL","MOTIVO_DETALHE","T. PAUSA (min)","T. ATRASO (min)","TIMESTAMP"]];
   allOcurrencesLog.forEach(l => {
+    // Garante que a data seja formatada corretamente
+    const timestamp = l.timestamp ? (l.timestamp.toDate ? l.timestamp.toDate().toISOString() : new Date(l.timestamp).toISOString()) : '';
+
     rows.push([
       l.id_of, 
       l.chicote, 
@@ -1592,7 +1651,7 @@ function exportReportCSV(){
       l.justificativa_detalhe,
       Number(l.TEMPO_PAUSA).toFixed(2),
       Number(l.TEMPO_ATRASO).toFixed(2),
-      l.timestamp.toDate ? l.timestamp.toDate().toISOString() : new Date(l.timestamp).toISOString()
+      timestamp
     ]);
   });
   downloadCSV(rows, `pcp_ocorrencias_${new Date().toISOString().slice(0,10)}.csv`);
@@ -1610,7 +1669,7 @@ function exportOFTasksCSV(ofId){
       Number(t.tempo_setup).toFixed(2), 
       Number(t.tempo_ciclo).toFixed(2), 
       Number(t.tempo_planejado).toFixed(2), 
-      calculateTempoReal(t).toFixed(2), 
+      calculateTempoRealMinutes(t).toFixed(2), // CORREÇÃO: Usa a função que retorna minutos
       calculateDesvio(t).toFixed(2), 
     ]);
   });
@@ -1660,7 +1719,7 @@ window.confirmUser = confirmUser;
 window.exportReportCSV = exportReportCSV;
 window.exportOFTasksCSV = exportOFTasksCSV;
 window.updateSectorFilter = updateSectorFilter;
-
+window.clearReportLogs = clearReportLogs; // NOVO
 </script>
 </body>
 </html>
