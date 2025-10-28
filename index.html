@@ -7,40 +7,113 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+  
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
   <style>
     @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
-:root {
+    
+    /* NOVO: PALETA DE CORES CARMIM (BASEADO NAS IMAGENS) */
+    :root {
       color-scheme: light dark;
-      --app-bg-color: #f3f4f6;
-/* default */
+      --app-bg-color: #f3f4f6;  /* default */
       --app-bg-image: none;
-}
+
+      /* === DESIGN ENTERPRISE: PALETA CARMIM & CINZA === */
+      
+      --cor-primaria: #960018;    /* CARMIM (Header, Foco Principal) */
+      --cor-primaria-hover: #700012;
+      --cor-secundaria: #4F4F4F; /* CINZA ESCURO (Complemento do gradiente e neutros) */
+      
+      --cor-sucesso: #1E8449;    /* Verde (Criar OF, Concluir) */
+      --cor-sucesso-hover: #176739;
+      
+      --cor-alerta: #B7791F;     /* Amarelo/Dourado (Pausas) */
+      --cor-alerta-hover: #966118;
+      
+      --cor-perigo: #A93226;     /* Vermelho (Excluir, Prioridade Alta) */
+      --cor-perigo-hover: #86281E;
+
+      --cor-info: #6A2C91;       /* Roxo (Relatório, Instrução) */
+      --cor-info-hover: #552374;
+      
+      --cor-neutra: #3b82f6; /* Azul (Prioridade Média) */
+
+      --cor-fundo-card: #FFFFFF;
+      --cor-texto-principal: #1F2937; /* Quase preto */
+      --cor-texto-secundario: #4B5563; /* Cinza escuro */
+
+      /* AJUSTE ENTERPRISE: BORDAS E FOCO */
+      --border-radius-sm: 0.4rem; /* Reduz arredondamento */
+    }
+    
     body {
       font-family: "Inter", sans-serif;
       background: var(--app-bg-color) fixed no-repeat center/cover;
-background-image: var(--app-bg-image);
+      background-image: var(--app-bg-image);
 
       padding-left: max(env(safe-area-inset-left), 0px);
       padding-right: max(env(safe-area-inset-right), 0px);
     }
-    .bg-gradient-header { background: linear-gradient(90deg, #1e40af 0%, #3b82f6 100%);
-}
+    
+    /* Gradiente Carmim -> Cinza Escuro */
+    .bg-gradient-header { 
+        background: linear-gradient(90deg, var(--cor-primaria) 0%, var(--cor-secundaria) 100%); 
+    }
+
+    /* CLASSES DE FOCO PERSONALIZADAS COM CARMIM (Focus Ring) */
+    .focus-ring-primary:focus {
+        border-color: var(--cor-primaria);
+        box-shadow: 0 0 0 2px var(--cor-primaria-hover), 0 0 0 4px rgba(150, 0, 24, 0.3);
+        outline: none; 
+    }
+
+    /* SOBRESCREVE TAILWIND PARA BORDAS MAIS PROFISSIONAIS */
+    .rounded-lg, .rounded-xl, .rounded-md {
+        border-radius: var(--border-radius-sm) !important;
+    }
+    .rounded-full {
+        border-radius: 9999px !important;
+    }
+    .btn {
+        border-radius: var(--border-radius-sm);
+    }
+
+    /* AJUSTE ZEBRA TABLE */
+    #report-table-body tr:nth-child(even) {
+        background-color: #f9fafb;
+    }
+
+    /* NOVO: CLASSES DE PRIORIDADE VISUAL (Operador) */
+    .priority-high {
+      border-left-width: 6px;
+      border-left-color: var(--cor-perigo);
+      background-color: #fef2f2; /* Fundo Vermelho Claro */
+    }
+    .priority-medium {
+      border-left-width: 6px;
+      border-left-color: var(--cor-neutra);
+      background-color: #eff6ff; /* Fundo Azul Claro */
+    }
+    .priority-low {
+      border-left-width: 6px;
+      border-left-color: #d1d5db; /* Cinza */
+    }
+
     .modal-fixed { position: fixed; inset: 0; }
-    .modal-panel { max-height: calc(100dvh - 2rem);
-}
+    .modal-panel { max-height: calc(100dvh - 2rem); }
     .modal-body-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }
-    .sticky-footer { position: sticky; bottom: 0;
-background: white; padding-top: .5rem; }
-    .highlight-red { color: #dc2626; font-weight: 600;
-}
+    .sticky-footer { position: sticky; bottom: 0; background: white; padding-top: .5rem; }
+    .highlight-red { color: #dc2626; font-weight: 600; }
+    
     @media (max-width: 640px){
-      .modal-panel{ width:100vw!important; max-width:100vw!important; height:100dvh!important; max-height:100dvh!important; border-radius:0!important; margin:0!important; display:flex;
-flex-direction:column; }
+      .modal-panel{ width:100vw!important; max-width:100vw!important; height:100dvh!important; max-height:100dvh!important; border-radius:0!important; margin:0!important; display:flex; flex-direction:column; }
       .card-tap-big{ padding:1rem; }
     }
   </style>
@@ -50,136 +123,123 @@ flex-direction:column; }
   <header class="bg-gradient-header shadow-lg p-3 sm:p-4 sticky top-0 z-10">
     <div class="max-w-7xl mx-auto flex justify-between items-center gap-2">
       <h1 class="text-2xl sm:text-3xl font-extrabold text-white flex items-center">
-        <i data-lucide="factory" class="w-7 h-7 sm:w-8 sm:h-8 mr-2"></i>
+        <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAEAAAAAAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAgACADASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAD/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAD/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCuAoAKICgIoAKICgAKICg//9k=" 
+          alt="Logo ATS" class="h-8 sm:h-10 mr-2 rounded-lg border border-white/50 shadow-md">
         Controle de Produção
       </h1>
       <div class="flex gap-2 items-center">
         
-<button id="btn-profile"
-                class="text-white bg-blue-800 hover:bg-blue-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden"
+        <button id="btn-profile"
+                class="text-white bg-[var(--cor-secundaria)] hover:bg-[var(--cor-secundaria)]/90 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden"
                 onclick="openUserModal()">
           <i data-lucide="user-cog" class="w-5 h-5 inline-block mr-1"></i>
           <span class="hidden sm:inline">Perfil</span>
         </button>
 
         <select id="user-view-select" onchange="updateView(this.value)"
-             
-   class="bg-blue-800 text-white text-xs sm:text-sm font-semibold py-2 px-2 rounded-lg transition hover:bg-blue-700 focus:ring-2 focus:ring-blue-300">
+                class="bg-[var(--cor-secundaria)] text-white text-xs sm:text-sm font-semibold py-2 px-2 rounded-lg transition hover:bg-[var(--cor-secundaria)]/90 focus-ring-primary">
           <option value="PCP">Visão: PCP</option>
           <option value="Operador">Visão: Operador</option>
           <option value="Relatorio">Visão: Relatório</option>
-        </select>
+          </select>
 
         <button onclick="openModal('create-of-modal')" id="btn-create-of"
-                class="text-white bg-green-600 hover:bg-green-700 
-font-semibold py-2 px-3 rounded-lg shadow-md transition hidden">
+                class="text-white bg-[var(--cor-sucesso)] hover:bg-[var(--cor-sucesso-hover)] font-semibold py-2 px-3 rounded-lg shadow-md transition hidden">
           <i data-lucide="plus" class="w-5 h-5 inline-block mr-1"></i>
           <span class="hidden sm:inline">Criar OF</span>
         </button>
-        <button onclick="openModal('setup-roteiro-modal')" id="btn-setup-roteiro"
-                class="text-white bg-yellow-600 hover:bg-yellow-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden">
-          <i data-lucide="settings" class="w-5 h-5 inline-block mr-1"></i>
         
-  <span class="hidden sm:inline">Setup Roteiro</span>
-        </button>
-
-        <button id="btn-theme-master"
-                class="text-white bg-indigo-600 hover:bg-indigo-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden"
-                onclick="openThemeModal()">
-          <i data-lucide="palette" class="w-5 h-5 inline-block mr-1"></i>
-    
-      <span class="hidden sm:inline">Configurar design</span>
-        </button>
-      </div>
+        </div>
     </div>
   </header>
 
   <main class="max-w-7xl mx-auto p-3 sm:p-6 lg:p-8">
     <div id="loading-indicator" class="flex flex-col items-center justify-center p-6 sm:p-12 bg-white rounded-xl shadow-xl">
-      <i data-lucide="loader-circle" class="w-8 h-8 sm:w-10 sm:h-10 text-blue-500 animate-spin"></i>
+      <i data-lucide="loader-circle" class="w-8 h-8 sm:w-10 sm:h-10 text-[var(--cor-primaria)] animate-spin"></i>
       <p class="mt-3 sm:mt-4 text-gray-600 font-semibold text-sm sm:text-base">Carregando dados e autenticando...</p>
     </div>
 
-    <div id="pcp-view" class="space-y-4 sm:space-y-6 
-hidden">
+    <div id="pcp-view" class="space-y-4 sm:space-y-6 hidden">
       <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
         <i data-lucide="bar-chart-3" class="w-5 h-5 sm:w-6 sm:h-6 mr-2"></i>
         Painel PCP
       </h2>
       <div id="pcp-of-search-wrap" class="mb-2 hidden">
         <input id="pcp-of-search" type="text" placeholder="Pesquisar OF..."
-               class="w-full sm:w-64 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500">
- 
-     </div>
+               class="w-full sm:w-64 border border-gray-300 rounded-lg p-2 focus-ring-primary">
+      </div>
+      
       <div id="kpis-container" class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4"></div>
+
+      <div id="workload-chart-container" class="bg-white p-4 sm:p-6 rounded-xl shadow-lg mb-4">
+          <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+              <i data-lucide="gauge" class="w-5 h-5 mr-2 text-[var(--cor-info)]"></i> Carga de Trabalho por Setor (Minutos Planejados Restantes)
+          </h3>
+          <div class="h-64 sm:h-80 relative">
+            <canvas id="workload-chart"></canvas>
+          </div>
+      </div>
+
       <div id="ofs-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6"></div>
     </div>
 
     <div id="operator-view" class="space-y-4 sm:space-y-6 hidden">
       <div class="bg-white p-3 sm:p-4 rounded-xl shadow-lg mb-4 sm:mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
         <h2 class="text-lg sm:text-xl font-bold text-gray-800 flex items-center">
-          <i data-lucide="clipboard-list" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 
-text-blue-600"></i>
+          <i data-lucide="clipboard-list" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-[var(--cor-primaria)]"></i>
           Minhas Tarefas
         </h2>
         <div class="flex items-center gap-2 w-full sm:w-auto">
           <label for="sector-filter" class="text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">Setor:</label>
           <select id="sector-filter" onchange="updateSectorFilter(this.value)"
-                  class="p-2 border border-blue-300 rounded-lg bg-blue-50 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48"></select>
+                  class="p-2 border border-gray-300 rounded-lg bg-white focus-ring-primary w-full sm:w-48"></select>
         </div>
-      
-  <div id="operator-of-search-wrap" class="flex items-center gap-2 w-full sm:w-auto hidden">
+        <div id="operator-of-search-wrap" class="flex items-center gap-2 w-full sm:w-auto hidden">
           <label class="text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">OF:</label>
           <input id="operator-of-search" type="text" placeholder="Filtrar por OF..."
-                 class="p-2 border border-blue-300 rounded-lg bg-blue-50 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48">
+                 class="p-2 border border-gray-300 rounded-lg bg-white focus-ring-primary w-full sm:w-48">
         </div>
       </div>
-      <div id="tasks-list-container" class="space-y-3 
-sm:space-y-4"></div>
+      <div id="tasks-list-container" class="space-y-3 sm:space-y-4"></div>
     </div>
 
     <div id="report-view" class="space-y-4 sm:space-y-6 hidden">
       <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
-        <i data-lucide="file-text" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-purple-600"></i>
+        <i data-lucide="file-text" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-[var(--cor-info)]"></i>
         Relatório de Ocorrências
       </h2>
       <div class="bg-white p-3 sm:p-4 rounded-xl shadow-lg">
         <div class="flex justify-between items-center mb-3 sm:mb-4">
-          <h3 
-class="text-base sm:text-xl font-semibold text-gray-700">Pausas & Atrasos</h3>
-          
+          <h3 class="text-base sm:text-xl font-semibold text-gray-700">Pausas & Atrasos</h3>
           <div class="flex gap-2">
             <button id="btn-delete-report" onclick="deleteSelectedOcorrencias()"
-                    class="px-3 sm:px-4 py-2 bg-red-600 text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled> <i data-lucide="trash-2" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> 
+                    class="px-3 sm:px-4 py-2 bg-[var(--cor-perigo)] text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-[var(--cor-perigo-hover)] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled> 
+              <i data-lucide="trash-2" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> 
               <span class="hidden sm:inline">Excluir Selecionados</span>
             </button>
             <button id="btn-export-report" onclick="exportReportCSV()"
-                    class="px-3 sm:px-4 py-2 bg-purple-600 text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-purple-700 transition">
+                    class="px-3 sm:px-4 py-2 bg-[var(--cor-info)] text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-[var(--cor-info-hover)] transition">
               <i data-lucide="download" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Exportar (CSV)
             </button>
           </div>
-          </div>
+        </div>
         <div class="overflow-x-auto">
-       
-   <table class="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+          <table class="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-2 sm:px-4 py-2 sm:py-3 text-center w-12">
                   <input type="checkbox" id="report-select-all" 
                          onclick="toggleSelectAllOcorrencias(this)"
-                         class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                         class="rounded border-gray-300 text-[var(--cor-primaria)] focus-ring-primary">
                 </th>
                 <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">OF</th>
                 <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">CHICOTE</th>
-               
- <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">ATIVIDADE</th>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">ATIVIDADE</th>
                 <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">MOTIVO PAUSA</th>
                 <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">MOTIVO ATRASO</th>
-                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">T.
-PAUSA (min)</th>
-                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">T.
-ATRASO (min)</th>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">T. PAUSA (min)</th>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">T. ATRASO (min)</th>
               </tr>
             </thead>
             <tbody id="report-table-body" class="bg-white divide-y divide-gray-200"></tbody>
@@ -187,11 +247,57 @@ ATRASO (min)</th>
         </div>
       </div>
     </div>
+    
+    <div id="admin-view" class="space-y-4 sm:space-y-6 hidden">
+      <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
+        <i data-lucide="shield-check" class="w-5 h-5 sm:w-6 sm:h-6 mr-2"></i>
+        Painel de Administração (Master)
+      </h2>
+
+      <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+        <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Setup: Cadastro de Roteiros Mestres</h3>
+        
+        <div class="flex flex-col lg:flex-row gap-4">
+          <div id="roteiro-list-admin" class="space-y-4 h-[50vh] lg:h-[60vh] overflow-y-auto mb-4 p-2 border rounded-lg bg-gray-50 modal-body-scroll lg:w-1/2">
+            </div>
+          
+          <div class="border-t lg:border-t-0 lg:border-l lg:pl-4 pt-4 lg:pt-0 space-y-4 lg:w-1/2">
+            <h4 class="text-base sm:text-lg font-semibold text-gray-700">Nova Etapa para Roteiro:</h4>
+            <div class="flex flex-col gap-3">
+          
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input type="text" id="roteiro-chicote-name-admin" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus-ring-primary" placeholder="Nome do Chicote (Ex: CHICOTE-A)">
+                <select id="roteiro-setor-admin" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus-ring-primary"></select>
+              </div>
+              <input type="text" id="roteiro-activity-name-admin" class="w-full border border-gray-300 rounded-lg p-2 focus-ring-primary" placeholder="Nome da Atividade (Ex: Pré Conexão)">
+             
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input type="number" id="roteiro-setup-time-admin" min="0" step="0.1" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus-ring-primary" placeholder="Setup (min)">
+                <input type="number" id="roteiro-cycle-time-admin" min="0" step="0.1" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus-ring-primary" placeholder="Ciclo (min/pç)">
+              </div>
+              <div>
+                <label for="roteiro-instruction-text-admin" class="block text-sm font-medium text-gray-700 mb-1">Instrução de Trabalho (HTML permitido):</label>
+                <textarea id="roteiro-instruction-text-admin" rows="4" class="w-full border border-gray-300 rounded-lg p-2 focus-ring-primary" placeholder="Ex: <b>1. Preparação:</b> ..."></textarea>
+              </div>
+              <button onclick="addRoteiroActivity()" class="p-2 bg-[var(--cor-info)] text-white rounded-lg hover:bg-[var(--cor-info-hover)] transition">
+                <i data-lucide="plus" class="w-5 h-5 inline-block mr-1"></i> Adicionar Etapa
+              </button>
+            </div>
+            <div id="roteiro-message-admin" class="text-sm text-red-500"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div id="user-management-container" class="bg-white p-4 sm:p-6 rounded-xl shadow-lg hidden">
+         <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Gerenciamento de Usuários (Fase 2)</h3>
+         <p>A interface de criação de usuários (Firebase Auth) aparecerá aqui.</p>
+      </div>
+    </div>
   </main>
 
   <div id="action-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
     <div class="bg-white rounded-xl shadow-2xl p-4 
-sm:p-6 w-full max-w-md modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
+    sm:p-6 w-full max-w-md modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
       <h3 id="modal-title" class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2"></h3>
       <div class="modal-body-scroll">
         <p id="modal-message" class="text-gray-600 mb-3 sm:mb-4"></p>
@@ -199,36 +305,35 @@ sm:p-6 w-full max-w-md modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation(
           <div id="justification-area" class="space-y-3 sm:space-y-4">
             <label for="justification-select" class="block text-sm font-medium text-gray-700">Selecione o Motivo Principal:</label>
             <select id="justification-select" class="w-full border border-gray-300 rounded-lg 
-p-3 focus:ring-blue-500 focus:border-blue-500 transition">
+    p-3 focus-ring-primary transition">
               <option value="">-- Selecione uma opção --</option>
             </select>
             <label for="justification-text" class="block text-sm font-medium text-gray-700">Detalhes Adicionais (Opcional):</label>
-            <textarea id="justification-text" rows="2" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-blue-500 focus:border-blue-500 transition" placeholder=""></textarea>
+            <textarea id="justification-text" rows="2" class="w-full border border-gray-300 rounded-lg p-3 focus-ring-primary transition" placeholder=""></textarea>
             <p id="justification-required-text" class="text-sm text-red-500 hidden font-semibold">🚨 Campo obrigatório devido ao desvio de 
-tempo!</p>
+    tempo!</p>
           </div>
         </div>
       </div>
       <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3 sticky-footer">
         <button onclick="closeModal()" class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition">Cancelar</button>
-        <button id="modal-confirm-button" class="px-3 sm:px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition" onclick="handleConfirmedAction()">Confirmar</button>
+        <button id="modal-confirm-button" class="px-3 sm:px-4 py-2 bg-[var(--cor-primaria)] text-white font-semibold rounded-lg hover:bg-[var(--cor-primaria-hover)] transition" onclick="handleConfirmedAction()">Confirmar</button>
       </div>
     </div>
   </div>
 
   <div id="instruction-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 
-items-center justify-center hidden" onclick="closeModal('instruction-modal')">
+    items-center justify-center hidden" onclick="closeModal('instruction-modal')">
     <div class="bg-white rounded-xl shadow-2xl p-5 sm:p-8 w-full max-w-2xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
       <h3 class="text-xl sm:text-2xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2 flex items-center">
-        <i data-lucide="book-open-text" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-indigo-600"></i> Instrução de Trabalho
+        <i data-lucide="book-open-text" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-[var(--cor-info)]"></i> Instrução de Trabalho
       </h3>
       <div class="max-h-[65vh] sm:max-h-[70vh] overflow-y-auto pr-1 sm:pr-2 modal-body-scroll">
         <p class="text-sm font-semibold text-gray-700 mb-2" id="instruction-modal-header"></p>
         <div id="instruction-modal-content" class="text-gray-700 space-y-3"></div>
-      
-</div>
+      </div>
       <div class="mt-4 sm:mt-6 flex justify-end">
-        <button onclick="closeModal('instruction-modal')" class="px-3 sm:px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition">Fechar</button>
+        <button onclick="closeModal('instruction-modal')" class="px-3 sm:px-4 py-2 bg-[var(--cor-info)] text-white font-semibold rounded-lg hover:bg-[var(--cor-info-hover)] transition">Fechar</button>
       </div>
     </div>
   </div>
@@ -236,68 +341,38 @@ items-center justify-center hidden" onclick="closeModal('instruction-modal')">
   <div id="create-of-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
     <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-lg modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
       <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Criar Nova Ordem de Fabricação (OF)</h3>
-      <div class="space-y-3 sm:space-y-4 
-modal-body-scroll">
+      <div class="space-y-3 sm:space-y-4 modal-body-scroll">
         <div>
           <label for="of-id" class="block text-sm font-medium text-gray-700">Código da OF:</label>
-          <input type="text" id="of-id" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: OF-003">
+          <input type="text" id="of-id" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus-ring-primary" placeholder="Ex: OF-003">
         </div>
         <div>
           <label for="of-quantity" class="block text-sm font-medium text-gray-700">Quantidade de Peças:</label>
-          <input type="number" id="of-quantity" min="1" class="w-full border border-gray-300 rounded-lg p-2 mt-1 
-focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: 50">
+          <input type="number" id="of-quantity" min="1" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus-ring-primary" placeholder="Ex: 50">
         </div>
         <div>
           <label for="of-chicote" class="block text-sm font-medium text-gray-700">Modelo do Chicote (Roteiro Mestre):</label>
-          <select id="of-chicote" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-blue-500 focus:border-blue-500">
+          <select id="of-chicote" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus-ring-primary">
             <option value="">Carregando roteiros...</option>
           </select>
         </div>
-        <div id="of-creation-message" class="text-sm 
-text-red-500 hidden"></div>
+        
+        <div>
+          <label for="of-priority" class="block text-sm font-medium text-gray-700">Prioridade:</label>
+          <select id="of-priority" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus-ring-primary">
+            <option value="Media">Média (Padrão)</option>
+            <option value="Alta">Alta (Urgente)</option>
+            <option value="Baixa">Baixa</option>
+          </select>
+        </div>
+        
+        <div id="of-creation-message" class="text-sm text-red-500 hidden"></div>
       </div>
       <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3 sticky-footer">
         <button onclick="closeModal('create-of-modal')" class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition">Cancelar</button>
-        <button onclick="createOF()" class="px-3 sm:px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700">
+        <button onclick="createOF()" class="px-3 sm:px-4 py-2 bg-[var(--cor-sucesso)] text-white font-semibold rounded-lg hover:bg-[var(--cor-sucesso-hover)]">
           <i data-lucide="factory" class="w-5 h-5 inline-block mr-1"></i> Gerar OF
         </button>
-      </div>
-    </div>
-  </div>
-
-  <div id="setup-roteiro-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
-    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-2xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
-      <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Setup: Cadastro de Roteiros Mestres</h3>
-      <div id="roteiro-list" class="space-y-4 h-[50vh] sm:h-64 overflow-y-auto mb-4 p-2 border rounded-lg bg-gray-50 modal-body-scroll"></div>
-      <div class="border-t pt-4 space-y-4">
-        <h4 class="text-base sm:text-lg font-semibold text-gray-700">Nova Etapa para Roteiro:</h4>
-        <div class="flex flex-col gap-3">
-      
-    <div class="flex flex-col sm:flex-row gap-3">
-            <input type="text" id="roteiro-chicote-name" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Nome do Chicote (Ex: CHICOTE-A)">
-            <select id="roteiro-setor" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"></select>
-          </div>
-          <input type="text" id="roteiro-activity-name" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Nome da Atividade (Ex: Pré Conexão)">
-         
- <div class="flex flex-col sm:flex-row gap-3">
-            <input type="number" id="roteiro-setup-time" min="0" step="0.1" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Setup (min)">
-            <input type="number" id="roteiro-cycle-time" min="0" step="0.1" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ciclo (min/pç)">
-          </div>
-          <div>
-            <label for="roteiro-instruction-text" class="block text-sm font-medium text-gray-700 mb-1">Instrução de Trabalho (HTML permitido):</label>
- 
-           <textarea id="roteiro-instruction-text" rows="4" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: <b>1.
-Preparação:</b> ..."></textarea>
-          </div>
-          <button onclick="addRoteiroActivity()" class="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
-            <i data-lucide="plus" class="w-5 h-5 inline-block mr-1"></i> Adicionar Etapa
-          </button>
-        </div>
-        <div id="roteiro-message" class="text-sm text-red-500"></div>
-      </div>
-      <div class="mt-4 sm:mt-6 flex justify-end">
-        
-<button onclick="closeModal('setup-roteiro-modal')" class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition">Fechar</button>
       </div>
     </div>
   </div>
@@ -308,17 +383,15 @@ Preparação:</b> ..."></textarea>
         <h3 id="of-details-title" class="text-xl sm:text-2xl font-bold text-gray-800"></h3>
         <button class="p-2 rounded-lg hover:bg-gray-100" onclick="closeModal('of-details-modal')"><i data-lucide="x" class="w-6 h-6"></i></button>
       </div>
-  
-    <div id="of-details-summary" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 sm:mb-4"></div>
-      <div class="w-full bg-gray-200 rounded-full h-2 mb-3 sm:mb-4"><div id="of-details-progress" class="h-2 rounded-full bg-blue-500" style="width:0%"></div></div>
+      <div id="of-details-summary" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 sm:mb-4"></div>
+      <div class="w-full bg-gray-200 rounded-full h-2 mb-3 sm:mb-4"><div id="of-details-progress" class="h-2 rounded-full bg-[var(--cor-primaria)]" style="width:0%"></div></div>
       <div id="of-details-content" class="max-h-[60vh] overflow-y-auto space-y-3 sm:space-y-4 modal-body-scroll"></div>
       <div class="mt-4 sm:mt-5 flex justify-between gap-3 sticky-footer">
-        <button id="btn-delete-of" class="px-3 sm:px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition hidden" onclick="deleteOF(window.__ofDetailsOpenId)">
+        <button id="btn-delete-of" class="px-3 sm:px-4 py-2 bg-[var(--cor-perigo)] text-white font-semibold rounded-lg hover:bg-[var(--cor-perigo-hover)] transition hidden" onclick="deleteOF(window.__ofDetailsOpenId)">
           <i data-lucide="trash-2" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Excluir OF
         </button>
- 
-       <div class="flex gap-2 sm:gap-3">
-          <button id="btn-export-of" class="px-3 sm:px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition" onclick="exportOFTasksCSV(window.__ofDetailsOpenId)">Exportar CSV</button>
+        <div class="flex gap-2 sm:gap-3">
+          <button id="btn-export-of" class="px-3 sm:px-4 py-2 bg-[var(--cor-info)] text-white font-semibold rounded-lg hover:bg-[var(--cor-info-hover)] transition" onclick="exportOFTasksCSV(window.__ofDetailsOpenId)">Exportar CSV</button>
           <button class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition" onclick="closeModal('of-details-modal')">Fechar</button>
         </div>
       </div>
@@ -327,7 +400,7 @@ Preparação:</b> ..."></textarea>
 
   <div id="user-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="event.stopPropagation()">
     <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-md 
-modal-panel mx-0 sm:mx-4">
+    modal-panel mx-0 sm:mx-4">
       <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Acesso</h3>
       <div class="space-y-3 sm:space-y-4">
         <div>
@@ -336,73 +409,25 @@ modal-panel mx-0 sm:mx-4">
             <option value="OPERADOR">Operador</option>
             <option value="MASTER">Master</option>
           </select>
- 
-       </div>
+        </div>
         <div id="user-sector-wrap">
           <label class="block text-sm font-medium text-gray-700">Setor do Operador</label>
           <select id="user-sector" class="w-full border border-gray-300 rounded-lg p-2 mt-1"></select>
         </div>
         <div id="user-pin-wrap" class="hidden">
           <label class="block text-sm font-medium text-gray-700">PIN do Master</label>
-          <input type="password" id="user-pin" class="w-full border border-gray-300 rounded-lg 
-p-2 mt-1" placeholder="****">
+          <input type="password" id="user-pin" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus-ring-primary" placeholder="****">
           <p class="text-xs text-gray-500 mt-1">Apenas numeros</p>
         </div>
-        </div>
+      </div>
       <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3">
         <button class="px-3 sm:px-4 py-2 bg-gray-200 rounded-lg font-semibold hover:bg-gray-300" onclick="closeModal('user-modal')">Cancelar</button>
-        <button class="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700" onclick="confirmUser()">Entrar</button>
+        <button class="px-3 sm:px-4 py-2 bg-[var(--cor-primaria)] text-white rounded-lg font-semibold hover:bg-[var(--cor-primaria-hover)]" onclick="confirmUser()">Entrar</button>
       </div>
     </div>
   </div>
 
-  <div id="theme-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal('theme-modal')">
-    <div class="bg-white rounded-xl 
-shadow-2xl p-4 w-full max-w-md" onclick="event.stopPropagation()">
-      <h3 class="text-lg font-bold text-gray-800 mb-3">Configurar design</h3>
-      <div class="space-y-3">
-        <div>
-          <label class="font-semibold text-sm">Modo</label>
-          <select id="theme-mode" class="w-full border rounded-lg p-2 mt-1">
-            <option value="color">Cor fixa</option>
-            <option value="image">Imagem</option>
-          </select>
-     
-   </div>
-
-        <div id="theme-color-wrap">
-          <label class="font-semibold text-sm">Cor</label>
-          <div class="flex gap-2 mt-1">
-            <input id="theme-color" type="color" value="#0ea5e9" class="h-10 w-16 border rounded"/>
-            <select id="theme-palette" class="border rounded p-2">
-              <option value="#0ea5e9">Azul</option>
-             
- <option value="#111827">Preto</option>
-              <option value="#10b981">Verde</option>
-              <option value="#f59e0b">Laranja</option>
-              <option value="#6b7280">Cinza</option>
-              <option value="#3b82f6">Azul Claro</option>
-              <option value="#1f2937">Grafite</option>
-            </select>
-          
-</div>
-        </div>
-
-        <div id="theme-image-wrap" class="hidden">
-          <label class="font-semibold text-sm">Imagem (upload)</label>
-          <input id="theme-image-file" type="file" accept="image/*" class="mt-1"/>
-        </div>
-      </div>
-
-      <div class="mt-4 flex justify-end gap-2">
-        <button class="px-3 py-2 bg-gray-200 rounded" onclick="closeModal('theme-modal')">Cancelar</button>
-        <button class="px-3 py-2 bg-indigo-600 text-white rounded" onclick="saveTheme()">Salvar</button>
-    
-  </div>
-    </div>
-  </div>
-
-<script>
+  <script>
 /* ============================
    FIREBASE CONFIG
    ============================ */
@@ -419,22 +444,22 @@ const firebaseConfig = {
 if (firebaseConfig && firebaseConfig.projectId && firebaseConfig.projectId !== "SEU_PROJECT_ID") {
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
-const storage = firebase.storage();
+  const storage = firebase.storage();
   window.db = db;
   window.storage = storage;
 
   // Coleções
   const OF_COLLECTION = 'ofs';
-const TASK_COLLECTION = 'tasks';
+  const TASK_COLLECTION = 'tasks';
   const ROTEIRO_COLLECTION = 'roteiros';
   const OCORRENCIA_COLLECTION = 'ocorrencias';
   window.OF_COLLECTION = OF_COLLECTION;
   window.TASK_COLLECTION = TASK_COLLECTION;
-window.ROTEIRO_COLLECTION = ROTEIRO_COLLECTION;
+  window.ROTEIRO_COLLECTION = ROTEIRO_COLLECTION;
   window.OCORRENCIA_COLLECTION = OCORRENCIA_COLLECTION;
 } else {
   console.warn("Firebase não configurado — rodando em modo simulado.");
-window.db = null;
+  window.db = null;
   window.storage = null;
 }
 
@@ -452,7 +477,7 @@ const PAUSE_REASONS = [
 ];
 const DELAY_REASONS = [
   "Complexidade inesperada da peça","Problema de qualidade na etapa anterior","Falta de treinamento/experiência",
-  "Tempo padrão calculado incorretamente","Quebra/defeito de ferramenta","Outro (Detalhar abaixo)"
+  "Tempo padrão calculado incorreto","Quebra/defeito de ferramenta","Outro (Detalhar abaixo)"
 ];
 let allOFs = {};
 let allTasks = {};
@@ -461,6 +486,9 @@ let allOcurrencesLog = [];
 let currentAction = {};
 let currentSectorFilter = SECTORS[0];
 let currentUser = null;
+
+// NOVO: Referência do Gráfico
+let workloadChart = null;
 
 // Busca por OF nas telas
 let pcpSearchOF = "";
@@ -472,16 +500,16 @@ let roteiroCounter = 7;
 const DEFAULT_ROTEIROS = {
   "r1": { id:"r1", chicote_nome:"CHICOTE-001", setor:"Corte", nome_atividade:"Corte dos Fios", tempo_setup:5, tempo_ciclo:0.2,
     instrucao_trabalho:"<b>1. Preparação:</b> Verifique a faca...<br><b>2. Medição:</b> Corte 50 peças de 150mm.<br><b>3. Conferência:</b> Visual."
-},
+  },
   "r2": { id:"r2", chicote_nome:"CHICOTE-001", setor:"Pré-Montagem", nome_atividade:"Crimpagem de Terminais", tempo_setup:8, tempo_ciclo:0.5,
     instrucao_trabalho:"<b>Fio Preto:</b> ...<br><b>Fio Vermelho:</b> ...<br><b>Teste:</b> > 10Kgf."
-},
+  },
   "r3": { id:"r3", chicote_nome:"CHICOTE-001", setor:"Montagem Final", nome_atividade:"Montagem de Conectores", tempo_setup:15, tempo_ciclo:1.0,
     instrucao_trabalho:"Conectar posições 35 e 33. Proibido forçar."
-},
+  },
   "r4": { id:"r4", chicote_nome:"CHICOTE-001", setor:"Qualidade", nome_atividade:"Teste de Continuidade", tempo_setup:3, tempo_ciclo:0.1,
     instrucao_trabalho:"Usar jig JIG-10B. 100% devem passar."
-},
+  },
   "r5": { id:"r5", chicote_nome:"CHICOTE-B", setor:"Corte", nome_atividade:"Corte Reforçado", tempo_setup:10, tempo_ciclo:0.3, instrucao_trabalho:"Instrução básica B."},
   "r6": { id:"r6", chicote_nome:"CHICOTE-B", setor:"Montagem Final", nome_atividade:"Montagem Simples", tempo_setup:5, tempo_ciclo:0.8, instrucao_trabalho:"Conectar 4 vias."},
 };
@@ -491,14 +519,15 @@ const DEFAULT_ROTEIROS = {
 const pcpView = document.getElementById("pcp-view");
 const operatorView = document.getElementById("operator-view");
 const reportView = document.getElementById("report-view");
+const adminView = document.getElementById("admin-view"); // NOVO
 const loadingIndicator = document.getElementById("loading-indicator");
 const ofsListContainer = document.getElementById("ofs-list-container");
 const tasksListContainer = document.getElementById("tasks-list-container");
 const userViewSelect = document.getElementById("user-view-select");
 const btnCreateOF = document.getElementById("btn-create-of");
-const btnSetupRoteiro = document.getElementById("btn-setup-roteiro");
+// const btnSetupRoteiro = document.getElementById("btn-setup-roteiro"); // REMOVIDO
 const btnProfile = document.getElementById("btn-profile");
-const btnThemeMaster = document.getElementById("btn-theme-master");
+// const btnThemeMaster = document.getElementById("btn-theme-master"); // REMOVIDO
 const btnExportReport = document.getElementById("btn-export-report");
 const btnDeleteOF = document.getElementById("btn-delete-of");
 
@@ -512,7 +541,7 @@ function formatMinutes(v){ return `${Number(v||0).toFixed(2)} min`; }
 function setUser(u){
   currentUser = u;
   try { sessionStorage.setItem("pcp_current_user", JSON.stringify(u));
-} catch(_){}
+  } catch(_){}
 }
 function getUser(){
   try { return JSON.parse(sessionStorage.getItem("pcp_current_user") || "null"); }
@@ -528,104 +557,130 @@ function isOperador(){ return currentUser && currentUser.role === "OPERADOR";
 function getDBTimestamp(ts) {
   if (!ts) return null;
   if (typeof ts.toDate === 'function') return ts.toDate().getTime();
-if (ts instanceof Date) return ts.getTime();
+  if (ts instanceof Date) return ts.getTime();
   return ts;
 }
 
+/* NOVO: Helper visual de Prioridade */
+function getPriorityClass(priority) {
+  if (priority === 'Alta') return 'priority-high';
+  if (priority === 'Baixa') return 'priority-low';
+  return 'priority-medium'; // Padrão é Média
+}
+
+
 /* ============================
-   THEME (Global via Firestore)
+   THEME (Simplificado)
    ============================ */
 function listenTheme(){
   if (!window.db) return;
-db.collection('settings').doc('ui').onSnapshot(doc=>{
+  // Ouve o tema, mas aplica o default (Carmim) se não houver nada salvo
+  db.collection('settings').doc('ui').onSnapshot(doc=>{
     const s = doc.exists ? doc.data() : null;
     applyTheme(s);
   });
 }
 function applyTheme(s){
   const r = document.documentElement.style;
+  // Default é o Fundo Cinza Padrão (não a cor Carmim)
+  const defaultColor = '#f3f4f6'; 
+
   if (!s || s.mode === 'color'){
-    r.setProperty('--app-bg-color', s?.color || '#f3f4f6');
-r.setProperty('--app-bg-image', 'none');
+    r.setProperty('--app-bg-color', s?.color || defaultColor);
+    r.setProperty('--app-bg-image', 'none');
   } else {
     r.setProperty('--app-bg-color', '#000000');
     r.setProperty('--app-bg-image', `url("${s.imageUrl}")`);
   }
 }
+// Funções openThemeModal e saveTheme REMOVIDAS
 
-function openThemeModal(){ document.getElementById('theme-modal').style.display = 'flex';
-}
-function saveTheme(){
-  if (!window.db) { alert('Configure o Firebase para salvar o tema.'); return; }
-  const mode = document.getElementById('theme-mode').value;
-if (mode === 'color'){
-    const color = document.getElementById('theme-color').value || document.getElementById('theme-palette').value;
-db.collection('settings').doc('ui').set({ mode:'color', color }, { merge:true }).then(()=> closeModal('theme-modal'));
-  } else {
-    const file = document.getElementById('theme-image-file').files[0];
-if (!file) { alert('Escolha uma imagem.'); return; }
-    const ref = storage.ref().child(`ui/${Date.now()}_${file.name}`);
-ref.put(file).then(()=> ref.getDownloadURL()).then(url=>{
-      return db.collection('settings').doc('ui').set({ mode:'image', imageUrl:url }, { merge:true });
-    }).then(()=> closeModal('theme-modal'))
-      .catch(e=> alert('Erro ao enviar imagem: ' + e.message));
-}
-}
 
 /* ============================
-   CÁLCULOS DE TEMPO
+   CÁLCULOS DE TEMPO (CORRIGIDO)
    ============================ */
-function calculateTempoReal(task){
-  let tempoReal = task.tempo_real_acumulado || 0;
-const now = Date.now();
-  if (task.status === 'Em Processo' && task.timestamp_inicio){
-    let inicioMs = getDBTimestamp(task.timestamp_inicio);
-if (inicioMs) tempoReal += msToMinutes(now - inicioMs);
+   
+// NOVO: Função para obter o valor acumulado em milissegundos
+function calculateTempoRealMs(task){
+  // Se concluído ou bloqueado/espera, retorna o valor salvo em MS
+  if (task.status === 'Concluído' || task.status === 'Bloqueada' || task.status === 'Em Espera') {
+    return task.tempo_real_acumulado_ms || 0;
   }
-  return parseFloat(tempoReal.toFixed(2));
+  
+  // Se estiver em processo ou pausado, calcula o tempo corrido
+  const now = Date.now();
+  let tempoAcumulado = task.tempo_real_acumulado_ms || 0; // Este valor deve estar em MS
+  let ultimaAtividade = getDBTimestamp(task.timestamp_inicio); // Este valor é MS
+
+  if (!ultimaAtividade) return tempoAcumulado;
+
+  if (task.status === 'Em Processo'){
+    // Adiciona o tempo desde o último início
+    tempoAcumulado += (now - ultimaAtividade);
+  }
+  // Se Pausada, tempoAcumulado é o tempo_real_acumulado_ms salvo no momento da pausa.
+  
+  return tempoAcumulado; // Retorna o valor em milissegundos
 }
+
+// CORREÇÃO: Funções que retornam minutos (usando a nova calculateTempoRealMs)
+function calculateTempoRealMinutes(task){
+  return msToMinutes(calculateTempoRealMs(task));
+}
+
 function calculateDesvio(task){
-  const tempoReal = calculateTempoReal(task);
-const desvio = (task.tempo_planejado||0) - tempoReal; // negativo = atraso
-  return parseFloat(desvio.toFixed(2));
+  const realMinutes = calculateTempoRealMinutes(task); // Tempo real em minutos
+  const planned = task.tempo_planejado || 0; // Tempo planejado em minutos
+  
+  // Desvio (min): Planejado - Real. Positivo = Adiantado/Dentro. Negativo = Atrasado.
+  return parseFloat((planned - realMinutes).toFixed(2));
 }
+
 function calculateTotalPauseMinutes(task){
   let totalMs = task.total_pause_time_ms || 0;
   if (task.status === 'Pausada' && task.pause_start_timestamp){
-    let pauseStartMs = getDBTimestamp(task.pause_start_timestamp);
-if (pauseStartMs) totalMs += Date.now() - pauseStartMs;
+    totalMs += (Date.now() - getDBTimestamp(task.pause_start_timestamp));
   }
   return msToMinutes(totalMs);
 }
-function calculateTotalPauseMinutesFinal(task){ return msToMinutes(task.total_pause_time_ms || 0);
+
+function calculateTotalPauseMinutesFinal(task){ 
+  return msToMinutes(task.total_pause_time_ms || 0);
 }
+
 
 /* ============================
    INICIALIZAÇÃO & LISTENERS
    ============================ */
 function setupSectorDropdowns(){
-  const roteiroSetorSelect = document.getElementById('roteiro-setor');
-const sectorFilterSelect = document.getElementById('sector-filter');
+  // NOVO: Seletores da tela Admin
+  const roteiroSetorSelect = document.getElementById('roteiro-setor-admin');
   const userSectorSelect = document.getElementById('user-sector');
+  const sectorFilterSelect = document.getElementById('sector-filter');
+  
   [roteiroSetorSelect, sectorFilterSelect, userSectorSelect].forEach(sel => { if (sel) sel.innerHTML = ''; });
-SECTORS.forEach(sector=>{
+  
+  SECTORS.forEach(sector=>{
     const o1 = document.createElement('option'); o1.value=sector; o1.textContent=sector;
     const o2 = o1.cloneNode(true);
+    const o3 = o1.cloneNode(true);
     if (roteiroSetorSelect) roteiroSetorSelect.appendChild(o1);
     if (userSectorSelect) userSectorSelect.appendChild(o2);
+    // (o3 para sectorFilterSelect, tratado abaixo)
   });
-if (sectorFilterSelect){
+  
+  if (sectorFilterSelect){
     if (isOperador()){
       const o = document.createElement('option');
       o.value=currentUser.sector; o.textContent=currentUser.sector; sectorFilterSelect.appendChild(o);
       sectorFilterSelect.value=currentUser.sector;
-sectorFilterSelect.disabled = true;
+      sectorFilterSelect.disabled = true;
       currentSectorFilter = currentUser.sector;
     } else {
       SECTORS.forEach(sector=>{
         const o2 = document.createElement('option'); o2.value=sector; o2.textContent=sector; sectorFilterSelect.appendChild(o2);
       });
-currentSectorFilter = SECTORS[0];
+      currentSectorFilter = SECTORS[0];
       sectorFilterSelect.value = SECTORS[0];
       sectorFilterSelect.disabled = false;
     }
@@ -638,46 +693,47 @@ function loadRoteiroDropdowns() {
   const select = document.getElementById('of-chicote');
   if (!select) return;
   const roteiros = Object.values(allRoteiros);
-const chicotes = [...new Set(roteiros.map(r => r.chicote_nome))];
+  const chicotes = [...new Set(roteiros.map(r => r.chicote_nome))];
   select.innerHTML = '<option value="">-- Selecione um Modelo --</option>';
-chicotes.forEach(chicote => {
+  chicotes.forEach(chicote => {
     const option = document.createElement('option');
     option.value = chicote;
     option.textContent = chicote;
     select.appendChild(option);
   });
-if (chicotes.length === 0) {
+  if (chicotes.length === 0) {
     select.innerHTML = '<option value="">Nenhum roteiro mestre cadastrado.</option>';
   }
 }
 
 async function initializeApp(){
   loadingIndicator.classList.remove('hidden');
-// Esconde tudo enquanto não loga
+  // Esconde tudo enquanto não loga
   pcpView.classList.add('hidden');
   operatorView.classList.add('hidden');
   reportView.classList.add('hidden');
+  adminView.classList.add('hidden'); // NOVO
 
   // Tema global (escuta sempre)
   listenTheme();
-// Restaura sessão (sessionStorage)
+  // Restaura sessão (sessionStorage)
   const savedUser = getUser();
   if (savedUser){ setUser(savedUser);
-}
+  }
 
   if (window.db) {
     setupFirebaseListeners();
   } else {
     // SIMULAÇÃO
     allRoteiros = { ...DEFAULT_ROTEIROS };
-if (!localStorage.getItem('sim_data_initialized')) {
-      await createOF('OF-001', 10, 'CHICOTE-001', true);
-      await createOF('OF-002', 20, 'CHICOTE-B', true);
+    if (!localStorage.getItem('sim_data_initialized')) {
+      await createOF('OF-001', 10, 'CHICOTE-001', 'Media', true);
+      await createOF('OF-002', 20, 'CHICOTE-B', 'Alta', true);
       localStorage.setItem('sim_data_initialized', 'true');
-} else {
+    } else {
       allOFs = JSON.parse(localStorage.getItem('sim_ofs') || '{}');
       allTasks = JSON.parse(localStorage.getItem('sim_tasks') || '{}');
-allOcurrencesLog = JSON.parse(localStorage.getItem('sim_ocorrencias') || '[]');
+      allOcurrencesLog = JSON.parse(localStorage.getItem('sim_ocorrencias') || '[]');
     }
     setTimeout(()=>{
       loadingIndicator.classList.add('hidden');
@@ -686,15 +742,20 @@ allOcurrencesLog = JSON.parse(localStorage.getItem('sim_ocorrencias') || '[]');
       loadRoteiroDropdowns();
       injectSearchInputs();
     }, 300);
-}
+  }
 
   setupSectorDropdowns();
   if (!savedUser) {
     openUserModal();
   } else {
-    updateView(userViewSelect.value);
+    // Força a view correta ao iniciar
+    if (isOperador()) {
+      updateView('Operador');
+    } else {
+      updateView('PCP');
+    }
     injectSearchInputs();
-}
+  }
 }
 
 function setupFirebaseListeners() {
@@ -709,7 +770,7 @@ function setupFirebaseListeners() {
     updateView(userViewSelect.value);
     loadRoteiroDropdowns();
   });
-db.collection(TASK_COLLECTION).onSnapshot(snapshot => {
+  db.collection(TASK_COLLECTION).onSnapshot(snapshot => {
     snapshot.docChanges().forEach(change => {
       const taskData = { id: change.doc.id, ...change.doc.data() };
       if (change.type === 'removed') delete allTasks[taskData.id];
@@ -717,22 +778,21 @@ db.collection(TASK_COLLECTION).onSnapshot(snapshot => {
     });
     updateView(userViewSelect.value);
   });
-db.collection(ROTEIRO_COLLECTION).onSnapshot(snapshot => {
+  db.collection(ROTEIRO_COLLECTION).onSnapshot(snapshot => {
     allRoteiros = {};
     snapshot.forEach(doc => {
       const roteiroData = { id: doc.id, ...doc.data() };
       allRoteiros[roteiroData.id] = roteiroData;
     });
     loadRoteiroDropdowns();
-    renderRoteiros();
+    renderRoteiros(); // Atualiza a lista na tela Admin
   });
-db.collection(OCORRENCIA_COLLECTION).onSnapshot(snapshot => {
+  db.collection(OCORRENCIA_COLLECTION).onSnapshot(snapshot => {
     allOcurrencesLog = [];
     snapshot.forEach(doc => { allOcurrencesLog.push({ id: doc.id, ...doc.data() }); });
     allOcurrencesLog.sort((a,b) => getDBTimestamp(b.timestamp) - getDBTimestamp(a.timestamp));
     updateView(userViewSelect.value);
     
-    // Apenas esconde o loading principal *depois* de carregar as ocorrências (que são as últimas)
     if (!loadingIndicator.classList.contains('hidden')){
       loadingIndicator.classList.add('hidden');
       injectSearchInputs();
@@ -744,17 +804,19 @@ db.collection(OCORRENCIA_COLLECTION).onSnapshot(snapshot => {
    CRUD
    ============================ */
 async function addRoteiroActivity(){
-  const chicote_name = document.getElementById('roteiro-chicote-name').value.trim().toUpperCase();
-  const setor = document.getElementById('roteiro-setor').value;
-const activity_name = document.getElementById('roteiro-activity-name').value.trim();
-  const setup_time = parseFloat(document.getElementById('roteiro-setup-time').value);
-  const cycle_time = parseFloat(document.getElementById('roteiro-cycle-time').value);
-  const instruction_text = document.getElementById('roteiro-instruction-text').value.trim();
-  const messageEl = document.getElementById('roteiro-message');
-messageEl.textContent = '';
+  // NOVO: IDs dos inputs da tela Admin
+  const chicote_name = document.getElementById('roteiro-chicote-name-admin').value.trim().toUpperCase();
+  const setor = document.getElementById('roteiro-setor-admin').value;
+  const activity_name = document.getElementById('roteiro-activity-name-admin').value.trim();
+  const setup_time = parseFloat(document.getElementById('roteiro-setup-time-admin').value);
+  const cycle_time = parseFloat(document.getElementById('roteiro-cycle-time-admin').value);
+  const instruction_text = document.getElementById('roteiro-instruction-text-admin').value.trim();
+  const messageEl = document.getElementById('roteiro-message-admin');
+  
+  messageEl.textContent = '';
   if (!chicote_name || !activity_name || isNaN(setup_time) || isNaN(cycle_time) || !setor){
     messageEl.textContent = "Preencha todos os campos obrigatórios e use números para tempo.";
-return;
+    return;
   }
   if (window.db) {
     try {
@@ -767,173 +829,177 @@ return;
         instrucao_trabalho: instruction_text,
         created_at: firebase.firestore.FieldValue.serverTimestamp()
       };
-await db.collection(ROTEIRO_COLLECTION).add(newRoteiro);
+      await db.collection(ROTEIRO_COLLECTION).add(newRoteiro);
       messageEl.textContent = `Etapa "${activity_name}" adicionada ao roteiro mestre ${chicote_name}.`;
       messageEl.classList.remove('text-red-500');
       messageEl.classList.add('text-green-600');
-} catch(e) {
+    } catch(e) {
       messageEl.textContent = "Erro ao salvar no Firebase: " + e.message;
       messageEl.classList.add('text-red-500');
-}
+    }
   } else {
     const newId = `r${roteiroCounter++}`;
-allRoteiros[newId] = {
+    allRoteiros[newId] = {
       id: newId, chicote_nome: chicote_name, setor,
       nome_atividade: activity_name, tempo_setup: setup_time, tempo_ciclo: cycle_time,
       instrucao_trabalho: instruction_text
     };
-messageEl.textContent = `Etapa "${activity_name}" adicionada (Simulação).`;
+    messageEl.textContent = `Etapa "${activity_name}" adicionada (Simulação).`;
     messageEl.classList.remove('text-red-500');
     messageEl.classList.add('text-green-600');
     renderRoteiros();
     loadRoteiroDropdowns();
   }
-  document.getElementById('roteiro-activity-name').value = '';
-  document.getElementById('roteiro-setup-time').value = '';
-document.getElementById('roteiro-cycle-time').value = '';
-  document.getElementById('roteiro-instruction-text').value = '';
+  // Limpa o formulário admin
+  document.getElementById('roteiro-activity-name-admin').value = '';
+  document.getElementById('roteiro-setup-time-admin').value = '';
+  document.getElementById('roteiro-cycle-time-admin').value = '';
+  document.getElementById('roteiro-instruction-text-admin').value = '';
 }
 
-async function createOF(ofIdOverride, quantityOverride, chicoteOverride, isSimulated = false){
-  const of_id = ofIdOverride ||
-document.getElementById('of-id').value.trim().toUpperCase();
+async function createOF(ofIdOverride, quantityOverride, chicoteOverride, priorityOverride, isSimulated = false){
+  const of_id = ofIdOverride || document.getElementById('of-id').value.trim().toUpperCase();
   const quantity = quantityOverride || parseInt(document.getElementById('of-quantity').value);
   const chicote_name = chicoteOverride || document.getElementById('of-chicote').value;
+  const priority = priorityOverride || document.getElementById('of-priority').value || 'Media'; // NOVO
+  
   const messageEl = document.getElementById('of-creation-message');
   messageEl.textContent = '';
-messageEl.classList.add('hidden');
+  messageEl.classList.add('hidden');
 
   if (!of_id || isNaN(quantity) || quantity <= 0 || !chicote_name){
     messageEl.textContent = "Preencha todos os campos corretamente.";
-messageEl.classList.remove('hidden');
+    messageEl.classList.remove('hidden');
     return;
   }
   if (Object.values(allOFs).find(of => of.id === of_id)) {
     messageEl.textContent = `OF "${of_id}" já existe.`;
-messageEl.classList.remove('hidden');
+    messageEl.classList.remove('hidden');
     return;
   }
 
   const roteiroEtapas = Object.values(allRoteiros).filter(r => r.chicote_nome === chicote_name);
-if (roteiroEtapas.length === 0){
+  if (roteiroEtapas.length === 0){
     messageEl.textContent = `Nenhuma etapa encontrada para "${chicote_name}".`;
     messageEl.classList.remove('hidden');
     return;
-}
+  }
 
   const newOF = {
     id: of_id, chicote: chicote_name, quantidade: quantity,
     status: 'Pendente',
-    data_criacao: window.db ?
-firebase.firestore.FieldValue.serverTimestamp() : new Date(),
+    priority: priority, // NOVO
+    data_criacao: window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date(),
     task_count: roteiroEtapas.length,
     concluded_tasks: 0,
   };
-try {
+  try {
     if (window.db) { await db.collection(OF_COLLECTION).doc(of_id).set(newOF); }
     else { allOFs[of_id] = newOF;
-}
+    }
 
     const batch = window.db ? db.batch() : null;
     let order = 1;
-for (const etapa of roteiroEtapas) {
+    for (const etapa of roteiroEtapas) {
       const tempo_planejado = etapa.tempo_setup + (etapa.tempo_ciclo * quantity);
-const newTask = {
+      const newTask = {
         id_of: of_id, id_roteiro: etapa.id, chicote: chicote_name,
         nome_atividade: etapa.nome_atividade, setor: etapa.setor,
         tempo_setup: etapa.tempo_setup, tempo_ciclo: etapa.tempo_ciclo,
-        tempo_planejado: parseFloat(tempo_planejado.toFixed(2)),
+        tempo_planejado: parseFloat(tempo_planejado.toFixed(2)), // Em minutos
         instrucao_trabalho: etapa.instrucao_trabalho,
         quantidade_pecas: quantity,
-        // Paralelo: todas Em Espera
         status: 'Em Espera',
         ordem: order++,
+        priority: priority, // NOVO (herdado da OF)
     
-    timestamp_inicio: null, timestamp_fim: null,
-        tempo_real_acumulado: 0,
-        total_pause_time_ms: 0,
+        timestamp_inicio: null, timestamp_fim: null,
+        tempo_real_acumulado_ms: 0, // CORREÇÃO BUG TEMPO (Armazena MS)
+        total_pause_time_ms: 0,     // CORREÇÃO BUG TEMPO (Armazena MS)
         pause_start_timestamp: null,
         search_index: of_id.toLowerCase()+'-'+etapa.nome_atividade.toLowerCase()+'-'+etapa.setor.toLowerCase()
       };
-if (window.db) {
+      if (window.db) {
         const newTaskRef = db.collection(TASK_COLLECTION).doc();
         batch.set(newTaskRef, newTask);
-} else {
+      } else {
         const simTaskId = `t${taskCounter++}`;
         newTask.id = simTaskId;
         allTasks[simTaskId] = newTask;
-}
+      }
     }
     if (batch) await batch.commit();
-if (!isSimulated) {
+    if (!isSimulated) {
       closeModal('create-of-modal');
       alert(`OF ${of_id} criada com sucesso!`);
-if (!window.db) {
+      if (!window.db) {
         localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
         localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
-}
+      }
     }
   } catch(e) {
     messageEl.textContent = "Erro ao criar OF: " + (e.message || e);
-messageEl.classList.remove('hidden');
+    messageEl.classList.remove('hidden');
   }
 }
 
 async function updateTaskStatus(taskId, newStatus, logType = null, justification = null, justificationText = null) {
   const task = allTasks[taskId];
-if (!task) return;
+  if (!task) return;
 
   const updateData = { status: newStatus };
   const now = window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date();
-if (newStatus === 'Em Processo') {
+  
+  // CORREÇÃO BUG TEMPO (Usa MS)
+  const currentTempoRealMs = calculateTempoRealMs(task); 
+
+  if (newStatus === 'Em Processo') {
     if (task.status === 'Pausada' && task.pause_start_timestamp) {
       const pauseStartMs = getDBTimestamp(task.pause_start_timestamp);
-const currentPauseTimeMs = Date.now() - pauseStartMs;
+      const currentPauseTimeMs = Date.now() - pauseStartMs;
       updateData.total_pause_time_ms = (task.total_pause_time_ms || 0) + currentPauseTimeMs;
       updateData.pause_start_timestamp = null;
-}
+    }
     if (task.status === 'Em Espera') updateData.timestamp_inicio = now;
-} 
+  } 
   else if (newStatus === 'Pausada') {
-    const currentTempoReal = calculateTempoReal(task);
-    updateData.tempo_real_acumulado = currentTempoReal;
-updateData.pause_start_timestamp = now;
+    updateData.tempo_real_acumulado_ms = currentTempoRealMs; // Salva em MS
+    updateData.pause_start_timestamp = now;
     if (logType === 'PAUSA' && (justification || justificationText)) {
       await createOcorrenciaLog(task, 'PAUSA', justification, justificationText);
-}
+    }
   } 
   else if (newStatus === 'Concluído') {
-    const finalTempoReal = calculateTempoReal(task);
-const desvio = calculateDesvio(task);
-    updateData.tempo_real_acumulado = finalTempoReal;
+    const desvio = calculateDesvio(task); // Calcula o desvio em minutos
+    updateData.tempo_real_acumulado_ms = currentTempoRealMs; // Salva em MS
     updateData.timestamp_fim = now;
     updateData.pause_start_timestamp = null;
-if (desvio < 0 || logType === 'FIM_ATRASO') {
+    if (desvio < 0 || logType === 'FIM_ATRASO') {
       await createOcorrenciaLog(task, 'FIM_ATRASO', justification, justificationText);
-}
+    }
 
     if (window.db) {
       const ofRef = db.collection(OF_COLLECTION).doc(task.id_of);
-const tasksDaOF = Object.values(allTasks).filter(t => t.id_of === task.id_of);
+      const tasksDaOF = Object.values(allTasks).filter(t => t.id_of === task.id_of);
       const totalConcluidas = tasksDaOF.filter(t => (t.id === taskId) ? true : t.status === 'Concluído').length;
-const ofConcluida = totalConcluidas >= tasksDaOF.length;
+      const ofConcluida = totalConcluidas >= tasksDaOF.length;
 
       const batch = db.batch();
       batch.update(db.collection(TASK_COLLECTION).doc(taskId), updateData);
-batch.update(ofRef, {
+      batch.update(ofRef, {
         concluded_tasks: firebase.firestore.FieldValue.increment(1),
         status: ofConcluida ? 'Concluído' : 'Em Andamento'
       });
-await batch.commit();
+      await batch.commit();
     } else {
       const of = allOFs[task.id_of];
-of.concluded_tasks = (of.concluded_tasks || 0) + 1;
+      of.concluded_tasks = (of.concluded_tasks || 0) + 1;
       Object.assign(task, updateData);
       const tasksDaOF = Object.values(allTasks).filter(t => t.id_of === task.id_of);
-const totalConcluidas = tasksDaOF.filter(t => t.status === 'Concluído').length;
+      const totalConcluidas = tasksDaOF.filter(t => t.status === 'Concluído').length;
       of.status = (totalConcluidas >= tasksDaOF.length) ? 'Concluído' : 'Em Andamento';
       localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
-localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
+      localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
     }
     renderTasks();
     return;
@@ -941,47 +1007,43 @@ localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
 
   if (window.db) {
     await db.collection(TASK_COLLECTION).doc(taskId).update(updateData);
-} else {
+  } else {
     Object.assign(task, updateData);
     localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
   }
   renderTasks();
 }
 
+
 async function createOcorrenciaLog(task, type, justification, justificationText) {
   const logData = {
     ID_TASK: task.id, OF: task.id_of, CHICOTE: task.chicote, ATIVIDADE: task.nome_atividade,
-    OPERADOR: currentUser?.name ||
-currentUser?.sector || '', SECTOR: task.setor,
+    OPERADOR: currentUser?.name || currentUser?.sector || '', SECTOR: task.setor,
     MOTIVO_PRINCIPAL: justification, MOTIVO_DETALHES: justificationText,
-    timestamp: window.db ?
-firebase.firestore.FieldValue.serverTimestamp() : new Date()
+    timestamp: window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date()
   };
 
-  // === INÍCIO DA ALTERAÇÃO (Correção do Bug T. PAUSA) ===
   if (type === 'PAUSA') {
-    // const pauseTimeMs = Date.now() - getDBTimestamp(task.pause_start_timestamp); // Linha original com BUG
-logData.TIPO = 'PAUSA';
-    logData.TEMPO_PAUSA = 0; // CORREÇÃO: A pausa está apenas começando, a duração é 0.
+    logData.TIPO = 'PAUSA';
+    logData.TEMPO_PAUSA = 0; // A pausa está apenas começando
     logData.TEMPO_ATRASO = 0;
     logData.MOTIVO_PAUSA = justification;
     logData.MOTIVO_ATRASO = null;
-} else if (type === 'FIM_ATRASO') {
-    const desvio = calculateDesvio(task);
+  } else if (type === 'FIM_ATRASO') {
+    const desvio = calculateDesvio(task); // Em minutos
     logData.TIPO = 'ATRASO';
-    logData.TEMPO_PAUSA = calculateTotalPauseMinutesFinal(task);
-logData.TEMPO_ATRASO = parseFloat(Math.abs(desvio).toFixed(2));
+    logData.TEMPO_PAUSA = calculateTotalPauseMinutesFinal(task); // Em minutos
+    logData.TEMPO_ATRASO = parseFloat(Math.abs(desvio).toFixed(2));
     logData.MOTIVO_PAUSA = null;
     logData.MOTIVO_ATRASO = justification;
   }
-  // === FIM DA ALTERAÇÃO ===
 
   if (window.db) await db.collection(OCORRENCIA_COLLECTION).add(logData);
-else {
+  else {
     logData.id = `log${allOcurrencesLog.length + 1}`;
     allOcurrencesLog.push(logData);
     localStorage.setItem('sim_ocorrencias', JSON.stringify(allOcurrencesLog));
-}
+  }
 }
 
 /* ============================
@@ -994,44 +1056,44 @@ function pauseTask(taskId){ showActionModal(taskId, 'Pausar', PAUSE_REASONS); }
 
 async function deleteRoteiroActivity(roteiroId) {
   if (!isMaster() || !confirm("Excluir esta etapa de roteiro?")) return;
-if (window.db) {
+  if (window.db) {
     try { await db.collection(ROTEIRO_COLLECTION).doc(roteiroId).delete(); alert("Etapa excluída.");
-}
+    }
     catch(e) { alert("Erro ao excluir: " + e.message);
-}
+    }
   } else {
     delete allRoteiros[roteiroId];
     renderRoteiros();
     loadRoteiroDropdowns();
-}
+  }
 }
 
 async function deleteOF(ofId) {
   if (!isMaster() || !ofId) return;
-if (!confirm(`Excluir OF ${ofId} e TODAS as suas tarefas e logs?`)) return;
-try {
+  if (!confirm(`Excluir OF ${ofId} e TODAS as suas tarefas e logs?`)) return;
+  try {
     if (window.db) {
       const batch = db.batch();
       batch.delete(db.collection(OF_COLLECTION).doc(ofId));
-const tasksSnapshot = await db.collection(TASK_COLLECTION).where('id_of', '==', ofId).get();
+      const tasksSnapshot = await db.collection(TASK_COLLECTION).where('id_of', '==', ofId).get();
       tasksSnapshot.docs.forEach(doc => batch.delete(doc.ref));
       const ocorrenciasSnapshot = await db.collection(OCORRENCIA_COLLECTION).where('OF', '==', ofId).get();
       ocorrenciasSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-await batch.commit();
+      await batch.commit();
     } else {
       delete allOFs[ofId];
-Object.keys(allTasks).forEach(id => { if (allTasks[id].id_of === ofId) delete allTasks[id]; });
+      Object.keys(allTasks).forEach(id => { if (allTasks[id].id_of === ofId) delete allTasks[id]; });
       allOcurrencesLog = allOcurrencesLog.filter(l => l.OF !== ofId);
       localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
-localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
+      localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
       localStorage.setItem('sim_ocorrencias', JSON.stringify(allOcurrencesLog));
     }
     closeModal('of-details-modal');
     alert(`OF ${ofId} excluída.`);
     renderOFs();
-} catch(e) {
+  } catch(e) {
     alert("Erro ao excluir OF: " + (e.message || e));
-}
+  }
 }
 
 /* ============================
@@ -1040,56 +1102,55 @@ localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
 function openModal(id){
   const modal = document.getElementById(id);
   if(modal) modal.style.display = 'flex';
-if(id === 'setup-roteiro-modal') renderRoteiros();
+  // (Lógica de renderRoteiros removida daqui)
 }
 function closeModal(id){
   const modalId = id || 'action-modal';
   const modal = document.getElementById(modalId);
-if(modal) {
+  if(modal) {
     modal.style.display = 'none';
     if (modalId === 'action-modal') {
       currentAction = {};
-const jsSel = document.getElementById('justification-select');
+      const jsSel = document.getElementById('justification-select');
       const jsTxt = document.getElementById('justification-text');
       const jsReq = document.getElementById('justification-required-text');
       if (jsSel) jsSel.value = '';
-if (jsTxt) jsTxt.value = '';
+      if (jsTxt) jsTxt.value = '';
       if (jsReq) jsReq.classList.add('hidden');
     }
   }
 }
 function showActionModal(taskId, type, reasons){
   const task = allTasks[taskId];
-if (!task) return;
+  if (!task) return;
   currentAction = { taskId, type };
   const title = document.getElementById('modal-title');
   const message = document.getElementById('modal-message');
-const justificationSelect = document.getElementById('justification-select');
+  const justificationSelect = document.getElementById('justification-select');
   const justificationRequired = document.getElementById('justification-required-text');
 
   title.textContent = `${type} Atividade: ${task.nome_atividade}`;
   message.textContent = `OF ${task.id_of} - Chicote ${task.chicote}`;
-justificationSelect.innerHTML = '<option value="">-- Selecione uma opção --</option>';
+  justificationSelect.innerHTML = '<option value="">-- Selecione uma opção --</option>';
   reasons.forEach(reason => {
     const option = document.createElement('option');
     option.value = reason;
     option.textContent = reason;
     justificationSelect.appendChild(option);
   });
-let isRequired = false;
+  let isRequired = false;
   if (type === 'Finalizar') {
     const desvio = calculateDesvio(task);
-if (desvio < 0) {
+    if (desvio < 0) {
       justificationRequired.textContent = `🚨 Justificativa obrigatória devido ao ATRASO de ${formatMinutes(Math.abs(desvio))}!`;
-isRequired = true;
+      isRequired = true;
     } else {
-      justificationRequired.textContent = `✅ Concluído dentro/antes do tempo.
-Nenhuma justificativa necessária.`;
+      justificationRequired.textContent = `✅ Concluído dentro/antes do tempo. Nenhuma justificativa necessária.`;
       isRequired = false;
     }
   } else if (type === 'Pausar') {
     justificationRequired.textContent = `Motivo da pausa é altamente recomendado.`;
-}
+  }
   justificationRequired.classList.toggle('hidden', !isRequired && type !== 'Pausar');
   currentAction.isRequired = isRequired;
 
@@ -1099,11 +1160,11 @@ async function handleConfirmedAction(){
   const { taskId, type, isRequired } = currentAction;
   const justificationSelect = document.getElementById('justification-select');
   const justificationText = document.getElementById('justification-text').value.trim();
-const justification = justificationSelect.value;
+  const justification = justificationSelect.value;
   const justificationRequired = document.getElementById('justification-required-text');
   if (isRequired && !justification) {
     justificationRequired.textContent = "🚨 Você deve selecionar um motivo principal!";
-justificationRequired.classList.remove('hidden');
+    justificationRequired.classList.remove('hidden');
     return;
   }
   justificationRequired.classList.add('hidden');
@@ -1111,7 +1172,7 @@ justificationRequired.classList.remove('hidden');
   if (type === 'Finalizar') {
     await updateTaskStatus(taskId, 'Concluído', null, justification, justificationText);
     updateView(userViewSelect.value);
-} else if (type === 'Pausar') {
+  } else if (type === 'Pausar') {
     await updateTaskStatus(taskId, 'Pausada', 'PAUSA', justification, justificationText);
   }
   closeModal();
@@ -1119,18 +1180,18 @@ justificationRequired.classList.remove('hidden');
 function openInstructionModal(taskId) {
   const task = allTasks[taskId];
   if (!task) return;
-document.getElementById('instruction-modal-header').textContent =
+  document.getElementById('instruction-modal-header').textContent =
     `OF ${task.id_of} - Chicote ${task.chicote} - Setor: ${task.setor}`;
   document.getElementById('instruction-modal-content').innerHTML =
     task.instrucao_trabalho ||
-'Nenhuma instrução de trabalho cadastrada para esta etapa.';
+    'Nenhuma instrução de trabalho cadastrada para esta etapa.';
   openModal('instruction-modal');
   lucide.createIcons();
 }
 
 function openUserModal() {
   const modal = document.getElementById('user-modal');
-if(modal) modal.style.display = 'flex';
+  if(modal) modal.style.display = 'flex';
   setTimeout(()=>{
     const roleSel = document.getElementById('user-role');
     const pinWrap = document.getElementById('user-pin-wrap');
@@ -1146,19 +1207,19 @@ if(modal) modal.style.display = 'flex';
 function confirmUser(){
   const role = document.getElementById('user-role').value;
   const sector = document.getElementById('user-sector').value;
-if (role === 'MASTER') {
+  if (role === 'MASTER') {
     const pin = document.getElementById('user-pin').value;
     if (pin !== MASTER_PIN) { alert("PIN incorreto."); return;
-}
+    }
     setUser({ role: 'MASTER', name: 'Master' });
-} else {
+  } else {
     if (!sector) { alert("Selecione o setor."); return;
-}
+    }
     setUser({ role: 'OPERADOR', sector, name: 'Operador' });
   }
   document.getElementById('user-modal').style.display = 'none';
   setupSectorDropdowns();
-  updateView(userViewSelect.value);
+  updateView(isMaster() ? 'PCP' : 'Operador'); // Força a view correta no login
   injectSearchInputs();
 }
 
@@ -1166,28 +1227,26 @@ if (role === 'MASTER') {
    RENDERIZAÇÃO
    ============================ */
 function setupUIRefresh(){
-  setInterval(()=>{
-    if (!pcpView.classList.contains('hidden')) { renderOFs(); renderKPIs(); }
-    if (!operatorView.classList.contains('hidden')) renderTasks();
-  }, 10000);
+  // Atualização de 10s removida, pois os listeners do Firebase fazem isso em tempo real
+  // Se precisar de um "refresh" para tempo (ex: desvio), é melhor fazer no renderTasks/renderOFs
 }
 function injectSearchInputs(){
   // PCP search
   const wrap = document.getElementById('pcp-of-search-wrap');
   if (wrap && !wrap.dataset.ready){
     wrap.classList.remove('hidden');
-wrap.dataset.ready = "1";
+    wrap.dataset.ready = "1";
     const input = document.getElementById('pcp-of-search');
     if (input) input.addEventListener('input', (e)=>{ pcpSearchOF = (e.target.value||"").trim().toUpperCase(); renderOFs(); });
-}
+  }
   // Operator search
   const opWrap = document.getElementById('operator-of-search-wrap');
   if (opWrap && !opWrap.dataset.ready){
     opWrap.classList.remove('hidden');
-opWrap.dataset.ready = "1";
+    opWrap.dataset.ready = "1";
     const input = document.getElementById('operator-of-search');
     if (input) input.addEventListener('input', (e)=>{ operatorSearchOF = (e.target.value||"").trim().toUpperCase(); renderTasks(); });
-}
+  }
 }
 
 function renderKPIs(){
@@ -1195,19 +1254,19 @@ function renderKPIs(){
   if (!kpisContainer) return;
 
   const totalOFs = Object.keys(allOFs).filter(k=> allOFs[k]?.status !== 'Concluído').length;
-const concludedTasks = Object.values(allTasks).filter(t=>t.status==='Concluído').length;
+  const concludedTasks = Object.values(allTasks).filter(t=>t.status==='Concluído').length;
   const totalTasks = Object.values(allTasks).length;
 
   const logsAtraso = allOcurrencesLog.filter(l => l.TIPO === 'ATRASO');
-const totalPause = allOcurrencesLog.reduce((s,l)=> s + (l.TEMPO_PAUSA||0), 0);
+  const totalPause = allOcurrencesLog.reduce((s,l)=> s + (l.TEMPO_PAUSA||0), 0);
   const totalAtraso = logsAtraso.reduce((s,l)=> s + (l.TEMPO_ATRASO||0), 0);
-const kpiData = [
-    { title:"OFs Ativas", value: totalOFs, icon:"package", color:"bg-blue-600" },
-    { title:"Tarefas Concluídas", value: `${concludedTasks} / ${totalTasks}`, icon:"check-circle", color:"bg-green-600" },
-    { title:"Pausas Totais (min)", value: totalPause.toFixed(1), icon:"pause-circle", color:"bg-yellow-600" },
-    { title:"Atraso Total (min)", value: totalAtraso.toFixed(1), icon:"alert-triangle", color:"bg-red-600" },
+  const kpiData = [
+    { title:"OFs Ativas", value: totalOFs, icon:"package", color:"bg-[var(--cor-primaria)]" },
+    { title:"Tarefas Concluídas", value: `${concludedTasks} / ${totalTasks}`, icon:"check-circle", color:"bg-[var(--cor-sucesso)]" },
+    { title:"Pausas Totais (min)", value: totalPause.toFixed(1), icon:"pause-circle", color:"bg-[var(--cor-alerta)]" },
+    { title:"Atraso Total (min)", value: totalAtraso.toFixed(1), icon:"alert-triangle", color:"bg-[var(--cor-perigo)]" },
   ];
-kpisContainer.innerHTML = kpiData.map(k=>`
+  kpisContainer.innerHTML = kpiData.map(k=>`
     <div class="${k.color} text-white p-3 sm:p-4 rounded-xl shadow-md flex items-center justify-between">
       <div>
         <p class="text-xs sm:text-sm font-medium opacity-80">${k.title}</p>
@@ -1215,226 +1274,319 @@ kpisContainer.innerHTML = kpiData.map(k=>`
       </div>
       <i data-lucide="${k.icon}" class="w-7 h-7 sm:w-8 sm:h-8 opacity-70"></i>
     </div>`).join('');
-lucide.createIcons();
+  lucide.createIcons();
 }
 
-function updateView(view){
-  // 🔒 Se não houver usuário, força login
-  if (!currentUser) {
-    pcpView.classList.add('hidden');
-operatorView.classList.add('hidden'); reportView.classList.add('hidden');
-    openUserModal(); return;
+// NOVO: Renderiza o Gráfico de Carga de Trabalho
+function renderWorkloadChart() {
+  const ctx = document.getElementById('workload-chart');
+  if (!ctx) return; // Sai se a view não for PCP
+
+  // 1. Calcular Dados (Opção B: Tempo Planejado Restante)
+  const tasksNaoConcluidas = Object.values(allTasks).filter(t => t.status !== 'Concluído');
+  const cargaPorSetor = {}; // Ex: { 'Corte': 120, 'Montagem': 300 }
+
+  // Inicializa todos os setores com 0 para garantir que apareçam
+  SECTORS.forEach(setor => { cargaPorSetor[setor] = 0; });
+
+  tasksNaoConcluidas.forEach(task => {
+    if (cargaPorSetor.hasOwnProperty(task.setor)) {
+      cargaPorSetor[task.setor] += task.tempo_planejado || 0;
+    }
+  });
+
+  // Filtra setores sem carga para não poluir o gráfico
+  const labels = Object.keys(cargaPorSetor).filter(setor => cargaPorSetor[setor] > 0);
+  const data = labels.map(setor => cargaPorSetor[setor]);
+
+  // 2. Desenhar o Gráfico
+  if (workloadChart) {
+    workloadChart.destroy(); // Destrói gráfico anterior para recriar
   }
 
-  // Operador não pode trocar para PCP/Relatório
-  if (isOperador() && view !== 'Operador'){ view = 'Operador';
+  workloadChart = new Chart(ctx, {
+    type: 'bar', // Gráfico de Barras
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Minutos Planejados Restantes',
+        data: data,
+        backgroundColor: 'rgba(150, 0, 24, 0.6)', // Cor Carmim com transparência
+        borderColor: 'rgba(150, 0, 24, 1)', // Cor Carmim sólida
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y', // Transforma em Barras Horizontais (melhor para ler setores)
+      scales: {
+        x: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Minutos'
+          }
+        },
+        y: {
+          grid: {
+            display: false
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          display: false // Legenda desnecessária (só 1 dataset)
+        }
+      }
+    }
+  });
 }
 
+
+function updateView(view){
+  if (!currentUser) {
+    pcpView.classList.add('hidden');
+    operatorView.classList.add('hidden'); 
+    reportView.classList.add('hidden');
+    adminView.classList.add('hidden'); // NOVO
+    openUserModal(); 
+    return;
+  }
+
+  // Operador não pode trocar de visão
+  if (isOperador() && view !== 'Operador'){ 
+    view = 'Operador';
+  }
+  
+  // NOVO: Adiciona/Remove a opção "Admin" do select
+  const adminOption = userViewSelect.querySelector('option[value="Admin"]');
+  if (isMaster()) {
+    if (!adminOption) {
+      userViewSelect.innerHTML += '<option value="Admin">Visão: Administração</option>';
+    }
+  } else {
+    if (adminOption) adminOption.remove();
+  }
+
   const isPCP = view === 'PCP';
+  const isOperador = view === 'Operador';
   const isReport = view === 'Relatorio';
+  const isAdmin = view === 'Admin'; // NOVO
 
   pcpView.classList.toggle('hidden', !isPCP);
-  operatorView.classList.toggle('hidden', (isPCP || isReport));
-reportView.classList.toggle('hidden', !isReport);
+  operatorView.classList.toggle('hidden', !isOperador);
+  reportView.classList.toggle('hidden', !isReport);
+  adminView.classList.toggle('hidden', !isAdmin); // NOVO
+  
   userViewSelect.value = view;
+  userViewSelect.disabled = isOperador;
 
   // Botões por permissão
   btnCreateOF.classList.toggle('hidden', !isMaster());
-  btnSetupRoteiro.classList.toggle('hidden', !isMaster());
-  btnThemeMaster.classList.toggle('hidden', !isMaster());
+  // btnSetupRoteiro.classList.toggle('hidden', !isMaster()); // REMOVIDO
+  // btnThemeMaster.classList.toggle('hidden', !isMaster()); // REMOVIDO
   btnProfile.classList.remove('hidden');
-  userViewSelect.disabled = isOperador();
-// Mostra/Esconde os botões de ação do Relatório
+
   const btnExport = document.getElementById('btn-export-report');
   const btnDelete = document.getElementById('btn-delete-report');
   if(btnExport) btnExport.classList.toggle('hidden', !isMaster());
   if(btnDelete) btnDelete.classList.toggle('hidden', !isMaster());
 
-
-  if (isPCP){ renderKPIs(); renderOFs(); }
-  else if (view === 'Operador'){ renderTasks();
-}
-  else if (isReport){ renderReport(); }
+  // Renderiza a view ativa
+  if (isPCP){ 
+    renderKPIs(); 
+    renderOFs(); 
+    renderWorkloadChart(); // NOVO
+  }
+  else if (isOperador){ 
+    renderTasks();
+  }
+  else if (isReport){ 
+    renderReport(); 
+  }
+  else if (isAdmin) {
+    renderRoteiros(); // NOVO (Renderiza o setup de roteiro)
+  }
 
   injectSearchInputs();
   lucide.createIcons();
 }
 window.updateView = updateView;
 
-// === INÍCIO DA ALTERAÇÃO (Função renderReport Atualizada) ===
 function renderReport(){
   const body = document.getElementById('report-table-body');
-if (!body) return; // Garante que o elemento exista
+  if (!body) return;
 
   if (allOcurrencesLog.length === 0){
-    // Atualiza o colspan para 8 (considerando a nova coluna de checkbox)
     body.innerHTML = `<tr><td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">Nenhuma ocorrência registrada.</td></tr>`;
-    
-    // Garante que o botão de deletar desabilite se a lista ficar vazia
     const selectAllCheckbox = document.getElementById('report-select-all');
     if (selectAllCheckbox) selectAllCheckbox.checked = false;
     updateDeleteButtonState();
     return;
-}
+  }
   
   const html = allOcurrencesLog.map(log=>{
     const atrasoClass = (log.TEMPO_ATRASO||0) > 0 ? 'highlight-red' : 'text-gray-600';
-    const pausaClass = (log.TEMPO_PAUSA||0) > 0 ? 'text-yellow-700 font-semibold' : 'text-gray-600';
+    const pausaClass = (log.TEMPO_PAUSA||0) > 0 ? 'font-semibold text-[var(--cor-alerta)]' : 'text-gray-600';
     
     return `
       <tr class="hover:bg-gray-50">
         <td class="px-2 sm:px-4 py-2 text-center">
           <input type="checkbox" name="report_checkbox" value="${log.id}" 
                  onclick="updateDeleteButtonState()"
-                 class="report-item-checkbox rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                 class="report-item-checkbox rounded border-gray-300 text-[var(--cor-primaria)] focus-ring-primary">
         </td>
         <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm font-medium text-gray-900">${log.OF}</td>
         <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm text-gray-600">${log.CHICOTE}</td>
         <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm text-gray-600">${log.ATIVIDADE}</td>
-        <td class="px-3 sm:px-6 py-2 text-sm text-gray-700">${log.MOTIVO_PAUSA 
-|| '-'}</td>
+        <td class="px-3 sm:px-6 py-2 text-sm text-gray-700">${log.MOTIVO_PAUSA || '-'}</td>
         <td class="px-3 sm:px-6 py-2 text-sm text-gray-700">${log.MOTIVO_ATRASO || '-'}</td>
         <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm ${pausaClass}">${(log.TEMPO_PAUSA||0).toFixed(2)}</td>
         <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm ${atrasoClass}">${(log.TEMPO_ATRASO||0).toFixed(2)}</td>
       </tr>`;
-}).join('');
+  }).join('');
   body.innerHTML = html;
 
-  // Reseta o "select all" e atualiza o estado do botão
   const selectAllCheckbox = document.getElementById('report-select-all');
   if (selectAllCheckbox) selectAllCheckbox.checked = false;
   updateDeleteButtonState();
 }
-// === FIM DA ALTERAÇÃO ===
 
 function renderOFs(){
-  if (!pcpView.classList.contains('hidden')) {
-    let ofs = Object.values(allOFs).filter(of => of.status !== 'Concluído');
-// 🔎 filtro por OF na tela PCP
-    if (pcpSearchOF) ofs = ofs.filter(of => (of.id || "").toUpperCase().includes(pcpSearchOF));
-const ofsHtml = ofs.map(of=>{
-      const tasks = Object.values(allTasks).filter(t=> t.id_of === of.id);
-      const completed = tasks.filter(t => t.status === 'Concluído').length; // contagem real
-      const nextTask = tasks.find(t=> t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada');
+  if (pcpView.classList.contains('hidden')) return;
+  
+  let ofs = Object.values(allOFs).filter(of => of.status !== 'Concluído');
+  if (pcpSearchOF) ofs = ofs.filter(of => (of.id || "").toUpperCase().includes(pcpSearchOF));
+  
+  const ofsHtml = ofs.map(of=>{
+    const tasks = Object.values(allTasks).filter(t=> t.id_of === of.id);
+    const completed = tasks.filter(t => t.status === 'Concluído').length;
+    const nextTask = tasks.find(t=> t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada');
 
-      let statusColor = 'bg-gray-100 border-gray-300';
-      let progress = 0;
+    let statusColor = 'bg-gray-100 border-gray-300';
+    let progress = 0;
 
-      if (tasks.length > 0){
-        progress = Math.floor((completed / tasks.length) * 100);
-     
-   if (progress === 0) statusColor = 'bg-gray-200 border-gray-400';
-        else if (progress < 100) statusColor = 'bg-blue-100 border-blue-400';
-        const anyTaskDelayed = tasks.some(t => calculateDesvio(t) < -5);
-        if (anyTaskDelayed) statusColor = 'bg-red-100 border-red-500';
+    if (tasks.length > 0){
+      progress = Math.floor((completed / tasks.length) * 100);
+  
+      if (progress === 0) statusColor = 'bg-gray-200 border-gray-400';
+      else if (progress < 100) statusColor = 'bg-blue-100 border-blue-400';
+      
+      // NOVO: Prioridade da OF afeta a cor
+      if (of.priority === 'Alta') {
+        statusColor = 'bg-red-100 border-red-500';
+      } else {
+         const anyTaskDelayed = tasks.some(t => calculateDesvio(t) < -5);
+         if (anyTaskDelayed) statusColor = 'bg-yellow-100 border-yellow-500';
       }
+    }
 
-      return `
-        <div class="${statusColor} p-4 rounded-xl shadow-lg border-l-4 ${statusColor.replace('bg-', 'border-')}"
-             onclick="openOFDetails('${of.id}')">
-     
-     <h3 class="text-lg font-bold text-gray-800 mb-1 flex justify-between items-center">
-            ${of.id}
-            ${of.status === 'Concluído' ?
-'<i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>' : (nextTask ? '<i data-lucide="play-circle" class="w-5 h-5 text-blue-600"></i>' : '<i data-lucide="pause-circle" class="w-5 h-5 text-yellow-600"></i>')}
-          </h3>
-          <p class="text-sm text-gray-600 mb-3">${of.chicote} |
-Qtd: ${of.quantidade}</p>
+    return `
+      <div class="${statusColor} p-4 rounded-xl shadow-lg border-l-4 ${statusColor.replace('bg-', 'border-')}"
+           onclick="openOFDetails('${of.id}')">
+        <h3 class="text-lg font-bold text-gray-800 mb-1 flex justify-between items-center">
+          ${of.id}
+          ${of.status === 'Concluído' ? '<i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>' : (nextTask ? '<i data-lucide="play-circle" class="w-5 h-5 text-blue-600"></i>' : '<i data-lucide="pause-circle" class="w-5 h-5 text-yellow-600"></i>')}
+        </h3>
+        <p class="text-sm text-gray-600 mb-3">${of.chicote} | Qtd: ${of.quantidade}</p>
 
-          <div class="flex justify-between items-center mb-1">
-            <span class="text-xs font-semibold text-gray-600">${progress}% Concluído</span>
-            <span class="text-xs font-medium text-gray-500">${completed} / ${tasks.length} etapas</span>
-          </div>
-          <div class="w-full bg-gray-200 rounded-full h-1.5">
-            <div class="h-1.5 rounded-full bg-blue-500" style="width:${progress}%"></div>
-          </div>
- 
-         <p class="text-xs mt-2 text-gray-700 font-medium">Próxima Etapa: ${nextTask ?
-nextTask.nome_atividade : (of.status === 'Concluído' ? 'Finalizada' : 'N/A')}</p>
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-xs font-semibold text-gray-600">${progress}% Concluído</span>
+          <span class="text-xs font-medium text-gray-500">${completed} / ${tasks.length} etapas</span>
         </div>
-      `;
-}).join('');
+        <div class="w-full bg-gray-200 rounded-full h-1.5">
+          <div class="h-1.5 rounded-full bg-[var(--cor-primaria)]" style="width:${progress}%"></div>
+        </div>
+        <p class="text-xs mt-2 text-gray-700 font-medium">Próxima Etapa: ${nextTask ? nextTask.nome_atividade : (of.status === 'Concluído' ? 'Finalizada' : 'N/A')}</p>
+      </div>
+    `;
+  }).join('');
 
-    ofsListContainer.innerHTML = ofsHtml.length > 0 ? ofsHtml : '<div class="col-span-3 p-6 text-center text-gray-500 bg-white rounded-xl shadow-lg">Nenhuma OF ativa.</div>';
-    lucide.createIcons();
-}
+  ofsListContainer.innerHTML = ofsHtml.length > 0 ? ofsHtml : '<div class="col-span-3 p-6 text-center text-gray-500 bg-white rounded-xl shadow-lg">Nenhuma OF ativa.</div>';
+  lucide.createIcons();
 }
 
 function renderTasks(){
-  if (!operatorView.classList.contains('hidden')) {
-    const tasks = Object.values(allTasks)
-      .filter(t =>
-        t.setor === currentSectorFilter &&
-        (t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada') &&
-        (!operatorSearchOF || (t.id_of || "").toUpperCase().includes(operatorSearchOF))
-      )
-      .sort((a,b) => (a.status === 'Em Processo' ? -1 : 1) || a.ordem - b.ordem);
-const tasksHtml = tasks.map(task=>{
-      const tempoReal = calculateTempoReal(task);
-      const desvio = calculateDesvio(task);
-      const totalPauseMinutes = calculateTotalPauseMinutes(task);
+  if (operatorView.classList.contains('hidden')) return;
 
-      let statusColor = 'bg-gray-100 border-gray-300';
-      let statusText = task.status;
-      let actions = '';
-      if (task.status === 'Em Espera'){
-        statusColor = 'bg-green-100 border-green-500';
-        statusText = 'Aguardando Início';
-        actions = 
-`<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">Iniciar</button>`;
-      } else if (task.status === 'Em Processo'){
-        statusColor = 'bg-blue-100 border-blue-500';
-        statusText = 'Em Processo';
-        actions = `
-          <button onclick="pauseTask('${task.id}')" class="px-3 py-1.5 text-sm bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">Pausar</button>
-          <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">Concluir</button>`;
-} else if (task.status === 'Pausada'){
-        statusColor = 'bg-yellow-100 border-yellow-500';
-        statusText = 'Pausada';
-actions = `
-          <button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">Retomar</button>
-          <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">Concluir</button>`;
-}
+  const tasks = Object.values(allTasks)
+    .filter(t =>
+      t.setor === currentSectorFilter &&
+      (t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada') &&
+      (!operatorSearchOF || (t.id_of || "").toUpperCase().includes(operatorSearchOF))
+    )
+    // NOVO: Ordena por Prioridade (Alta primeiro), depois por Status (Em Processo)
+    .sort((a,b) => {
+      const priorityA = a.priority === 'Alta' ? 1 : (a.priority === 'Media' ? 2 : 3);
+      const priorityB = b.priority === 'Alta' ? 1 : (b.priority === 'Media' ? 2 : 3);
+      if (priorityA !== priorityB) return priorityA - priorityB;
+      if (a.status === 'Em Processo') return -1;
+      if (b.status === 'Em Processo') return 1;
+      return a.ordem - b.ordem;
+    });
 
-      return `
-        <div class="${statusColor} border p-3 sm:p-4 rounded-xl shadow">
-          <div class="flex justify-between items-center mb-2">
-            <div>
-              <p class="text-sm font-bold text-gray-800">${task.nome_atividade}</p>
-              <p class="text-xs text-gray-600">OF <span class="font-semibold">${task.id_of}</span> • Setor ${task.setor}</p>
-            </div>
-   
-         <button class="p-2 rounded-lg hover:bg-gray-100" title="Instrução de Trabalho" onclick="openInstructionModal('${task.id}')">
-              <i data-lucide="book" class="w-5 h-5"></i>
-            </button>
+  const tasksHtml = tasks.map(task=>{
+    const tempoReal = calculateTempoRealMinutes(task); // CORREÇÃO BUG TEMPO
+    const desvio = calculateDesvio(task);
+    const totalPauseMinutes = calculateTotalPauseMinutes(task);
+
+    let statusColor = ''; // Removido, pois a prioridade define a cor de fundo
+    let statusText = task.status;
+    let actions = '';
+    
+    if (task.status === 'Em Espera'){
+      statusText = 'Aguardando Início';
+      actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-[var(--cor-primaria)] text-white rounded-lg hover:bg-[var(--cor-primaria-hover)]">Iniciar</button>`;
+    } else if (task.status === 'Em Processo'){
+      statusText = 'Em Processo';
+      actions = `
+        <button onclick="pauseTask('${task.id}')" class="px-3 py-1.5 text-sm bg-[var(--cor-alerta)] text-white rounded-lg hover:bg-[var(--cor-alerta-hover)]">Pausar</button>
+        <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-[var(--cor-sucesso)] text-white rounded-lg hover:bg-[var(--cor-sucesso-hover)]">Concluir</button>`;
+    } else if (task.status === 'Pausada'){
+      statusText = 'Pausada';
+      actions = `
+        <button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-[var(--cor-primaria)] text-white rounded-lg hover:bg-[var(--cor-primaria-hover)]">Retomar</button>
+        <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-[var(--cor-sucesso)] text-white rounded-lg hover:bg-[var(--cor-sucesso-hover)]">Concluir</button>`;
+    }
+
+    // NOVO: Classe de prioridade aplicada ao card
+    const priorityClass = getPriorityClass(task.priority);
+
+    return `
+      <div class="${priorityClass} border p-3 sm:p-4 rounded-xl shadow">
+        <div class="flex justify-between items-center mb-2">
+          <div>
+            <p class="text-sm font-bold text-gray-800">${task.nome_atividade}</p>
+            <p class="text-xs text-gray-600">OF <span class="font-semibold">${task.id_of}</span> • Setor ${task.setor}</p>
           </div>
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm">
-            <div><span class="text-gray-500">Setup:</span> <span class="font-semibold">${formatMinutes(task.tempo_setup)}</span></div>
-            <div><span class="text-gray-500">Ciclo 
-(min/pç):</span> <span class="font-semibold">${Number(task.tempo_ciclo).toFixed(2)}</span></div>
-            <div><span class="text-gray-500">Planejado:</span> <span class="font-semibold">${formatMinutes(task.tempo_planejado)}</span></div>
-            <div><span class="text-gray-500">Pausa:</span> <span class="font-semibold">${formatMinutes(totalPauseMinutes)}</span></div>
-          </div>
-          <div class="mt-2 flex justify-between items-center">
-            <span class="text-xs font-semibold ${desvio < 0 ?
-'text-red-600' : 'text-gray-700'}">Desvio: ${desvio < 0 ? '-' : ''}${formatMinutes(Math.abs(desvio))}</span>
-            <span class="text-xs font-medium text-gray-600">${statusText}</span>
-          </div>
-          <div class="mt-3 flex gap-2">${actions}</div>
+          <button class="p-2 rounded-lg hover:bg-gray-100" title="Instrução de Trabalho" onclick="openInstructionModal('${task.id}')">
+            <i data-lucide="book" class="w-5 h-5"></i>
+          </button>
         </div>
-      `;
-    }).join('');
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm">
+          <div><span class="text-gray-500">Setup:</span> <span class="font-semibold">${formatMinutes(task.tempo_setup)}</span></div>
+          <div><span class="text-gray-500">Ciclo (min/pç):</span> <span class="font-semibold">${Number(task.tempo_ciclo).toFixed(2)}</span></div>
+          <div><span class="text-gray-500">Planejado:</span> <span class="font-semibold">${formatMinutes(task.tempo_planejado)}</span></div>
+          <div><span class="text-gray-500">Pausa:</span> <span class="font-semibold">${formatMinutes(totalPauseMinutes)}</span></div>
+        </div>
+        <div class="mt-2 flex justify-between items-center">
+          <span class="text-xs font-semibold ${desvio < 0 ? 'text-red-600' : 'text-gray-700'}">Desvio: ${desvio < 0 ? '-' : ''}${formatMinutes(Math.abs(desvio))}</span>
+          <span class="text-xs font-medium text-gray-600">${statusText}</span>
+        </div>
+        <div class="mt-3 flex gap-2">${actions}</div>
+      </div>
+    `;
+  }).join('');
 
-    tasksListContainer.innerHTML = tasksHtml || '<div class="p-6 text-center text-gray-500 bg-white rounded-xl shadow-lg">Sem tarefas para este setor/OF.</div>';
-    lucide.createIcons();
-  }
+  tasksListContainer.innerHTML = tasksHtml || '<div class="p-6 text-center text-gray-500 bg-white rounded-xl shadow-lg">Sem tarefas para este setor/OF.</div>';
+  lucide.createIcons();
 }
 
 /* ============================
    DETALHES / EXPORTS
    ============================ */
-function 
-openOFDetails(ofId){
+function openOFDetails(ofId){
   window.__ofDetailsOpenId = ofId;
   const of = allOFs[ofId];
   const tasks = Object.values(allTasks).filter(t=> t.id_of === ofId);
@@ -1442,17 +1594,16 @@ openOFDetails(ofId){
   const progress = tasks.length ? Math.floor((completed / tasks.length) * 100) : 0;
 
   document.getElementById('of-details-title').textContent = `OF ${ofId} — ${of.chicote}`;
-document.getElementById('of-details-summary').innerHTML = `
+  document.getElementById('of-details-summary').innerHTML = `
     <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Quantidade</p><p class="font-semibold">${of.quantidade}</p></div>
     <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Etapas</p><p class="font-semibold">${tasks.length}</p></div>
     <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Concluídas</p><p class="font-semibold">${completed}</p></div>
-    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Status</p><p class="font-semibold">${of.status ||
-'-'}</p></div>
+    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Status</p><p class="font-semibold">${of.status || '-'}</p></div>
   `;
   document.getElementById('of-details-progress').style.width = `${progress}%`;
 
   const content = tasks.sort((a,b)=> a.ordem - b.ordem).map(task=>{
-    const tempoReal = calculateTempoReal(task);
+    const tempoReal = calculateTempoRealMinutes(task); // CORREÇÃO BUG TEMPO
     const desvio = calculateDesvio(task);
     return `
       <div class="border rounded-lg p-3">
@@ -1461,8 +1612,7 @@ document.getElementById('of-details-summary').innerHTML = `
           <span class="text-xs ${task.status==='Concluído'?'text-green-700':'text-gray-600'}">${task.status}</span>
         </div>
         <p class="text-xs text-gray-600">Setor: ${task.setor}</p>
-       
- <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm mt-2">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm mt-2">
           <div><span class="text-gray-500">Setup:</span> <span class="font-semibold">${formatMinutes(task.tempo_setup)}</span></div>
           <div><span class="text-gray-500">Ciclo:</span> <span class="font-semibold">${Number(task.tempo_ciclo).toFixed(2)}</span></div>
           <div><span class="text-gray-500">Planejado:</span> <span class="font-semibold">${formatMinutes(task.tempo_planejado)}</span></div>
@@ -1471,7 +1621,7 @@ document.getElementById('of-details-summary').innerHTML = `
         <p class="mt-1 text-xs ${desvio<0?'text-red-600':'text-gray-700'}">Desvio: ${desvio<0?'-':''}${formatMinutes(Math.abs(desvio))}</p>
       </div>
     `;
-}).join('');
+  }).join('');
   document.getElementById('of-details-content').innerHTML = content;
 
   btnDeleteOF.classList.toggle('hidden', !isMaster());
@@ -1480,20 +1630,18 @@ document.getElementById('of-details-summary').innerHTML = `
 
 function exportReportCSV(){
   const rows = [["OF","CHICOTE","ATIVIDADE","MOTIVO_PAUSA","MOTIVO_ATRASO","T. PAUSA (min)","T. ATRASO (min)"]];
-allOcurrencesLog.forEach(l => {
+  allOcurrencesLog.forEach(l => {
     rows.push([l.OF, l.CHICOTE, l.ATIVIDADE, l.MOTIVO_PAUSA||"", l.MOTIVO_ATRASO||"", (l.TEMPO_PAUSA||0).toFixed(2), (l.TEMPO_ATRASO||0).toFixed(2)]);
   });
   downloadCSV(rows, `relatorio_ocorrencias_${new Date().toISOString().slice(0,10)}.csv`);
 }
 
-// === INÍCIO DA ALTERAÇÃO (Novas funções de Exclusão em Massa) ===
+// Funções de Exclusão em Massa (do seu código)
 function updateDeleteButtonState() {
   const btn = document.getElementById('btn-delete-report');
   if (!btn) return;
   const anyChecked = document.querySelectorAll('#report-table-body .report-item-checkbox:checked').length > 0;
   btn.disabled = !anyChecked;
-
-  // Desmarca o "Select All" se algum item for desmarcado individualmente
   if (!anyChecked) {
     const selectAllCheckbox = document.getElementById('report-select-all');
     if (selectAllCheckbox) selectAllCheckbox.checked = false;
@@ -1510,56 +1658,48 @@ function toggleSelectAllOcorrencias(checkbox) {
 
 async function deleteSelectedOcorrencias() {
   const selectedIds = Array.from(document.querySelectorAll('#report-table-body .report-item-checkbox:checked')).map(cb => cb.value);
-  
   if (selectedIds.length === 0) {
     alert("Nenhuma ocorrência selecionada.");
     return;
   }
-
   if (!confirm(`Tem certeza que deseja excluir ${selectedIds.length} ocorrência(s)? Esta ação não pode ser desfeita.`)) {
     return;
   }
-  
-  // Desabilitar botão para evitar cliques duplos
   const btn = document.getElementById('btn-delete-report');
   if (btn) btn.disabled = true;
 
   try {
     if (window.db) {
-      // Modo Firebase: Exclui em lote
       const batch = db.batch();
       selectedIds.forEach(id => {
         batch.delete(db.collection(OCORRENCIA_COLLECTION).doc(id));
       });
       await batch.commit();
-      // O listener do Firebase (onSnapshot) vai atualizar a tela automaticamente.
+      // O listener (onSnapshot) atualiza a tela
     } else {
-      // Modo Simulação (localStorage)
       allOcurrencesLog = allOcurrencesLog.filter(log => !selectedIds.includes(log.id));
       localStorage.setItem('sim_ocorrencias', JSON.stringify(allOcurrencesLog));
-      // No modo simulação, precisamos renderizar manualmente
       renderReport();
     }
-    
   } catch (e) {
     alert("Erro ao excluir ocorrências: " + e.message);
-    if (btn) btn.disabled = false; // Re-abilita se der erro
+    if (btn) btn.disabled = false;
   }
 }
-// === FIM DA ALTERAÇÃO ===
-
 
 function exportOFTasksCSV(ofId){
   const tasks = Object.values(allTasks).filter(t => t.id_of === ofId);
   const rows = [["OF","ATIVIDADE","SETOR","STATUS","SETUP(min)","CICLO(min/pç)","PLANEJADO(min)","REAL(min)","DESVIO(min)"]];
-tasks.forEach(t => {
+  tasks.forEach(t => {
     rows.push([
       t.id_of, t.nome_atividade, t.setor, t.status,
       Number(t.tempo_setup).toFixed(2), Number(t.tempo_ciclo).toFixed(2),
-      Number(t.tempo_planejado).toFixed(2), calculateTempoReal(t).toFixed(2), calculateDesvio(t).toFixed(2),
+      Number(t.tempo_planejado).toFixed(2), 
+      calculateTempoRealMinutes(t).toFixed(2), // CORREÇÃO BUG TEMPO
+      calculateDesvio(t).toFixed(2),
     ]);
   });
-downloadCSV(rows, `of_${ofId}_tasks_${new Date().toISOString().slice(0,10)}.csv`);
+  downloadCSV(rows, `of_${ofId}_tasks_${new Date().toISOString().slice(0,10)}.csv`);
 }
 function downloadCSV(rows, filename){
   const csvContent = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
@@ -1570,24 +1710,23 @@ function downloadCSV(rows, filename){
 }
 
 /* ============================
-   ROTEIROS (lista no modal)
+   ROTEIROS (Renderiza na tela Admin)
    ============================ */
 function renderRoteiros(){
-  const list = document.getElementById('roteiro-list');
+  const list = document.getElementById('roteiro-list-admin'); // NOVO ID
   if (!list) return;
+  
   const items = Object.values(allRoteiros).sort((a,b)=> (a.chicote_nome||'').localeCompare(b.chicote_nome||'')).map(r=>`
     <div class="bg-white border rounded-lg p-3 flex justify-between items-start gap-3">
       <div>
         <p class="text-sm font-semibold">${r.chicote_nome} — <span class="text-gray-700">${r.setor}</span></p>
-  
-      <p class="text-xs text-gray-600">Atividade: ${r.nome_atividade}</p>
-        <p class="text-xs text-gray-600">Setup: ${Number(r.tempo_setup).toFixed(2)} |
-Ciclo: ${Number(r.tempo_ciclo).toFixed(2)}</p>
+        <p class="text-xs text-gray-600">Atividade: ${r.nome_atividade}</p>
+        <p class="text-xs text-gray-600">Setup: ${Number(r.tempo_setup).toFixed(2)} | Ciclo: ${Number(r.tempo_ciclo).toFixed(2)}</p>
       </div>
-      <button class="px-2 py-1 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700" onclick="deleteRoteiroActivity('${r.id}')">Excluir</button>
+      <button class="px-2 py-1 text-xs bg-[var(--cor-perigo)] text-white rounded-lg hover:bg-[var(--cor-perigo-hover)]" onclick="deleteRoteiroActivity('${r.id}')">Excluir</button>
     </div>
   `).join('');
-list.innerHTML = items || '<div class="p-4 text-center text-gray-500 bg-white rounded-lg">Nenhum roteiro cadastrado.</div>';
+  list.innerHTML = items || '<div class="p-4 text-center text-gray-500 bg-white rounded-lg">Nenhum roteiro cadastrado.</div>';
 }
 
 /* ============================
@@ -1615,14 +1754,12 @@ window.exportOFTasksCSV = exportOFTasksCSV;
 window.openUserModal = openUserModal;
 window.confirmUser = confirmUser;
 window.updateSectorFilter = updateSectorFilter;
-window.openThemeModal = openThemeModal;
-window.saveTheme = saveTheme;
+// window.openThemeModal = openThemeModal; // REMOVIDO
+// window.saveTheme = saveTheme; // REMOVIDO
 
-// === INÍCIO DA ALTERAÇÃO (Exposição global das novas funções) ===
 window.deleteSelectedOcorrencias = deleteSelectedOcorrencias;
 window.toggleSelectAllOcorrencias = toggleSelectAllOcorrencias;
 window.updateDeleteButtonState = updateDeleteButtonState;
-// === FIM DA ALTERAÇÃO ===
 </script>
 </body>
 </html>
