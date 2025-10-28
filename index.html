@@ -24,8 +24,8 @@
       --app-bg-image: none;
       
       /* NOVO: Cores de Prioridade */
-      --cor-perigo: #dc2626; /* Vermelho */
-      --cor-neutra: #3b82f6; /* Azul */
+      --cor-perigo: #dc2626; 
+      --cor-neutra: #3b82f6;
     }
     body {
       font-family: "Inter", sans-serif;
@@ -1321,7 +1321,9 @@ function renderWorkloadChart() {
   });
 }
 
-
+// ========================================================
+// === INÍCIO DA CORREÇÃO (BUG 'isOperador') ===
+// ========================================================
 function updateView(view){
   if (!currentUser) {
     pcpView.classList.add('hidden');
@@ -1333,6 +1335,7 @@ function updateView(view){
   }
 
   // Operador não pode trocar de visão
+  // ESTA É A LINHA QUE CHAMAVA A FUNÇÃO ANTES DA CONSTANTE
   if (isOperador() && view !== 'Operador'){ 
     view = 'Operador';
   }
@@ -1348,17 +1351,20 @@ function updateView(view){
   }
 
   const isPCP = view === 'PCP';
-  const isOperador = view === 'Operador';
+  // RENOMEADO: A constante agora se chama 'isOperadorView'
+  const isOperadorView = view === 'Operador';
   const isReport = view === 'Relatorio';
   const isAdmin = view === 'Admin'; // NOVO
 
   pcpView.classList.toggle('hidden', !isPCP);
-  operatorView.classList.toggle('hidden', !isOperador);
+  // CORRIGIDO: Usa a nova constante 'isOperadorView'
+  operatorView.classList.toggle('hidden', !isOperadorView);
   reportView.classList.toggle('hidden', !isReport);
   adminView.classList.toggle('hidden', !isAdmin); // NOVO
   
   userViewSelect.value = view;
-  userViewSelect.disabled = isOperador;
+  // CORRIGIDO: Usa a *função* global 'isOperador()' para checar permissão
+  userViewSelect.disabled = isOperador(); 
 
   // Botões por permissão
   btnCreateOF.classList.toggle('hidden', !isMaster());
@@ -1377,7 +1383,7 @@ function updateView(view){
     renderOFs(); 
     renderWorkloadChart(); // NOVO
   }
-  else if (isOperador){ 
+  else if (isOperadorView){ // CORRIGIDO: Usa a nova constante
     renderTasks();
   }
   else if (isReport){ 
@@ -1390,6 +1396,9 @@ function updateView(view){
   injectSearchInputs();
   lucide.createIcons();
 }
+// ========================================================
+// === FIM DA CORREÇÃO (BUG 'isOperador') ===
+// ========================================================
 window.updateView = updateView;
 
 function renderReport(){
