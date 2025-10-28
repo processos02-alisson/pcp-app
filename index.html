@@ -24,8 +24,8 @@
       --app-bg-image: none;
       
       /* NOVO: Cores de Prioridade */
-      --cor-perigo: #dc2626; 
-      --cor-neutra: #3b82f6;
+      --cor-perigo: #dc2626; /* Vermelho */
+      --cor-neutra: #3b82f6; /* Azul */
     }
     body {
       font-family: "Inter", sans-serif;
@@ -715,7 +715,7 @@ async function initializeApp(){
 function setupFirebaseListeners() {
   if (!window.db) return;
 
-  // CORREÇÃO: Listener único para garantir que tudo seja renderizado após a carga
+  // CORREÇÃO BUG 1 (Pausas em Tempo Real): Ajuste nos listeners para que o updateView seja chamado sempre.
   let collectionsLoaded = { ofs: false, tasks: false, roteiros: false, ocorrencias: false };
   const checkAllLoaded = () => {
     if (Object.values(collectionsLoaded).every(Boolean)) {
@@ -723,11 +723,15 @@ function setupFirebaseListeners() {
         loadingIndicator.classList.add('hidden');
         if (!currentUser) { openUserModal(); }
       }
-      // Atualiza a view atual
+      // Garante que a view seja atualizada após o load inicial
       updateView(userViewSelect.value || (isMaster() ? 'PCP' : 'Operador'));
       injectSearchInputs();
     }
   };
+  const forceUpdateView = () => {
+     if (!loadingIndicator.classList.contains('hidden')) return; // Não atualiza se o loading ainda estiver ativo
+     updateView(userViewSelect.value);
+  }
 
   db.collection(OF_COLLECTION).onSnapshot(snapshot => {
     snapshot.docChanges().forEach(change => {
@@ -737,6 +741,7 @@ function setupFirebaseListeners() {
     });
     collectionsLoaded.ofs = true;
     checkAllLoaded();
+    if (collectionsLoaded.tasks) forceUpdateView(); // Atualiza se as tasks já estiverem carregadas
   });
   
   db.collection(TASK_COLLECTION).onSnapshot(snapshot => {
@@ -747,6 +752,7 @@ function setupFirebaseListeners() {
     });
     collectionsLoaded.tasks = true;
     checkAllLoaded();
+    forceUpdateView(); // Qualquer mudança em task (start, pause, finish) atualiza TUDO
   });
   
   db.collection(ROTEIRO_COLLECTION).onSnapshot(snapshot => {
@@ -767,6 +773,7 @@ function setupFirebaseListeners() {
     allOcurrencesLog.sort((a,b) => getDBTimestamp(b.timestamp) - getDBTimestamp(a.timestamp));
     collectionsLoaded.ocorrencias = true;
     checkAllLoaded();
+    forceUpdateView(); // CORREÇÃO BUG 1: Qualquer nova ocorrência (pausa) força o update da view (KPIs e Relatório)
   });
 }
 
@@ -986,9 +993,6 @@ async function updateTaskStatus(taskId, newStatus, logType = null, justification
 }
 
 
-// ============================================
-// === INÍCIO DA CORREÇÃO (BUG DE TEMPO) ===
-// ============================================
 async function createOcorrenciaLog(task, type, justification, justificationText) {
   const logData = {
     ID_TASK: task.id, OF: task.id_of, CHICOTE: task.chicote, ATIVIDADE: task.nome_atividade,
@@ -1019,9 +1023,6 @@ async function createOcorrenciaLog(task, type, justification, justificationText)
     localStorage.setItem('sim_ocorrencias', JSON.stringify(allOcurrencesLog));
   }
 }
-// ============================================
-// === FIM DA CORREÇÃO (BUG DE TEMPO) ===
-// ============================================
 
 
 /* ============================
@@ -1231,13 +1232,18 @@ function renderKPIs(){
   const kpisContainer = document.getElementById('kpis-container');
   if (!kpisContainer) return;
 
-  const totalOFs = Object.keys(allOFs).filter(k=> allOFs[k]?.status !== 'Concluído').length;
-  const concludedTasks = Object.values(allTasks).filter(t=>t.status==='Concluído').length;
-  const totalTasks = Object.values(allTasks).length;
+  // CORREÇÃO BUG 2: Filtra tasks apenas de OFs Ativas
+  const activeOFIds = Object.keys(allOFs).filter(k => allOFs[k]?.status !== 'Concluído');
+  const activeTasks = Object.values(allTasks).filter(t => activeOFIds.includes(t.id_of));
+  
+  const totalOFs = activeOFIds.length;
+  const concludedTasks = activeTasks.filter(t=>t.status==='Concluído').length;
+  const totalTasks = activeTasks.length; // Total de tarefas ATIVAS (não de excluídas)
 
-  const logsAtraso = allOcurrencesLog.filter(l => l.TIPO === 'ATRASO');
-  const totalPause = allOcurrencesLog.reduce((s,l)=> s + (l.TEMPO_PAUSA||0), 0);
+  const logsAtraso = allOcurrencesLog.filter(l => activeOFIds.includes(l.OF) && l.TIPO === 'ATRASO');
+  const totalPause = allOcurrencesLog.filter(l => activeOFIds.includes(l.OF)).reduce((s,l)=> s + (l.TEMPO_PAUSA||0), 0);
   const totalAtraso = logsAtraso.reduce((s,l)=> s + (l.TEMPO_ATRASO||0), 0);
+  
   const kpiData = [
     { title:"OFs Ativas", value: totalOFs, icon:"package", color:"bg-blue-600" },
     { title:"Tarefas Concluídas", value: `${concludedTasks} / ${totalTasks}`, icon:"check-circle", color:"bg-green-600" },
@@ -1321,9 +1327,6 @@ function renderWorkloadChart() {
   });
 }
 
-// ========================================================
-// === INÍCIO DA CORREÇÃO (BUG 'isOperador') ===
-// ========================================================
 function updateView(view){
   if (!currentUser) {
     pcpView.classList.add('hidden');
@@ -1335,7 +1338,7 @@ function updateView(view){
   }
 
   // Operador não pode trocar de visão
-  // ESTA É A LINHA QUE CHAMAVA A FUNÇÃO ANTES DA CONSTANTE
+  // CORREÇÃO: Chama a função isOperador()
   if (isOperador() && view !== 'Operador'){ 
     view = 'Operador';
   }
@@ -1351,25 +1354,21 @@ function updateView(view){
   }
 
   const isPCP = view === 'PCP';
-  // RENOMEADO: A constante agora se chama 'isOperadorView'
+  // CORRIGIDO: Renomeado para evitar conflito com a função isOperador()
   const isOperadorView = view === 'Operador';
   const isReport = view === 'Relatorio';
   const isAdmin = view === 'Admin'; // NOVO
 
   pcpView.classList.toggle('hidden', !isPCP);
-  // CORRIGIDO: Usa a nova constante 'isOperadorView'
   operatorView.classList.toggle('hidden', !isOperadorView);
   reportView.classList.toggle('hidden', !isReport);
   adminView.classList.toggle('hidden', !isAdmin); // NOVO
   
   userViewSelect.value = view;
-  // CORRIGIDO: Usa a *função* global 'isOperador()' para checar permissão
   userViewSelect.disabled = isOperador(); 
 
   // Botões por permissão
   btnCreateOF.classList.toggle('hidden', !isMaster());
-  // btnSetupRoteiro.classList.toggle('hidden', !isMaster()); // REMOVIDO
-  // btnThemeMaster.classList.toggle('hidden', !isMaster()); // REMOVIDO
   btnProfile.classList.remove('hidden');
 
   const btnExport = document.getElementById('btn-export-report');
@@ -1383,7 +1382,7 @@ function updateView(view){
     renderOFs(); 
     renderWorkloadChart(); // NOVO
   }
-  else if (isOperadorView){ // CORRIGIDO: Usa a nova constante
+  else if (isOperadorView){ 
     renderTasks();
   }
   else if (isReport){ 
@@ -1396,24 +1395,25 @@ function updateView(view){
   injectSearchInputs();
   lucide.createIcons();
 }
-// ========================================================
-// === FIM DA CORREÇÃO (BUG 'isOperador') ===
-// ========================================================
 window.updateView = updateView;
 
 function renderReport(){
   const body = document.getElementById('report-table-body');
   if (!body) return;
+  
+  // CORREÇÃO BUG 2: Filtra ocorrências APENAS de OFs ativas
+  const activeOFIds = Object.keys(allOFs).filter(k => allOFs[k]?.status !== 'Concluído');
+  const activeLogs = allOcurrencesLog.filter(log => activeOFIds.includes(log.OF));
 
-  if (allOcurrencesLog.length === 0){
-    body.innerHTML = `<tr><td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">Nenhuma ocorrência registrada.</td></tr>`;
+  if (activeLogs.length === 0){
+    body.innerHTML = `<tr><td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">Nenhuma ocorrência registrada em OFs ativas.</td></tr>`;
     const selectAllCheckbox = document.getElementById('report-select-all');
     if (selectAllCheckbox) selectAllCheckbox.checked = false;
     updateDeleteButtonState();
     return;
   }
   
-  const html = allOcurrencesLog.map(log=>{
+  const html = activeLogs.map(log=>{
     const atrasoClass = (log.TEMPO_ATRASO||0) > 0 ? 'highlight-red' : 'text-gray-600';
     const pausaClass = (log.TEMPO_PAUSA||0) > 0 ? 'text-yellow-700 font-semibold' : 'text-gray-600';
     
