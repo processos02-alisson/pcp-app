@@ -53,6 +53,17 @@
       border-left-width: 6px;
       border-left-color: #d1d5db; /* Cinza */
     }
+    
+    /* NOVO: Cor de fundo para OFs Concluídas no Histórico */
+    .of-concluida-card {
+        background-color: #f0fdf4; /* Verde bem clarinho */
+        border-left-color: #10b981; /* Verde esmeralda */
+    }
+
+    /* Estilo do Modal de IT (Melhoria Visual) */
+    #instruction-modal .modal-panel {
+        border-top: 8px solid #4f46e5; /* Índigo */
+    }
 
     .modal-fixed { position: fixed; inset: 0; }
     .modal-panel { max-height: calc(100dvh - 2rem); }
@@ -88,6 +99,7 @@
           <option value="PCP">Visão: PCP</option>
           <option value="Operador">Visão: Operador</option>
           <option value="Relatorio">Visão: Relatório</option>
+          <option value="Historico">Visão: Histórico</option>
           </select>
 
         <button onclick="openModal('create-of-modal')" id="btn-create-of"
@@ -193,6 +205,19 @@
           </table>
         </div>
       </div>
+    </div>
+    
+    <div id="historico-view" class="space-y-4 sm:space-y-6 hidden">
+        <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
+            <i data-lucide="archive" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-green-600"></i>
+            Histórico de Ordens de Fabricação Concluídas
+        </h2>
+        <div id="historico-search-wrap" class="mb-2 hidden">
+            <input id="historico-of-search" type="text" placeholder="Pesquisar OF Concluída..."
+                   class="w-full sm:w-64 border border-gray-300 rounded-lg p-2 focus:ring-green-500 focus:border-green-500">
+        </div>
+        <div id="historico-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+            </div>
     </div>
     
     <div id="admin-view" class="space-y-4 sm:space-y-6 hidden">
@@ -440,6 +465,9 @@ let workloadChart = null;
 // Busca por OF nas telas
 let pcpSearchOF = "";
 let operatorSearchOF = "";
+// NOVO: Busca Histórico
+let historicoSearchOF = "";
+
 
 // Simulação
 let taskCounter = 1;
@@ -466,15 +494,14 @@ const DEFAULT_ROTEIROS = {
 const pcpView = document.getElementById("pcp-view");
 const operatorView = document.getElementById("operator-view");
 const reportView = document.getElementById("report-view");
-const adminView = document.getElementById("admin-view"); // NOVO
+const adminView = document.getElementById("admin-view"); 
+const historicoView = document.getElementById("historico-view"); // NOVO
 const loadingIndicator = document.getElementById("loading-indicator");
 const ofsListContainer = document.getElementById("ofs-list-container");
 const tasksListContainer = document.getElementById("tasks-list-container");
 const userViewSelect = document.getElementById("user-view-select");
 const btnCreateOF = document.getElementById("btn-create-of");
-// const btnSetupRoteiro = document.getElementById("btn-setup-roteiro"); // REMOVIDO
 const btnProfile = document.getElementById("btn-profile");
-// const btnThemeMaster = document.getElementById("btn-theme-master"); // REMOVIDO
 const btnExportReport = document.getElementById("btn-export-report");
 const btnDeleteOF = document.getElementById("btn-delete-of");
 
@@ -484,6 +511,11 @@ const btnDeleteOF = document.getElementById("btn-delete-of");
 function msToMinutes(ms){ if (typeof ms !== 'number' || ms < 0) return 0;
 return parseFloat((ms / (1000*60)).toFixed(2)); }
 function formatMinutes(v){ return `${Number(v||0).toFixed(2)} min`; }
+function formatDate(d) {
+    if (!d) return '-';
+    const date = d instanceof Date ? d : new Date(getDBTimestamp(d));
+    return date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
 
 function setUser(u){
   currentUser = u;
@@ -539,14 +571,13 @@ function applyTheme(s){
     r.setProperty('--app-bg-image', `url("${s.imageUrl}")`);
   }
 }
-// Funções openThemeModal e saveTheme REMOVIDAS
 
 
 /* ============================
-   CÁLCULOS DE TEMPO (CORRIGIDO)
+   CÁLCULOS DE TEMPO 
    ============================ */
    
-// NOVO: Função para obter o valor acumulado em milissegundos
+// Função para obter o valor acumulado em milissegundos
 function calculateTempoRealMs(task){
   // Se concluído ou bloqueado/espera, retorna o valor salvo em MS
   if (task.status === 'Concluído' || task.status === 'Bloqueada' || task.status === 'Em Espera') {
@@ -569,8 +600,12 @@ function calculateTempoRealMs(task){
   return tempoAcumulado; // Retorna o valor em milissegundos
 }
 
-// CORREÇÃO: Funções que retornam minutos (usando a nova calculateTempoRealMs)
+// Funções que retornam minutos
 function calculateTempoRealMinutes(task){
+  // Se a tarefa estiver concluída, use o tempo salvo, senão, calcule o tempo corrido.
+  if (task.status === 'Concluído') {
+      return msToMinutes(task.tempo_real_acumulado_ms || 0);
+  }
   return msToMinutes(calculateTempoRealMs(task));
 }
 
@@ -612,7 +647,6 @@ function setupSectorDropdowns(){
     const o3 = o1.cloneNode(true);
     if (roteiroSetorSelect) roteiroSetorSelect.appendChild(o1);
     if (userSectorSelect) userSectorSelect.appendChild(o2);
-    // (o3 para sectorFilterSelect, tratado abaixo)
   });
   
   if (sectorFilterSelect){
@@ -658,7 +692,8 @@ async function initializeApp(){
   pcpView.classList.add('hidden');
   operatorView.classList.add('hidden');
   reportView.classList.add('hidden');
-  adminView.classList.add('hidden'); // NOVO
+  adminView.classList.add('hidden'); 
+  historicoView.classList.add('hidden'); // NOVO
 
   // Tema global (escuta sempre)
   listenTheme();
@@ -681,7 +716,7 @@ async function initializeApp(){
       allTasks = JSON.parse(localStorage.getItem('sim_tasks') || '{}');
       allOcurrencesLog = JSON.parse(localStorage.getItem('sim_ocorrencias') || '[]');
     }
-    // CORREÇÃO: Atraso para garantir que a UI esteja pronta
+    // Atraso para garantir que a UI esteja pronta
     setTimeout(()=>{
       if (!savedUser) {
         openUserModal();
@@ -698,7 +733,7 @@ async function initializeApp(){
   }
 
   setupSectorDropdowns();
-  // CORREÇÃO: Atraso na exibição do modal de login
+  // Atraso na exibição do modal de login
   if (!savedUser) {
     setTimeout(openUserModal, 100);
   } else {
@@ -715,8 +750,14 @@ async function initializeApp(){
 function setupFirebaseListeners() {
   if (!window.db) return;
 
-  // CORREÇÃO BUG 1 (Pausas em Tempo Real): Ajuste nos listeners para que o updateView seja chamado sempre.
+  // Listeners ajustados para forçar o updateView
   let collectionsLoaded = { ofs: false, tasks: false, roteiros: false, ocorrencias: false };
+  
+  const forceUpdateView = () => {
+     if (!loadingIndicator.classList.contains('hidden')) return; // Não atualiza se o loading ainda estiver ativo
+     updateView(userViewSelect.value);
+  }
+  
   const checkAllLoaded = () => {
     if (Object.values(collectionsLoaded).every(Boolean)) {
       if (!loadingIndicator.classList.contains('hidden')){
@@ -728,10 +769,7 @@ function setupFirebaseListeners() {
       injectSearchInputs();
     }
   };
-  const forceUpdateView = () => {
-     if (!loadingIndicator.classList.contains('hidden')) return; // Não atualiza se o loading ainda estiver ativo
-     updateView(userViewSelect.value);
-  }
+
 
   db.collection(OF_COLLECTION).onSnapshot(snapshot => {
     snapshot.docChanges().forEach(change => {
@@ -741,7 +779,7 @@ function setupFirebaseListeners() {
     });
     collectionsLoaded.ofs = true;
     checkAllLoaded();
-    if (collectionsLoaded.tasks) forceUpdateView(); // Atualiza se as tasks já estiverem carregadas
+    forceUpdateView(); // Atualiza em caso de criação/exclusão/conclusão de OF
   });
   
   db.collection(TASK_COLLECTION).onSnapshot(snapshot => {
@@ -773,7 +811,7 @@ function setupFirebaseListeners() {
     allOcurrencesLog.sort((a,b) => getDBTimestamp(b.timestamp) - getDBTimestamp(a.timestamp));
     collectionsLoaded.ocorrencias = true;
     checkAllLoaded();
-    forceUpdateView(); // CORREÇÃO BUG 1: Qualquer nova ocorrência (pausa) força o update da view (KPIs e Relatório)
+    forceUpdateView(); // Qualquer nova ocorrência (pausa) força o update da view (KPIs e Relatório)
   });
 }
 
@@ -891,8 +929,8 @@ async function createOF(ofIdOverride, quantityOverride, chicoteOverride, priorit
         priority: priority, // NOVO (herdado da OF)
     
         timestamp_inicio: null, timestamp_fim: null,
-        tempo_real_acumulado_ms: 0, // CORREÇÃO BUG TEMPO (Armazena MS)
-        total_pause_time_ms: 0,     // CORREÇÃO BUG TEMPO (Armazena MS)
+        tempo_real_acumulado_ms: 0, // Armazena MS
+        total_pause_time_ms: 0,     // Armazena MS
         pause_start_timestamp: null,
         search_index: of_id.toLowerCase()+'-'+etapa.nome_atividade.toLowerCase()+'-'+etapa.setor.toLowerCase()
       };
@@ -927,7 +965,7 @@ async function updateTaskStatus(taskId, newStatus, logType = null, justification
   const updateData = { status: newStatus };
   const now = window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date();
   
-  // CORREÇÃO BUG TEMPO (Usa MS)
+  // Usa MS
   const currentTempoRealMs = calculateTempoRealMs(task); 
 
   if (newStatus === 'Em Processo') {
@@ -937,7 +975,7 @@ async function updateTaskStatus(taskId, newStatus, logType = null, justification
       updateData.total_pause_time_ms = (task.total_pause_time_ms || 0) + currentPauseTimeMs;
       updateData.pause_start_timestamp = null;
     }
-    // CORREÇÃO: Seta o início SÓ se for a primeira vez (Em Espera -> Em Processo)
+    // Seta o início SÓ se for a primeira vez (Em Espera -> Em Processo)
     if (task.status === 'Em Espera') updateData.timestamp_inicio = now;
   } 
   else if (newStatus === 'Pausada') {
@@ -1049,7 +1087,7 @@ async function deleteRoteiroActivity(roteiroId) {
 
 async function deleteOF(ofId) {
   if (!isMaster() || !ofId) return;
-  if (!confirm(`Excluir OF ${ofId} e TODAS as suas tarefas e logs?`)) return;
+  if (!confirm(`Excluir OF ${ofId} e TODAS as suas tarefas e logs? Esta ação é IRREVERSÍVEL.`)) return;
   try {
     if (window.db) {
       const batch = db.batch();
@@ -1069,7 +1107,7 @@ async function deleteOF(ofId) {
     }
     closeModal('of-details-modal');
     alert(`OF ${ofId} excluída.`);
-    renderOFs();
+    updateView(userViewSelect.value); // Força a atualização de todas as views e KPIs
   } catch(e) {
     alert("Erro ao excluir OF: " + (e.message || e));
   }
@@ -1081,7 +1119,6 @@ async function deleteOF(ofId) {
 function openModal(id){
   const modal = document.getElementById(id);
   if(modal) modal.style.display = 'flex';
-  // (Lógica de renderRoteiros removida daqui)
 }
 function closeModal(id){
   const modalId = id || 'action-modal';
@@ -1156,14 +1193,75 @@ async function handleConfirmedAction(){
   }
   closeModal();
 }
+
+// MELHORIA DE UX: Renderiza a instrução de trabalho incluindo imagens/videos
+function renderInstructionContent(rawContent) {
+    if (!rawContent) {
+        return 'Nenhuma instrução de trabalho cadastrada para esta etapa.';
+    }
+
+    const content = rawContent.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "") // Remove tags de script por segurança
+                               .replace(/<img\b[^>]*>/gim, "<img style='max-width:100%; height:auto; margin: 10px 0; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);' />")
+                               .replace(/<iframe\b[^>]*>/gim, "<iframe style='max-width:100%; height:300px; margin: 10px 0; border-radius: 8px;' allowfullscreen></iframe>");
+    
+    // 1. Processa Links de Mídia (Imagens/Vídeos/PDFs) para renderização visual
+    const urlRegex = /(https?:\/\/(?:www\.|youtu\.be|vimeo\.com|i\.imgur\.com|\S+\.(?:png|jpg|jpeg|gif|pdf|mp4))[\s\S]*)/gmi;
+    
+    let processedContent = content.split(urlRegex).map(part => {
+        if (!part || part.length < 10) return part;
+
+        try {
+            const url = new URL(part.trim());
+            const extension = url.pathname.split('.').pop().toLowerCase();
+            
+            // YouTube Embed (se for um link embed, funciona com o iframe acima)
+            if (url.hostname.includes('youtube.com') || url.hostname.includes('youtu.be') || url.hostname.includes('vimeo.com')) {
+                // Se o link for um link direto de vídeo (não embed), tenta formatar como iframe
+                if (!part.includes('iframe') && !part.includes('embed')) {
+                    // Exemplo para youtube watch link
+                    const videoIdMatch = part.match(/(?:v=|youtu\.be\/)(\w+)/);
+                    if (videoIdMatch && videoIdMatch[1]) {
+                        return `<div class="my-4"><iframe src="https://www.youtube.com/embed/${videoIdMatch[1]}" frameborder="0" style="max-width:100%; height:300px; border-radius: 8px;" allowfullscreen></iframe></div>`;
+                    }
+                    // Retorna como link clicável se não conseguir embedar
+                    return `<div class="my-2"><a href="${part}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium flex items-center"><i data-lucide="video" class="w-4 h-4 mr-1"></i> Assistir Vídeo (Link Externo)</a></div>`;
+                }
+            }
+
+            // Imagens
+            if (['png', 'jpg', 'jpeg', 'gif'].includes(extension)) {
+                return `<div class="my-4"><img src="${part}" alt="Instrução Visual" style="max-width:100%; height:auto; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>`;
+            }
+
+            // PDF/Documentos
+            if (extension === 'pdf' || extension === 'doc' || extension === 'docx') {
+                return `<div class="my-2 p-3 border border-gray-200 rounded-lg flex items-center bg-gray-50">
+                            <i data-lucide="file-text" class="w-5 h-5 mr-2 text-red-500"></i>
+                            <a href="${part}" target="_blank" class="text-sm text-red-600 hover:text-red-800 font-medium">Abrir ${extension.toUpperCase()} de Instrução</a>
+                        </div>`;
+            }
+        } catch (e) {
+            // Não é uma URL ou URL inválida, retorna o texto original
+            return part;
+        }
+
+        return part; // Retorna o texto original se não for reconhecido como mídia
+    }).join('');
+
+    return processedContent;
+}
+
 function openInstructionModal(taskId) {
   const task = allTasks[taskId];
   if (!task) return;
   document.getElementById('instruction-modal-header').textContent =
     `OF ${task.id_of} - Chicote ${task.chicote} - Setor: ${task.setor}`;
-  document.getElementById('instruction-modal-content').innerHTML =
-    task.instrucao_trabalho ||
-    'Nenhuma instrução de trabalho cadastrada para esta etapa.';
+  
+  const contentEl = document.getElementById('instruction-modal-content');
+  
+  // Usa a nova função para renderizar HTML (incluindo imagens/videos)
+  contentEl.innerHTML = renderInstructionContent(task.instrucao_trabalho);
+  
   openModal('instruction-modal');
   lucide.createIcons();
 }
@@ -1207,14 +1305,14 @@ function confirmUser(){
    RENDERIZAÇÃO
    ============================ */
 function setupUIRefresh(){
-  // Atualização de 10s removida, pois os listeners do Firebase fazem isso em tempo real
+  // Timer de 10s removido. O onSnapshot (Firebase) atualiza em tempo real.
 }
 function injectSearchInputs(){
   // PCP search
-  const wrap = document.getElementById('pcp-of-search-wrap');
-  if (wrap && !wrap.dataset.ready){
-    wrap.classList.remove('hidden');
-    wrap.dataset.ready = "1";
+  const pcpWrap = document.getElementById('pcp-of-search-wrap');
+  if (pcpWrap && !pcpWrap.dataset.ready){
+    pcpWrap.classList.remove('hidden');
+    pcpWrap.dataset.ready = "1";
     const input = document.getElementById('pcp-of-search');
     if (input) input.addEventListener('input', (e)=>{ pcpSearchOF = (e.target.value||"").trim().toUpperCase(); renderOFs(); });
   }
@@ -1226,13 +1324,21 @@ function injectSearchInputs(){
     const input = document.getElementById('operator-of-search');
     if (input) input.addEventListener('input', (e)=>{ operatorSearchOF = (e.target.value||"").trim().toUpperCase(); renderTasks(); });
   }
+  // NOVO: Histórico search
+  const histWrap = document.getElementById('historico-search-wrap');
+  if (histWrap && !histWrap.dataset.ready){
+    histWrap.classList.remove('hidden');
+    histWrap.dataset.ready = "1";
+    const input = document.getElementById('historico-of-search');
+    if (input) input.addEventListener('input', (e)=>{ historicoSearchOF = (e.target.value||"").trim().toUpperCase(); renderHistory(); });
+  }
 }
 
 function renderKPIs(){
   const kpisContainer = document.getElementById('kpis-container');
   if (!kpisContainer) return;
 
-  // CORREÇÃO BUG 2: Filtra tasks apenas de OFs Ativas
+  // Filtra tasks apenas de OFs Ativas
   const activeOFIds = Object.keys(allOFs).filter(k => allOFs[k]?.status !== 'Concluído');
   const activeTasks = Object.values(allTasks).filter(t => activeOFIds.includes(t.id_of));
   
@@ -1240,8 +1346,11 @@ function renderKPIs(){
   const concludedTasks = activeTasks.filter(t=>t.status==='Concluído').length;
   const totalTasks = activeTasks.length; // Total de tarefas ATIVAS (não de excluídas)
 
-  const logsAtraso = allOcurrencesLog.filter(l => activeOFIds.includes(l.OF) && l.TIPO === 'ATRASO');
-  const totalPause = allOcurrencesLog.filter(l => activeOFIds.includes(l.OF)).reduce((s,l)=> s + (l.TEMPO_PAUSA||0), 0);
+  // Filtra logs apenas de OFs Ativas
+  const activeLogs = allOcurrencesLog.filter(l => activeOFIds.includes(l.OF));
+  
+  const logsAtraso = activeLogs.filter(l => l.TIPO === 'ATRASO');
+  const totalPause = activeLogs.reduce((s,l)=> s + (l.TEMPO_PAUSA||0), 0);
   const totalAtraso = logsAtraso.reduce((s,l)=> s + (l.TEMPO_ATRASO||0), 0);
   
   const kpiData = [
@@ -1261,20 +1370,20 @@ function renderKPIs(){
   lucide.createIcons();
 }
 
-// NOVO: Renderiza o Gráfico de Carga de Trabalho
 function renderWorkloadChart() {
   const ctxEl = document.getElementById('workload-chart');
   if (!ctxEl) return; // Sai se a view não for PCP
 
-  // 1. Calcular Dados (Opção B: Tempo Planejado Restante)
+  // 1. Calcular Dados (Tempo Planejado Restante)
   const tasksNaoConcluidas = Object.values(allTasks).filter(t => t.status !== 'Concluído');
-  const cargaPorSetor = {}; // Ex: { 'Corte': 120, 'Montagem': 300 }
+  const cargaPorSetor = {}; 
 
-  // Inicializa todos os setores com 0 para garantir que apareçam
+  // Inicializa todos os setores com 0
   SECTORS.forEach(setor => { cargaPorSetor[setor] = 0; });
 
   tasksNaoConcluidas.forEach(task => {
-    if (cargaPorSetor.hasOwnProperty(task.setor)) {
+    // Apenas considera tarefas de OFs ATIVAS
+    if (allOFs[task.id_of]?.status !== 'Concluído' && cargaPorSetor.hasOwnProperty(task.setor)) {
       cargaPorSetor[task.setor] += task.tempo_planejado || 0;
     }
   });
@@ -1295,15 +1404,15 @@ function renderWorkloadChart() {
       datasets: [{
         label: 'Minutos Planejados Restantes',
         data: data,
-        backgroundColor: 'rgba(30, 64, 175, 0.6)', // Azul (do seu tema) com transparência
-        borderColor: 'rgba(30, 64, 175, 1)', // Azul (do seu tema) sólido
+        backgroundColor: 'rgba(30, 64, 175, 0.6)', // Azul
+        borderColor: 'rgba(30, 64, 175, 1)', 
         borderWidth: 1
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      indexAxis: 'y', // Transforma em Barras Horizontais (melhor para ler setores)
+      indexAxis: 'y', // Barras Horizontais
       scales: {
         x: {
           beginAtZero: true,
@@ -1320,30 +1429,31 @@ function renderWorkloadChart() {
       },
       plugins: {
         legend: {
-          display: false // Legenda desnecessária (só 1 dataset)
+          display: false 
         }
       }
     }
   });
 }
 
+
 function updateView(view){
   if (!currentUser) {
     pcpView.classList.add('hidden');
     operatorView.classList.add('hidden'); 
     reportView.classList.add('hidden');
-    adminView.classList.add('hidden'); // NOVO
+    adminView.classList.add('hidden'); 
+    historicoView.classList.add('hidden'); // NOVO
     openUserModal(); 
     return;
   }
 
   // Operador não pode trocar de visão
-  // CORREÇÃO: Chama a função isOperador()
   if (isOperador() && view !== 'Operador'){ 
     view = 'Operador';
   }
   
-  // NOVO: Adiciona/Remove a opção "Admin" do select
+  // Adiciona/Remove a opção "Admin" do select
   const adminOption = userViewSelect.querySelector('option[value="Admin"]');
   if (isMaster()) {
     if (!adminOption) {
@@ -1354,15 +1464,16 @@ function updateView(view){
   }
 
   const isPCP = view === 'PCP';
-  // CORRIGIDO: Renomeado para evitar conflito com a função isOperador()
   const isOperadorView = view === 'Operador';
   const isReport = view === 'Relatorio';
-  const isAdmin = view === 'Admin'; // NOVO
+  const isAdmin = view === 'Admin'; 
+  const isHistorico = view === 'Historico'; // NOVO
 
   pcpView.classList.toggle('hidden', !isPCP);
   operatorView.classList.toggle('hidden', !isOperadorView);
   reportView.classList.toggle('hidden', !isReport);
-  adminView.classList.toggle('hidden', !isAdmin); // NOVO
+  adminView.classList.toggle('hidden', !isAdmin); 
+  historicoView.classList.toggle('hidden', !isHistorico); // NOVO
   
   userViewSelect.value = view;
   userViewSelect.disabled = isOperador(); 
@@ -1380,7 +1491,7 @@ function updateView(view){
   if (isPCP){ 
     renderKPIs(); 
     renderOFs(); 
-    renderWorkloadChart(); // NOVO
+    renderWorkloadChart(); 
   }
   else if (isOperadorView){ 
     renderTasks();
@@ -1389,7 +1500,10 @@ function updateView(view){
     renderReport(); 
   }
   else if (isAdmin) {
-    renderRoteiros(); // NOVO (Renderiza o setup de roteiro)
+    renderRoteiros(); 
+  }
+  else if (isHistorico) { // NOVO
+    renderHistory();
   }
 
   injectSearchInputs();
@@ -1401,7 +1515,7 @@ function renderReport(){
   const body = document.getElementById('report-table-body');
   if (!body) return;
   
-  // CORREÇÃO BUG 2: Filtra ocorrências APENAS de OFs ativas
+  // Filtra ocorrências APENAS de OFs ativas
   const activeOFIds = Object.keys(allOFs).filter(k => allOFs[k]?.status !== 'Concluído');
   const activeLogs = allOcurrencesLog.filter(log => activeOFIds.includes(log.OF));
 
@@ -1460,7 +1574,7 @@ function renderOFs(){
       if (progress === 0) statusColor = 'bg-gray-200 border-gray-400';
       else if (progress < 100) statusColor = 'bg-blue-100 border-blue-400';
       
-      // NOVO: Prioridade da OF afeta a cor
+      // Prioridade da OF afeta a cor
       if (of.priority === 'Alta') {
         statusColor = 'bg-red-100 border-red-500';
       } else {
@@ -1503,7 +1617,7 @@ function renderTasks(){
       (t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada') &&
       (!operatorSearchOF || (t.id_of || "").toUpperCase().includes(operatorSearchOF))
     )
-    // NOVO: Ordena por Prioridade (Alta primeiro), depois por Status (Em Processo)
+    // Ordena por Prioridade (Alta primeiro), depois por Status (Em Processo)
     .sort((a,b) => {
       const priorityA = a.priority === 'Alta' ? 1 : (a.priority === 'Media' ? 2 : 3);
       const priorityB = b.priority === 'Alta' ? 1 : (b.priority === 'Media' ? 2 : 3);
@@ -1514,11 +1628,10 @@ function renderTasks(){
     });
 
   const tasksHtml = tasks.map(task=>{
-    const tempoReal = calculateTempoRealMinutes(task); // CORREÇÃO BUG TEMPO
+    const tempoReal = calculateTempoRealMinutes(task); 
     const desvio = calculateDesvio(task);
     const totalPauseMinutes = calculateTotalPauseMinutes(task);
 
-    let statusColor = ''; // Removido, pois a prioridade define a cor de fundo
     let statusText = task.status;
     let actions = '';
     
@@ -1537,7 +1650,7 @@ function renderTasks(){
         <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">Concluir</button>`;
     }
 
-    // NOVO: Classe de prioridade aplicada ao card
+    // Classe de prioridade aplicada ao card
     const priorityClass = getPriorityClass(task.priority);
 
     return `
@@ -1570,27 +1683,83 @@ function renderTasks(){
   lucide.createIcons();
 }
 
+// NOVO: Renderiza a tela de Histórico
+function renderHistory() {
+    if (historicoView.classList.contains('hidden')) return;
+
+    let historyOFs = Object.values(allOFs).filter(of => of.status === 'Concluído');
+    
+    if (historicoSearchOF) historyOFs = historyOFs.filter(of => (of.id || "").toUpperCase().includes(historicoSearchOF));
+    
+    // Ordena pela data de conclusão (mais recente primeiro)
+    historyOFs.sort((a, b) => {
+        const dateA = getDBTimestamp(a.data_criacao); // Usando data_criacao como proxy para ordenação
+        const dateB = getDBTimestamp(b.data_criacao);
+        return dateB - dateA;
+    });
+
+    const historyHtml = historyOFs.map(of => {
+        const tasks = Object.values(allTasks).filter(t => t.id_of === of.id);
+        const totalTempoReal = tasks.reduce((sum, t) => sum + calculateTempoRealMinutes(t), 0);
+        const totalTempoPlanejado = tasks.reduce((sum, t) => sum + (t.tempo_planejado || 0), 0);
+        const desvioTotal = totalTempoPlanejado - totalTempoReal;
+
+        const desvioClass = desvioTotal < 0 ? 'text-red-600' : 'text-green-600';
+        const desvioText = desvioTotal < 0 ? `-${formatMinutes(Math.abs(desvioTotal))}` : `+${formatMinutes(desvioTotal)}`;
+
+        return `
+            <div class="of-concluida-card p-4 rounded-xl shadow-lg border-l-4"
+                 onclick="openOFDetails('${of.id}', true)">
+                <h3 class="text-lg font-bold text-gray-800 mb-1 flex justify-between items-center">
+                    ${of.id}
+                    <i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>
+                </h3>
+                <p class="text-sm text-gray-600 mb-2">${of.chicote} | Qtd: ${of.quantidade}</p>
+
+                <div class="space-y-1 text-sm">
+                    <p class="text-gray-700">Criado em: <span class="font-semibold">${formatDate(of.data_criacao)}</span></p>
+                    <p class="text-gray-700">Tempo Real: <span class="font-semibold">${formatMinutes(totalTempoReal)}</span></p>
+                    <p class="text-gray-700">Tempo Planejado: <span class="font-semibold">${formatMinutes(totalTempoPlanejado)}</span></p>
+                    <p class="font-bold ${desvioClass}">Desvio Total: ${desvioText}</p>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    const container = document.getElementById('historico-list-container');
+    container.innerHTML = historyHtml.length > 0 ? historyHtml : '<div class="col-span-3 p-6 text-center text-gray-500 bg-white rounded-xl shadow-lg">Nenhuma OF concluída no histórico.</div>';
+    lucide.createIcons();
+}
+
 /* ============================
    DETALHES / EXPORTS
    ============================ */
-function openOFDetails(ofId){
+function openOFDetails(ofId, isHistory = false){
   window.__ofDetailsOpenId = ofId;
   const of = allOFs[ofId];
   const tasks = Object.values(allTasks).filter(t=> t.id_of === ofId);
   const completed = tasks.filter(t => t.status === 'Concluído').length;
   const progress = tasks.length ? Math.floor((completed / tasks.length) * 100) : 0;
+  
+  // Detalhes calculados para o resumo
+  const totalTempoReal = tasks.reduce((sum, t) => sum + calculateTempoRealMinutes(t), 0);
+  const totalTempoPlanejado = tasks.reduce((sum, t) => sum + (t.tempo_planejado || 0), 0);
+  const desvioTotal = totalTempoPlanejado - totalTempoReal;
+  const desvioClass = desvioTotal < 0 ? 'text-red-600' : 'text-green-600';
+  const desvioText = desvioTotal < 0 ? `-${formatMinutes(Math.abs(desvioTotal))}` : `+${formatMinutes(desvioTotal)}`;
+
 
   document.getElementById('of-details-title').textContent = `OF ${ofId} — ${of.chicote}`;
   document.getElementById('of-details-summary').innerHTML = `
     <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Quantidade</p><p class="font-semibold">${of.quantidade}</p></div>
     <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Etapas</p><p class="font-semibold">${tasks.length}</p></div>
-    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Concluídas</p><p class="font-semibold">${completed}</p></div>
-    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Status</p><p class="font-semibold">${of.status || '-'}</p></div>
+    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">T. Planejado</p><p class="font-semibold">${formatMinutes(totalTempoPlanejado)}</p></div>
+    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">T. Real</p><p class="font-semibold">${formatMinutes(totalTempoReal)}</p></div>
   `;
   document.getElementById('of-details-progress').style.width = `${progress}%`;
 
   const content = tasks.sort((a,b)=> a.ordem - b.ordem).map(task=>{
-    const tempoReal = calculateTempoRealMinutes(task); // CORREÇÃO BUG TEMPO
+    const tempoReal = calculateTempoRealMinutes(task); 
     const desvio = calculateDesvio(task);
     return `
       <div class="border rounded-lg p-3">
@@ -1611,7 +1780,8 @@ function openOFDetails(ofId){
   }).join('');
   document.getElementById('of-details-content').innerHTML = content;
 
-  btnDeleteOF.classList.toggle('hidden', !isMaster());
+  // Botão de Excluir só aparece se for MASTER e NÃO estiver na view Histórico
+  btnDeleteOF.classList.toggle('hidden', isHistory || !isMaster());
   openModal('of-details-modal');
 }
 
@@ -1682,7 +1852,7 @@ function exportOFTasksCSV(ofId){
       t.id_of, t.nome_atividade, t.setor, t.status,
       Number(t.tempo_setup).toFixed(2), Number(t.tempo_ciclo).toFixed(2),
       Number(t.tempo_planejado).toFixed(2), 
-      calculateTempoRealMinutes(t).toFixed(2), // CORREÇÃO BUG TEMPO
+      calculateTempoRealMinutes(t).toFixed(2), 
       calculateDesvio(t).toFixed(2),
     ]);
   });
@@ -1700,7 +1870,7 @@ function downloadCSV(rows, filename){
    ROTEIROS (Renderiza na tela Admin)
    ============================ */
 function renderRoteiros(){
-  const list = document.getElementById('roteiro-list-admin'); // NOVO ID
+  const list = document.getElementById('roteiro-list-admin'); 
   if (!list) return;
   
   const items = Object.values(allRoteiros).sort((a,b)=> (a.chicote_nome||'').localeCompare(b.chicote_nome||'')).map(r=>`
@@ -1741,12 +1911,11 @@ window.exportOFTasksCSV = exportOFTasksCSV;
 window.openUserModal = openUserModal;
 window.confirmUser = confirmUser;
 window.updateSectorFilter = updateSectorFilter;
-// window.openThemeModal = openThemeModal; // REMOVIDO
-// window.saveTheme = saveTheme; // REMOVIDO
 
 window.deleteSelectedOcorrencias = deleteSelectedOcorrencias;
 window.toggleSelectAllOcorrencias = toggleSelectAllOcorrencias;
 window.updateDeleteButtonState = updateDeleteButtonState;
+window.renderHistory = renderHistory; // Exposição global do novo método
 </script>
 </body>
 </html>
