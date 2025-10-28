@@ -24,8 +24,8 @@
       --app-bg-image: none;
       
       /* NOVO: Cores de Prioridade */
-      --cor-perigo: #dc2626; 
-      --cor-neutra: #3b82f6;
+      --cor-perigo: #dc2626; /* Vermelho */
+      --cor-neutra: #3b82f6; /* Azul */
     }
     body {
       font-family: "Inter", sans-serif;
@@ -681,18 +681,26 @@ async function initializeApp(){
       allTasks = JSON.parse(localStorage.getItem('sim_tasks') || '{}');
       allOcurrencesLog = JSON.parse(localStorage.getItem('sim_ocorrencias') || '[]');
     }
+    // CORREÇÃO: Atraso para garantir que a UI esteja pronta
     setTimeout(()=>{
+      if (!savedUser) {
+        openUserModal();
+      } else {
+        if (isOperador()) { updateView('Operador'); }
+        else { updateView('PCP'); }
+      }
       loadingIndicator.classList.add('hidden');
-      openUserModal(savedUser ? null : undefined);
       setupUIRefresh();
       loadRoteiroDropdowns();
       injectSearchInputs();
+      renderRoteiros(); // Renderiza roteiros para admin
     }, 300);
   }
 
   setupSectorDropdowns();
+  // CORREÇÃO: Atraso na exibição do modal de login
   if (!savedUser) {
-    openUserModal();
+    setTimeout(openUserModal, 100);
   } else {
     // Força a view correta ao iniciar
     if (isOperador()) {
@@ -707,23 +715,40 @@ async function initializeApp(){
 function setupFirebaseListeners() {
   if (!window.db) return;
 
+  // CORREÇÃO: Listener único para garantir que tudo seja renderizado após a carga
+  let collectionsLoaded = { ofs: false, tasks: false, roteiros: false, ocorrencias: false };
+  const checkAllLoaded = () => {
+    if (Object.values(collectionsLoaded).every(Boolean)) {
+      if (!loadingIndicator.classList.contains('hidden')){
+        loadingIndicator.classList.add('hidden');
+        if (!currentUser) { openUserModal(); }
+      }
+      // Atualiza a view atual
+      updateView(userViewSelect.value || (isMaster() ? 'PCP' : 'Operador'));
+      injectSearchInputs();
+    }
+  };
+
   db.collection(OF_COLLECTION).onSnapshot(snapshot => {
     snapshot.docChanges().forEach(change => {
       const ofData = { id: change.doc.id, ...change.doc.data() };
       if (change.type === 'removed') delete allOFs[ofData.id];
       else allOFs[ofData.id] = ofData;
     });
-    updateView(userViewSelect.value);
-    loadRoteiroDropdowns();
+    collectionsLoaded.ofs = true;
+    checkAllLoaded();
   });
+  
   db.collection(TASK_COLLECTION).onSnapshot(snapshot => {
     snapshot.docChanges().forEach(change => {
       const taskData = { id: change.doc.id, ...change.doc.data() };
       if (change.type === 'removed') delete allTasks[taskData.id];
       else allTasks[taskData.id] = taskData;
     });
-    updateView(userViewSelect.value);
+    collectionsLoaded.tasks = true;
+    checkAllLoaded();
   });
+  
   db.collection(ROTEIRO_COLLECTION).onSnapshot(snapshot => {
     allRoteiros = {};
     snapshot.forEach(doc => {
@@ -732,17 +757,16 @@ function setupFirebaseListeners() {
     });
     loadRoteiroDropdowns();
     renderRoteiros(); // Atualiza a lista na tela Admin
+    collectionsLoaded.roteiros = true;
+    checkAllLoaded();
   });
+  
   db.collection(OCORRENCIA_COLLECTION).onSnapshot(snapshot => {
     allOcurrencesLog = [];
     snapshot.forEach(doc => { allOcurrencesLog.push({ id: doc.id, ...doc.data() }); });
     allOcurrencesLog.sort((a,b) => getDBTimestamp(b.timestamp) - getDBTimestamp(a.timestamp));
-    updateView(userViewSelect.value);
-    
-    if (!loadingIndicator.classList.contains('hidden')){
-      loadingIndicator.classList.add('hidden');
-      injectSearchInputs();
-    }
+    collectionsLoaded.ocorrencias = true;
+    checkAllLoaded();
   });
 }
 
@@ -1172,6 +1196,7 @@ function confirmUser(){
     setUser({ role: 'OPERADOR', sector, name: 'Operador' });
   }
   document.getElementById('user-modal').style.display = 'none';
+  loadingIndicator.classList.add('hidden'); // Esconde o loading após o login
   setupSectorDropdowns();
   updateView(isMaster() ? 'PCP' : 'Operador'); // Força a view correta no login
   injectSearchInputs();
@@ -1182,7 +1207,6 @@ function confirmUser(){
    ============================ */
 function setupUIRefresh(){
   // Atualização de 10s removida, pois os listeners do Firebase fazem isso em tempo real
-  // Se precisar de um "refresh" para tempo (ex: desvio), é melhor fazer no renderTasks/renderOFs
 }
 function injectSearchInputs(){
   // PCP search
@@ -1233,8 +1257,8 @@ function renderKPIs(){
 
 // NOVO: Renderiza o Gráfico de Carga de Trabalho
 function renderWorkloadChart() {
-  const ctx = document.getElementById('workload-chart');
-  if (!ctx) return; // Sai se a view não for PCP
+  const ctxEl = document.getElementById('workload-chart');
+  if (!ctxEl) return; // Sai se a view não for PCP
 
   // 1. Calcular Dados (Opção B: Tempo Planejado Restante)
   const tasksNaoConcluidas = Object.values(allTasks).filter(t => t.status !== 'Concluído');
@@ -1258,7 +1282,7 @@ function renderWorkloadChart() {
     workloadChart.destroy(); // Destrói gráfico anterior para recriar
   }
 
-  workloadChart = new Chart(ctx, {
+  workloadChart = new Chart(ctxEl, {
     type: 'bar', // Gráfico de Barras
     data: {
       labels: labels,
