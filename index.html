@@ -23,7 +23,7 @@
       --app-bg-color: #f3f4f6;
       --app-bg-image: none;
       
-      /* Cores de Prioridade */
+      /* NOVO: Cores de Prioridade */
       --cor-perigo: #dc2626; /* Vermelho */
       --cor-neutra: #3b82f6; /* Azul */
     }
@@ -38,7 +38,7 @@
     /* Estilo do seu Header (Azul) */
     .bg-gradient-header { background: linear-gradient(90deg, #1e40af 0%, #3b82f6 100%); }
     
-    /* CLASSES DE PRIORIDADE VISUAL (Operador) */
+    /* NOVO: CLASSES DE PRIORIDADE VISUAL (Operador) */
     .priority-high {
       border-left-width: 6px;
       border-left-color: var(--cor-perigo);
@@ -54,13 +54,13 @@
       border-left-color: #d1d5db; /* Cinza */
     }
     
-    /* Cor de fundo para OFs Concluídas no Histórico */
+    /* NOVO: Cor de fundo para OFs Concluídas no Histórico */
     .of-concluida-card {
         background-color: #f0fdf4; /* Verde bem clarinho */
         border-left-color: #10b981; /* Verde esmeralda */
     }
 
-    /* Estilo do Modal de IT (Melhoria Visual) */
+    /* NOVO: Estilo do Modal de IT (Melhoria Visual) */
     #instruction-modal .modal-panel {
         border-top: 8px solid #4f46e5; /* Índigo */
     }
@@ -247,8 +247,8 @@
                 <input type="number" id="roteiro-cycle-time-admin" min="0" step="0.1" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ciclo (min/pç)">
               </div>
               <div>
-                <label for="roteiro-instruction-text-admin" class="block text-sm font-medium text-gray-700 mb-1">Instrução de Trabalho (Use <b>[ ]</b> para checklists):</label>
-                <textarea id="roteiro-instruction-text-admin" rows="4" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: <b>1. Preparar:</b>&#10;[ ] Pegar Fio AZ&#10;[ ] Pegar Fio VM&#10;Link: https://..."></textarea>
+                <label for="roteiro-instruction-text-admin" class="block text-sm font-medium text-gray-700 mb-1">Instrução de Trabalho (HTML, links de imagem/YouTube):</label>
+                <textarea id="roteiro-instruction-text-admin" rows="4" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: <b>1. Preparação:</b> ... https://link.para/imagem.jpg"></textarea>
               </div>
               <button onclick="addRoteiroActivity()" class="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
                 <i data-lucide="plus" class="w-5 h-5 inline-block mr-1"></i> Adicionar Etapa
@@ -303,11 +303,10 @@
         <p class="text-sm font-semibold text-gray-700 mb-2" id="instruction-modal-header"></p>
         <div id="instruction-modal-content" class="text-gray-700 space-y-3"></div>
       </div>
-      <div class="mt-4 sm:mt-6 flex justify-end gap-3">
-        <button id="it-modal-close-btn" onclick="closeModal('instruction-modal')" class="px-3 sm:px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition">Fechar</button>
-        <button id="it-modal-confirm-btn" onclick="handleCheckboxITConfirmation()" class="px-3 sm:px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed hidden" disabled>Confirmar e Concluir</button>
+      <div class="mt-4 sm:mt-6 flex justify-end">
+        <button onclick="closeModal('instruction-modal')" class="px-3 sm:px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition">Fechar</button>
       </div>
-      </div>
+    </div>
   </div>
 
   <div id="create-of-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
@@ -459,16 +458,13 @@ let currentAction = {};
 let currentSectorFilter = SECTORS[0];
 let currentUser = null;
 
-// INÍCIO DA MUDANÇA (FASE 2) - Variável de estado do checklist
-let currentTaskForCheckboxConfirmation = null;
-// FIM DA MUDANÇA (FASE 2)
-
-// Referência do Gráfico
+// NOVO: Referência do Gráfico
 let workloadChart = null;
 
 // Busca por OF nas telas
 let pcpSearchOF = "";
 let operatorSearchOF = "";
+// NOVO: Busca Histórico
 let historicoSearchOF = "";
 
 
@@ -1070,22 +1066,8 @@ async function createOcorrenciaLog(task, type, justification, justificationText)
    AÇÕES
    ============================ */
 function startTask(taskId){ updateTaskStatus(taskId, 'Em Processo'); }
-
-// INÍCIO DA MUDANÇA (FASE 2) - Roteador de Finalização
-function finishTask(taskId){ 
-  const task = allTasks[taskId];
-  if (!task) return;
-  
-  // ROTEADOR: Se a IT tiver checkboxes, força a abertura da IT primeiro.
-  if (task.instrucao_trabalho && task.instrucao_trabalho.includes('[ ]')) {
-    openInstructionModal(taskId, 'concluir');
-  } else {
-    // Caminho normal (sem checklist)
-    showActionModal(taskId, 'Finalizar', DELAY_REASONS); 
-  }
+function finishTask(taskId){ showActionModal(taskId, 'Finalizar', DELAY_REASONS);
 }
-// FIM DA MUDANÇA (FASE 2)
-
 function pauseTask(taskId){ showActionModal(taskId, 'Pausar', PAUSE_REASONS); }
 
 async function deleteRoteiroActivity(roteiroId) {
@@ -1151,12 +1133,6 @@ function closeModal(id){
       if (jsTxt) jsTxt.value = '';
       if (jsReq) jsReq.classList.add('hidden');
     }
-    // Reseta o estado do modal da IT ao fechar
-    if (modalId === 'instruction-modal') {
-        currentTaskForCheckboxConfirmation = null;
-        document.getElementById('it-modal-close-btn').classList.remove('hidden');
-        document.getElementById('it-modal-confirm-btn').classList.add('hidden');
-    }
   }
 }
 function showActionModal(taskId, type, reasons){
@@ -1218,109 +1194,61 @@ async function handleConfirmedAction(){
 }
 
 // ================================================================
-// INÍCIO DA MUDANÇA (FASE 2) - Checklists
+// INÍCIO DA MUDANÇA (FASE 1) - CORREÇÃO DA IT
 // ================================================================
 
-// Renderiza a IT com links (Fase 1) e Checkboxes (Fase 2)
+// Renderiza a instrução de trabalho (IT) com links clicáveis
 function renderInstructionContent(rawContent) {
     if (!rawContent || rawContent.trim() === '') {
-        return '<p class="text-gray-500 italic">Nenhuma instrução cadastrada.</p>';
+        return '<p class="text-gray-500 italic">Nenhuma instrução de trabalho cadastrada para esta etapa.</p>';
     }
+
+    // 1. Converte quebras de linha de texto ( \n ) em <br> para manter a formatação do textarea
+    //    E preserva o HTML que o usuário já usa (como <b>)
+    let htmlContent = rawContent.replace(/\n/g, '<br>');
+
+    // 2. Encontra URLs (http, https)
+    //    Esta regex encontra URLs e as transforma em links clicáveis.
+    const urlRegex = /(https?:\/\/[^\s<]+)/g;
     
-    // Helper para processar links/html em uma linha
-    const processLine = (line) => {
-      const urlRegex = /(https?:\/\/[^\s<]+)/g;
-      return line.replace(urlRegex, (url) => {
+    // 3. Substitui URLs por links clicáveis que abrem em nova aba
+    let processedContent = htmlContent.replace(urlRegex, (url) => {
         return `<a href="${url}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium underline">${url}</a>`;
-      });
-    };
-
-    const lines = rawContent.split('\n');
-    const htmlLines = lines.map(line => {
-        let trimmedLine = line.trim();
-        
-        // É um item de checklist?
-        if (trimmedLine.startsWith('[ ]')) {
-            const labelText = processLine(trimmedLine.substring(3).trim()); // Pega o texto após "[ ] "
-            return `<label class="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                      <input type="checkbox" class="it-checkbox h-5 w-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" onchange="checkAllBoxesChecked()">
-                      <span class="text-gray-800">${labelText}</span>
-                    </label>`;
-        } 
-        // É texto normal (com <b>, <br>, links)
-        else {
-            return processLine(line).replace(/<br>\s*<br>/g, '<br>'); // Evita quebras duplas
-        }
     });
+    
+    // 4. A regex acima pode acidentalmente linkar uma URL que já está dentro de um <a href="...">
+    //    Vamos corrigir isso:
+    processedContent = processedContent.replace(/<a [^>]*href="([^"]*)"[^>]*>[\s\S]*<a [^>]*href="([^"]*)"[^>]*>([\s\S]*)<\/a>[\s\S]*<\/a>/gi, 
+        (match, p1, p2, p3) => {
+            // Se a URL interna for a mesma da externa, remove o link interno
+            if(p1 === p2) return `<a href="${p1}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium underline">${p3}</a>`;
+            // Senão, mantém (caso estranho)
+            return match;
+        }
+    );
 
-    return htmlLines.join('<br>').replace(/<br>\s*<br>/g, '<br>');
+    return processedContent;
 }
 
+// ================================================================
+// FIM DA MUDANÇA (FASE 1)
+// ================================================================
 
-function openInstructionModal(taskId, context = 'view'){
+
+function openInstructionModal(taskId) {
   const task = allTasks[taskId];
   if (!task) return;
-  
-  // Seta a variável global se estivermos no fluxo de conclusão
-  currentTaskForCheckboxConfirmation = (context === 'concluir') ? taskId : null;
-
   document.getElementById('instruction-modal-header').textContent =
     `OF ${task.id_of} - Chicote ${task.chicote} - Setor: ${task.setor}`;
   
   const contentEl = document.getElementById('instruction-modal-content');
-  contentEl.innerHTML = renderInstructionContent(task.instrucao_trabalho);
   
-  const closeBtn = document.getElementById('it-modal-close-btn');
-  const confirmBtn = document.getElementById('it-modal-confirm-btn');
-
-  const hasCheckboxes = task.instrucao_trabalho.includes('[ ]');
-
-  // Se for o fluxo "concluir" E a IT tiver checkboxes, mostramos o botão de confirmação
-  if (context === 'concluir' && hasCheckboxes) {
-    closeBtn.classList.add('hidden');
-    confirmBtn.classList.remove('hidden');
-    checkAllBoxesChecked(); // Seta o estado inicial do botão (provavelmente disabled)
-  } else {
-    // Caso contrário (visualização normal ou conclusão sem checklist), mostramos o "Fechar"
-    closeBtn.classList.remove('hidden');
-    confirmBtn.classList.add('hidden');
-  }
+  // Usa a nova função para renderizar HTML (incluindo links clicáveis)
+  contentEl.innerHTML = renderInstructionContent(task.instrucao_trabalho);
   
   openModal('instruction-modal');
   lucide.createIcons();
 }
-
-// Verifica se todos os checkboxes no modal da IT estão marcados
-function checkAllBoxesChecked() {
-  const checkboxes = document.querySelectorAll('#instruction-modal-content .it-checkbox');
-  const confirmBtn = document.getElementById('it-modal-confirm-btn');
-  if (!confirmBtn) return;
-  
-  // Se não houver checkboxes, o botão deve ser habilitado (não há nada para verificar)
-  if (checkboxes.length === 0) {
-    confirmBtn.disabled = false;
-    return;
-  }
-
-  const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-  confirmBtn.disabled = !allChecked;
-}
-
-// Chamado pelo botão "Confirmar e Concluir" do modal da IT
-function handleCheckboxITConfirmation() {
-  const taskId = currentTaskForCheckboxConfirmation;
-  if (!taskId) return;
-  
-  closeModal('instruction-modal');
-  currentTaskForCheckboxConfirmation = null;
-  
-  // Agora, e somente agora, chamamos o modal de finalização
-  showActionModal(taskId, 'Finalizar', DELAY_REASONS);
-}
-
-// ================================================================
-// FIM DA MUDANÇA (FASE 2)
-// ================================================================
 
 function openUserModal() {
   const modal = document.getElementById('user-modal');
@@ -1847,8 +1775,16 @@ function openOFDetails(ofId, isHistory = false){
   }).join('');
   document.getElementById('of-details-content').innerHTML = content;
 
+  // ================================================================
+  // INÍCIO DA MUDANÇA (FASE 1) - EXCLUIR DO HISTÓRICO
+  // ================================================================
+  
   // Botão de Excluir só aparece se for MASTER (agora visível também no Histórico)
   btnDeleteOF.classList.toggle('hidden', !isMaster());
+  
+  // ================================================================
+  // FIM DA MUDANÇA (FASE 1)
+  // ================================================================
   
   openModal('of-details-modal');
 }
@@ -1926,10 +1862,6 @@ function exportOFTasksCSV(ofId){
   });
   downloadCSV(rows, `of_${ofId}_tasks_${new Date().toISOString().slice(0,10)}.csv`);
 }
-
-// ================================================================
-// INÍCIO DA MUDANÇA (FASE 1) - CORREÇÃO DO CSV
-// ================================================================
 function downloadCSV(rows, filename){
   // 1. ALTERAÇÃO: Trocamos .join(',') por .join(';') para o Excel entender as colunas.
   const csvContent = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
@@ -1941,11 +1873,6 @@ function downloadCSV(rows, filename){
   const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
 }
-// ================================================================
-// FIM DA MUDANÇA (FASE 1)
-// ================================================================
-
-
 /* ============================
    ROTEIROS (Renderiza na tela Admin)
    ============================ */
@@ -1995,27 +1922,9 @@ window.updateSectorFilter = updateSectorFilter;
 window.deleteSelectedOcorrencias = deleteSelectedOcorrencias;
 window.toggleSelectAllOcorrencias = toggleSelectAllOcorrencias;
 window.updateDeleteButtonState = updateDeleteButtonState;
-window.renderHistory = renderHistory;
-
-// INÍCIO DA MUDANÇA (FASE 2) - Exposição global das novas funções
-window.handleCheckboxITConfirmation = handleCheckboxITConfirmation;
-window.checkAllBoxesChecked = check
-window.deleteSelectedOcorrencias = deleteSelectedOcorrencias;
-window.toggleSelectAllOcorrencias = toggleSelectAllOcorrencias;
-window.updateDeleteButtonState = updateDeleteButtonState;
-window.renderHistory = renderHistory;
-
-// INÍCIO DA MUDANÇA (FASE 2) - Exposição global das novas funções
-window.handleCheckboxITConfirmation = handleCheckboxITConfirmation;
-// CORREÇÃO: A linha abaixo estava incompleta
-window.checkAllBoxesChecked = checkAllBoxesChecked; 
-
-// ============================
-// BOOTSTRAP (Estava faltando o fechamento do EventListener)
-// ============================
-}); // <-- Esta chave '}' fecha o 'DOMContentLoaded'
-
-</script> 
-
+window.renderHistory = renderHistory; // Exposição global do novo método
+</script>
 </body>
 </html>
+
+
