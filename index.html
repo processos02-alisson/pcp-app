@@ -99,7 +99,6 @@
           <option value="PCP">Visão: PCP</option>
           <option value="Operador">Visão: Operador</option>
           <option value="Relatorio">Visão: Relatório</option>
-          <option value="Historico">Visão: Histórico</option>
           </select>
 
         <button onclick="openModal('create-of-modal')" id="btn-create-of"
@@ -1194,52 +1193,46 @@ async function handleConfirmedAction(){
   closeModal();
 }
 
-// NOVO: Renderiza a instrução de trabalho incluindo imagens/videos
+// ================================================================
+// INÍCIO DA MUDANÇA (FASE 1) - CORREÇÃO DA IT
+// ================================================================
+
+// Renderiza a instrução de trabalho (IT) com links clicáveis
 function renderInstructionContent(rawContent) {
     if (!rawContent || rawContent.trim() === '') {
         return '<p class="text-gray-500 italic">Nenhuma instrução de trabalho cadastrada para esta etapa.</p>';
     }
 
-    // 1. Regex para encontrar URLs (http, https)
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    // 1. Converte quebras de linha de texto ( \n ) em <br> para manter a formatação do textarea
+    //    E preserva o HTML que o usuário já usa (como <b>)
+    let htmlContent = rawContent.replace(/\n/g, '<br>');
+
+    // 2. Encontra URLs (http, https)
+    //    Esta regex encontra URLs e as transforma em links clicáveis.
+    const urlRegex = /(https?:\/\/[^\s<]+)/g;
     
-    // 2. Substitui as URLs encontradas por tags de mídia
-    let processedContent = rawContent.replace(urlRegex, (url) => {
-        let trimmedUrl = url.trim();
-        
-        try {
-            // Tenta extrair ID de vídeo do YouTube
-            const youtubeMatch = trimmedUrl.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-            if (youtubeMatch && youtubeMatch[1]) {
-                const videoId = youtubeMatch[1];
-                return `<div class="my-4 aspect-w-16 aspect-h-9"><iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" class="w-full h-full rounded-lg shadow-md" style="height:300px;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
-            }
-
-            // Tenta identificar imagens
-            if (/\.(jpe?g|png|gif|webp)$/i.test(trimmedUrl)) {
-                return `<div class="my-4"><img src="${trimmedUrl}" alt="Instrução Visual" class="w-full h-auto rounded-lg shadow-md"></div>`;
-            }
-            
-            // Tenta identificar PDFs
-            if (/\.pdf$/i.test(trimmedUrl)) {
-                 return `<div class="my-2 p-3 border border-gray-200 rounded-lg flex items-center bg-gray-50">
-                            <i data-lucide="file-text" class="w-5 h-5 mr-2 text-red-500"></i>
-                            <a href="${trimmedUrl}" target="_blank" class="text-sm text-red-600 hover:text-red-800 font-medium">Abrir Documento PDF</a>
-                        </div>`;
-            }
-
-        } catch (e) {
-            // Se a URL for inválida ou a lógica falhar, apenas retorna a URL como link
-        }
-        
-        // Se não for um tipo de mídia conhecido, retorna como um link padrão
-        return `<a href="${trimmedUrl}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium">${trimmedUrl}</a>`;
+    // 3. Substitui URLs por links clicáveis que abrem em nova aba
+    let processedContent = htmlContent.replace(urlRegex, (url) => {
+        return `<a href="${url}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium underline">${url}</a>`;
     });
+    
+    // 4. A regex acima pode acidentalmente linkar uma URL que já está dentro de um <a href="...">
+    //    Vamos corrigir isso:
+    processedContent = processedContent.replace(/<a [^>]*href="([^"]*)"[^>]*>[\s\S]*<a [^>]*href="([^"]*)"[^>]*>([\s\S]*)<\/a>[\s\S]*<\/a>/gi, 
+        (match, p1, p2, p3) => {
+            // Se a URL interna for a mesma da externa, remove o link interno
+            if(p1 === p2) return `<a href="${p1}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium underline">${p3}</a>`;
+            // Senão, mantém (caso estranho)
+            return match;
+        }
+    );
 
-    // Garante que o HTML existente (como <b>) ainda funcione
-    // O regex de URL pode quebrar o HTML, então precisamos re-formatar as quebras de linha
-    return processedContent.replace(/\n/g, '<br>');
+    return processedContent;
 }
+
+// ================================================================
+// FIM DA MUDANÇA (FASE 1)
+// ================================================================
 
 
 function openInstructionModal(taskId) {
@@ -1250,7 +1243,7 @@ function openInstructionModal(taskId) {
   
   const contentEl = document.getElementById('instruction-modal-content');
   
-  // Usa a nova função para renderizar HTML (incluindo imagens/videos)
+  // Usa a nova função para renderizar HTML (incluindo links clicáveis)
   contentEl.innerHTML = renderInstructionContent(task.instrucao_trabalho);
   
   openModal('instruction-modal');
@@ -1453,7 +1446,16 @@ function updateView(view){
       userViewSelect.innerHTML += '<option value="Admin">Visão: Administração</option>';
     }
     if (!histOption) {
-      userViewSelect.innerHTML += '<option value="Historico">Visão: Histórico</option>';
+      // Adiciona "Histórico" antes de "Administração"
+      const adminOptEl = userViewSelect.querySelector('option[value="Admin"]');
+      const newHistOpt = document.createElement('option');
+      newHistOpt.value = 'Historico';
+      newHistOpt.textContent = 'Visão: Histórico';
+      if (adminOptEl) {
+        userViewSelect.insertBefore(newHistOpt, adminOptEl);
+      } else {
+         userViewSelect.appendChild(newHistOpt);
+      }
     }
   } else {
     if (adminOption) adminOption.remove();
@@ -1741,7 +1743,6 @@ function openOFDetails(ofId, isHistory = false){
   // Detalhes calculados para o resumo
   const totalTempoReal = tasks.reduce((sum, t) => sum + calculateTempoRealMinutes(t), 0);
   const totalTempoPlanejado = tasks.reduce((sum, t) => sum + (t.tempo_planejado || 0), 0);
-  const desvioTotal = totalTempoPlanejado - totalTempoReal;
 
   document.getElementById('of-details-title').textContent = `OF ${ofId} — ${of.chicote}`;
   document.getElementById('of-details-summary').innerHTML = `
@@ -1774,8 +1775,17 @@ function openOFDetails(ofId, isHistory = false){
   }).join('');
   document.getElementById('of-details-content').innerHTML = content;
 
-  // Botão de Excluir só aparece se for MASTER e NÃO estiver na view Histórico
-  btnDeleteOF.classList.toggle('hidden', isHistory || !isMaster());
+  // ================================================================
+  // INÍCIO DA MUDANÇA (FASE 1) - EXCLUIR DO HISTÓRICO
+  // ================================================================
+  
+  // Botão de Excluir só aparece se for MASTER (agora visível também no Histórico)
+  btnDeleteOF.classList.toggle('hidden', !isMaster());
+  
+  // ================================================================
+  // FIM DA MUDANÇA (FASE 1)
+  // ================================================================
+  
   openModal('of-details-modal');
 }
 
