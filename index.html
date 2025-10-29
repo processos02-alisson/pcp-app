@@ -23,7 +23,7 @@
       --app-bg-color: #f3f4f6;
       --app-bg-image: none;
       
-      /* NOVO: Cores de Prioridade */
+      /* Cores de Prioridade (Mantidas) */
       --cor-perigo: #dc2626; /* Vermelho */
       --cor-neutra: #3b82f6; /* Azul */
     }
@@ -35,10 +35,10 @@
       padding-left: max(env(safe-area-inset-left), 0px);
       padding-right: max(env(safe-area-inset-right), 0px);
     }
-    /* Estilo do seu Header (Azul) */
-    .bg-gradient-header { background: linear-gradient(90deg, #1e40af 0%, #3b82f6 100%); }
     
-    /* NOVO: CLASSES DE PRIORIDADE VISUAL (Operador) */
+    /* REMOVIDO: .bg-gradient-header não é mais usado */
+
+    /* CLASSES DE PRIORIDADE VISUAL (Operador) */
     .priority-high {
       border-left-width: 6px;
       border-left-color: var(--cor-perigo);
@@ -54,13 +54,13 @@
       border-left-color: #d1d5db; /* Cinza */
     }
     
-    /* NOVO: Cor de fundo para OFs Concluídas no Histórico */
+    /* Cor de fundo para OFs Concluídas no Histórico */
     .of-concluida-card {
         background-color: #f0fdf4; /* Verde bem clarinho */
         border-left-color: #10b981; /* Verde esmeralda */
     }
 
-    /* NOVO: Estilo do Modal de IT (Melhoria Visual) */
+    /* Estilo do Modal de IT (Melhoria Visual) */
     #instruction-modal .modal-panel {
         border-top: 8px solid #4f46e5; /* Índigo */
     }
@@ -77,9 +77,9 @@
     }
   </style>
 </head>
-<body class="min-h-screen bg-gray-100/0 antialiased">
+<body class="min-h-screen bg-gray-100 antialiased">
 
-  <header class="bg-gradient-header shadow-lg p-3 sm:p-4 sticky top-0 z-10">
+  <header class="bg-gray-800 shadow-md p-3 sm:p-4 sticky top-0 z-10">
     <div class="max-w-7xl mx-auto flex justify-between items-center gap-2">
       <h1 class="text-2xl sm:text-3xl font-extrabold text-white flex items-center">
         <i data-lucide="factory" class="w-7 h-7 sm:w-8 sm:h-8 mr-2"></i>
@@ -88,21 +88,21 @@
       <div class="flex gap-2 items-center">
         
         <button id="btn-profile"
-                class="text-white bg-blue-800 hover:bg-blue-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden"
+                class="text-white bg-gray-700 hover:bg-gray-600 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden"
                 onclick="openUserModal()">
           <i data-lucide="user-cog" class="w-5 h-5 inline-block mr-1"></i>
           <span class="hidden sm:inline">Perfil</span>
         </button>
 
         <select id="user-view-select" onchange="updateView(this.value)"
-                class="bg-blue-800 text-white text-xs sm:text-sm font-semibold py-2 px-2 rounded-lg transition hover:bg-blue-700 focus:ring-2 focus:ring-blue-300">
+                class="bg-gray-700 text-white text-xs sm:text-sm font-semibold py-2 px-2 rounded-lg transition hover:bg-gray-600 focus:ring-2 focus:ring-indigo-300">
           <option value="PCP">Visão: PCP</option>
           <option value="Operador">Visão: Operador</option>
           <option value="Relatorio">Visão: Relatório</option>
           </select>
 
         <button onclick="openModal('create-of-modal')" id="btn-create-of"
-                class="text-white bg-green-600 hover:bg-green-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden">
+                class="text-white bg-emerald-600 hover:bg-emerald-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden">
           <i data-lucide="plus" class="w-5 h-5 inline-block mr-1"></i>
           <span class="hidden sm:inline">Criar OF</span>
         </button>
@@ -112,8 +112,8 @@
   </header>
 
   <main class="max-w-7xl mx-auto p-3 sm:p-6 lg:p-8">
-    <div id="loading-indicator" class="flex flex-col items-center justify-center p-6 sm:p-12 bg-white rounded-xl shadow-xl">
-      <i data-lucide="loader-circle" class="w-8 h-8 sm:w-10 sm:h-10 text-blue-500 animate-spin"></i>
+    <div id="loading-indicator" class="flex flex-col items-center justify-center p-6 sm:p-12 bg-white rounded-xl border border-gray-300">
+      <i data-lucide="loader-circle" class="w-8 h-8 sm:w-10 sm:h-10 text-gray-500 animate-spin"></i>
       <p class="mt-3 sm:mt-4 text-gray-600 font-semibold text-sm sm:text-base">Carregando dados e autenticando...</p>
     </div>
 
@@ -124,12 +124,12 @@
       </h2>
       <div id="pcp-of-search-wrap" class="mb-2 hidden">
         <input id="pcp-of-search" type="text" placeholder="Pesquisar OF Ativa..."
-               class="w-full sm:w-64 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500">
+               class="w-full sm:w-64 border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500">
       </div>
       
       <div id="kpis-container" class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4"></div>
 
-      <div id="workload-chart-container" class="bg-white p-4 sm:p-6 rounded-xl shadow-lg mb-4">
+      <div id="workload-chart-container" class="bg-white p-4 sm:p-6 rounded-xl border border-gray-300 mb-4">
           <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
               <i data-lucide="gauge" class="w-5 h-5 mr-2 text-indigo-600"></i> Carga de Trabalho por Setor (Minutos Planejados Restantes)
           </h3>
@@ -142,20 +142,20 @@
     </div>
 
     <div id="operator-view" class="space-y-4 sm:space-y-6 hidden">
-      <div class="bg-white p-3 sm:p-4 rounded-xl shadow-lg mb-4 sm:mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 mb-4 sm:mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
         <h2 class="text-lg sm:text-xl font-bold text-gray-800 flex items-center">
-          <i data-lucide="clipboard-list" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-blue-600"></i>
+          <i data-lucide="clipboard-list" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-gray-600"></i>
           Minhas Tarefas
         </h2>
         <div class="flex items-center gap-2 w-full sm:w-auto">
           <label for="sector-filter" class="text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">Setor:</label>
           <select id="sector-filter" onchange="updateSectorFilter(this.value)"
-                  class="p-2 border border-blue-300 rounded-lg bg-blue-50 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48"></select>
+                  class="p-2 border border-gray-300 rounded-lg bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500 w-full sm:w-48"></select>
         </div>
         <div id="operator-of-search-wrap" class="flex items-center gap-2 w-full sm:w-auto hidden">
           <label class="text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">OF:</label>
           <input id="operator-of-search" type="text" placeholder="Filtrar por OF..."
-                 class="p-2 border border-blue-300 rounded-lg bg-blue-50 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-48">
+                 class="p-2 border border-gray-300 rounded-lg bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500 w-full sm:w-48">
         </div>
       </div>
       <div id="tasks-list-container" class="space-y-3 sm:space-y-4"></div>
@@ -166,7 +166,7 @@
         <i data-lucide="file-text" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-purple-600"></i>
         Relatório de Ocorrências (OFS Ativas)
       </h2>
-      <div class="bg-white p-3 sm:p-4 rounded-xl shadow-lg">
+      <div class="bg-white p-3 sm:p-4 rounded-xl border border-gray-300">
         <div class="flex justify-between items-center mb-3 sm:mb-4">
           <h3 class="text-base sm:text-xl font-semibold text-gray-700">Pausas & Atrasos</h3>
           <div class="flex gap-2">
@@ -177,7 +177,7 @@
               <span class="hidden sm:inline">Excluir Selecionados</span>
             </button>
             <button id="btn-export-report" onclick="exportReportCSV()"
-                    class="px-3 sm:px-4 py-2 bg-purple-600 text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-purple-700 transition">
+                    class="px-3 sm:px-4 py-2 bg-indigo-600 text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-indigo-700 transition">
               <i data-lucide="download" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Exportar (CSV)
             </button>
           </div>
@@ -187,9 +187,9 @@
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-2 sm:px-4 py-2 sm:py-3 text-center w-12">
-                  <input type="checkbox" id="report-select-all" 
+                   <input type="checkbox" id="report-select-all" 
                          onclick="toggleSelectAllOcorrencias(this)"
-                         class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                         class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                 </th>
                 <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">OF</th>
                 <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">CHICOTE</th>
@@ -216,7 +216,7 @@
                    class="w-full sm:w-64 border border-gray-300 rounded-lg p-2 focus:ring-green-500 focus:border-green-500">
         </div>
         <div id="historico-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-            </div>
+        </div>
     </div>
     
     <div id="admin-view" class="space-y-4 sm:space-y-6 hidden">
@@ -225,26 +225,26 @@
         Painel de Administração (Master)
       </h2>
 
-      <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+      <div class="bg-white p-4 sm:p-6 rounded-xl border border-gray-300">
         <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Setup: Cadastro de Roteiros Mestres</h3>
         
         <div class="flex flex-col lg:flex-row gap-4">
           <div id="roteiro-list-admin" class="space-y-4 h-[50vh] lg:h-[60vh] overflow-y-auto mb-4 p-2 border rounded-lg bg-gray-50 modal-body-scroll lg:w-1/2">
-            </div>
+          </div>
           
           <div class="border-t lg:border-t-0 lg:border-l lg:pl-4 pt-4 lg:pt-0 space-y-4 lg:w-1/2">
             <h4 class="text-base sm:text-lg font-semibold text-gray-700">Nova Etapa para Roteiro:</h4>
             <div class="flex flex-col gap-3">
           
             <div class="flex flex-col sm:flex-row gap-3">
-                <input type="text" id="roteiro-chicote-name-admin" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Nome do Chicote (Ex: CHICOTE-A)">
-                <select id="roteiro-setor-admin" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"></select>
+                <input type="text" id="roteiro-chicote-name-admin" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Nome do Chicote (Ex: CHICOTE-A)">
+                <select id="roteiro-setor-admin" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500"></select>
               </div>
-              <input type="text" id="roteiro-activity-name-admin" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Nome da Atividade (Ex: Pré Conexão)">
+              <input type="text" id="roteiro-activity-name-admin" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Nome da Atividade (Ex: Pré Conexão)">
              
             <div class="flex flex-col sm:flex-row gap-3">
-                <input type="number" id="roteiro-setup-time-admin" min="0" step="0.1" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Setup (min)">
-                <input type="number" id="roteiro-cycle-time-admin" min="0" step="0.1" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Ciclo (min/pç)">
+                <input type="number" id="roteiro-setup-time-admin" min="0" step="0.1" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Setup (min)">
+                <input type="number" id="roteiro-cycle-time-admin" min="0" step="0.1" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ciclo (min/pç)">
               </div>
               <div>
                 <label for="roteiro-instruction-text-admin" class="block text-sm font-medium text-gray-700 mb-1">Instrução de Trabalho (HTML, links de imagem/YouTube):</label>
@@ -259,7 +259,7 @@
         </div>
       </div>
       
-      <div id="user-management-container" class="bg-white p-4 sm:p-6 rounded-xl shadow-lg hidden">
+      <div id="user-management-container" class="bg-white p-4 sm:p-6 rounded-xl border border-gray-300 hidden">
          <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Gerenciamento de Usuários (Fase 2)</h3>
          <p>A interface de criação de usuários (Firebase Auth) aparecerá aqui.</p>
       </div>
@@ -267,34 +267,30 @@
   </main>
 
   <div id="action-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
-    <div class="bg-white rounded-xl shadow-2xl p-4 
-    sm:p-6 w-full max-w-md modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
+    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-md modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
       <h3 id="modal-title" class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2"></h3>
       <div class="modal-body-scroll">
         <p id="modal-message" class="text-gray-600 mb-3 sm:mb-4"></p>
         <div id="modal-content">
           <div id="justification-area" class="space-y-3 sm:space-y-4">
             <label for="justification-select" class="block text-sm font-medium text-gray-700">Selecione o Motivo Principal:</label>
-            <select id="justification-select" class="w-full border border-gray-300 rounded-lg 
-    p-3 focus:ring-blue-500 focus:border-blue-500 transition">
+            <select id="justification-select" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-indigo-500 focus:border-indigo-500 transition">
               <option value="">-- Selecione uma opção --</option>
             </select>
             <label for="justification-text" class="block text-sm font-medium text-gray-700">Detalhes Adicionais (Opcional):</label>
-            <textarea id="justification-text" rows="2" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-blue-500 focus:border-blue-500 transition" placeholder=""></textarea>
-            <p id="justification-required-text" class="text-sm text-red-500 hidden font-semibold">🚨 Campo obrigatório devido ao desvio de 
-    tempo!</p>
+            <textarea id="justification-text" rows="2" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder=""></textarea>
+            <p id="justification-required-text" class="text-sm text-red-500 hidden font-semibold">🚨 Campo obrigatório devido ao desvio de tempo!</p>
           </div>
         </div>
       </div>
       <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3 sticky-footer">
         <button onclick="closeModal()" class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition">Cancelar</button>
-        <button id="modal-confirm-button" class="px-3 sm:px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition" onclick="handleConfirmedAction()">Confirmar</button>
+        <button id="modal-confirm-button" class="px-3 sm:px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition" onclick="handleConfirmedAction()">Confirmar</button>
       </div>
     </div>
   </div>
 
-  <div id="instruction-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 
-    items-center justify-center hidden" onclick="closeModal('instruction-modal')">
+  <div id="instruction-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal('instruction-modal')">
     <div class="bg-white rounded-xl shadow-2xl p-5 sm:p-8 w-full max-w-2xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
       <h3 class="text-xl sm:text-2xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2 flex items-center">
         <i data-lucide="book-open-text" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-indigo-600"></i> Instrução de Trabalho
@@ -315,22 +311,22 @@
       <div class="space-y-3 sm:space-y-4 modal-body-scroll">
         <div>
           <label for="of-id" class="block text-sm font-medium text-gray-700">Código da OF:</label>
-          <input type="text" id="of-id" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: OF-003">
+          <input type="text" id="of-id" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: OF-003">
         </div>
         <div>
           <label for="of-quantity" class="block text-sm font-medium text-gray-700">Quantidade de Peças:</label>
-          <input type="number" id="of-quantity" min="1" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Ex: 50">
+          <input type="number" id="of-quantity" min="1" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: 50">
         </div>
         <div>
           <label for="of-chicote" class="block text-sm font-medium text-gray-700">Modelo do Chicote (Roteiro Mestre):</label>
-          <select id="of-chicote" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-blue-500 focus:border-blue-500">
+          <select id="of-chicote" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500">
             <option value="">Carregando roteiros...</option>
           </select>
         </div>
         
         <div>
           <label for="of-priority" class="block text-sm font-medium text-gray-700">Prioridade:</label>
-          <select id="of-priority" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-blue-500 focus:border-blue-500">
+          <select id="of-priority" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500">
             <option value="Media">Média (Padrão)</option>
             <option value="Alta">Alta (Urgente)</option>
             <option value="Baixa">Baixa</option>
@@ -341,7 +337,7 @@
       </div>
       <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3 sticky-footer">
         <button onclick="closeModal('create-of-modal')" class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition">Cancelar</button>
-        <button onclick="createOF()" class="px-3 sm:px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700">
+        <button onclick="createOF()" class="px-3 sm:px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700">
           <i data-lucide="factory" class="w-5 h-5 inline-block mr-1"></i> Gerar OF
         </button>
       </div>
@@ -362,7 +358,7 @@
           <i data-lucide="trash-2" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Excluir OF
         </button>
         <div class="flex gap-2 sm:gap-3">
-          <button id="btn-export-of" class="px-3 sm:px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition" onclick="exportOFTasksCSV(window.__ofDetailsOpenId)">Exportar CSV</button>
+          <button id="btn-export-of" class="px-3 sm:px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition" onclick="exportOFTasksCSV(window.__ofDetailsOpenId)">Exportar CSV</button>
           <button class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition" onclick="closeModal('of-details-modal')">Fechar</button>
         </div>
       </div>
@@ -370,20 +366,19 @@
   </div>
 
   <div id="user-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="event.stopPropagation()">
-    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-md 
-    modal-panel mx-0 sm:mx-4">
+    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-md modal-panel mx-0 sm:mx-4">
       <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Acesso</h3>
       <div class="space-y-3 sm:space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-700">Perfil</label>
-          <select id="user-role" class="w-full border border-gray-300 rounded-lg p-2 mt-1">
+          <select id="user-role" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500">
             <option value="OPERADOR">Operador</option>
             <option value="MASTER">Master</option>
           </select>
         </div>
         <div id="user-sector-wrap">
           <label class="block text-sm font-medium text-gray-700">Setor do Operador</label>
-          <select id="user-sector" class="w-full border border-gray-300 rounded-lg p-2 mt-1"></select>
+          <select id="user-sector" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500"></select>
         </div>
         <div id="user-pin-wrap" class="hidden">
           <label class="block text-sm font-medium text-gray-700">PIN do Master</label>
@@ -393,7 +388,7 @@
       </div>
       <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3">
         <button class="px-3 sm:px-4 py-2 bg-gray-200 rounded-lg font-semibold hover:bg-gray-300" onclick="closeModal('user-modal')">Cancelar</button>
-        <button class="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700" onclick="confirmUser()">Entrar</button>
+        <button class="px-3 sm:px-4 py-2 bg-gray-700 text-white rounded-lg font-semibold hover:bg-gray-600" onclick="confirmUser()">Entrar</button>
       </div>
     </div>
   </div>
@@ -458,15 +453,13 @@ let currentAction = {};
 let currentSectorFilter = SECTORS[0];
 let currentUser = null;
 
-// NOVO: Referência do Gráfico
+// Referência do Gráfico
 let workloadChart = null;
 
 // Busca por OF nas telas
 let pcpSearchOF = "";
 let operatorSearchOF = "";
-// NOVO: Busca Histórico
 let historicoSearchOF = "";
-
 
 // Simulação
 let taskCounter = 1;
@@ -494,7 +487,7 @@ const pcpView = document.getElementById("pcp-view");
 const operatorView = document.getElementById("operator-view");
 const reportView = document.getElementById("report-view");
 const adminView = document.getElementById("admin-view"); 
-const historicoView = document.getElementById("historico-view"); // NOVO
+const historicoView = document.getElementById("historico-view");
 const loadingIndicator = document.getElementById("loading-indicator");
 const ofsListContainer = document.getElementById("ofs-list-container");
 const tasksListContainer = document.getElementById("tasks-list-container");
@@ -522,13 +515,15 @@ function setUser(u){
   } catch(_){}
 }
 function getUser(){
-  try { return JSON.parse(sessionStorage.getItem("pcp_current_user") || "null"); }
+  try { return JSON.parse(sessionStorage.getItem("pcp_current_user") || "null");
+  }
   catch(e){ return null; }
 }
 function clearUser(){ try{ sessionStorage.removeItem("pcp_current_user");
 }catch(_){} currentUser=null; }
 
-function isMaster(){ return currentUser && currentUser.role === "MASTER"; }
+function isMaster(){ return currentUser && currentUser.role === "MASTER";
+}
 function isOperador(){ return currentUser && currentUser.role === "OPERADOR";
 }
 
@@ -539,7 +534,7 @@ function getDBTimestamp(ts) {
   return ts;
 }
 
-/* NOVO: Helper visual de Prioridade */
+/* Helper visual de Prioridade */
 function getPriorityClass(priority) {
   if (priority === 'Alta') return 'priority-high';
   if (priority === 'Baixa') return 'priority-low';
@@ -561,7 +556,6 @@ function applyTheme(s){
   const r = document.documentElement.style;
   // Default é o Fundo Cinza Padrão
   const defaultColor = '#f3f4f6'; 
-
   if (!s || s.mode === 'color'){
     r.setProperty('--app-bg-color', s?.color || defaultColor);
     r.setProperty('--app-bg-image', 'none');
@@ -578,30 +572,24 @@ function applyTheme(s){
    
 // Função para obter o valor acumulado em milissegundos
 function calculateTempoRealMs(task){
-  // Se concluído ou bloqueado/espera, retorna o valor salvo em MS
   if (task.status === 'Concluído' || task.status === 'Bloqueada' || task.status === 'Em Espera') {
     return task.tempo_real_acumulado_ms || 0;
   }
   
-  // Se estiver em processo ou pausado, calcula o tempo corrido
   const now = Date.now();
-  let tempoAcumulado = task.tempo_real_acumulado_ms || 0; // Este valor deve estar em MS
-  let ultimaAtividade = getDBTimestamp(task.timestamp_inicio); // Este valor é MS
+  let tempoAcumulado = task.tempo_real_acumulado_ms || 0; 
+  let ultimaAtividade = getDBTimestamp(task.timestamp_inicio);
 
   if (!ultimaAtividade) return tempoAcumulado;
-
   if (task.status === 'Em Processo'){
-    // Adiciona o tempo desde o último início
     tempoAcumulado += (now - ultimaAtividade);
   }
-  // Se Pausada, tempoAcumulado é o tempo_real_acumulado_ms salvo no momento da pausa.
   
-  return tempoAcumulado; // Retorna o valor em milissegundos
+  return tempoAcumulado;
 }
 
 // Funções que retornam minutos
 function calculateTempoRealMinutes(task){
-  // Se a tarefa estiver concluída, use o tempo salvo, senão, calcule o tempo corrido.
   if (task.status === 'Concluído') {
       return msToMinutes(task.tempo_real_acumulado_ms || 0);
   }
@@ -609,10 +597,9 @@ function calculateTempoRealMinutes(task){
 }
 
 function calculateDesvio(task){
-  const realMinutes = calculateTempoRealMinutes(task); // Tempo real em minutos
-  const planned = task.tempo_planejado || 0; // Tempo planejado em minutos
+  const realMinutes = calculateTempoRealMinutes(task); 
+  const planned = task.tempo_planejado || 0;
   
-  // Desvio (min): Planejado - Real. Positivo = Adiantado/Dentro. Negativo = Atrasado.
   return parseFloat((planned - realMinutes).toFixed(2));
 }
 
@@ -633,7 +620,6 @@ function calculateTotalPauseMinutesFinal(task){
    INICIALIZAÇÃO & LISTENERS
    ============================ */
 function setupSectorDropdowns(){
-  // NOVO: Seletores da tela Admin
   const roteiroSetorSelect = document.getElementById('roteiro-setor-admin');
   const userSectorSelect = document.getElementById('user-sector');
   const sectorFilterSelect = document.getElementById('sector-filter');
@@ -687,16 +673,13 @@ function loadRoteiroDropdowns() {
 
 async function initializeApp(){
   loadingIndicator.classList.remove('hidden');
-  // Esconde tudo enquanto não loga
   pcpView.classList.add('hidden');
   operatorView.classList.add('hidden');
   reportView.classList.add('hidden');
   adminView.classList.add('hidden'); 
-  historicoView.classList.add('hidden'); // NOVO
+  historicoView.classList.add('hidden');
 
-  // Tema global (escuta sempre)
   listenTheme();
-  // Restaura sessão (sessionStorage)
   const savedUser = getUser();
   if (savedUser){ setUser(savedUser);
   }
@@ -715,7 +698,6 @@ async function initializeApp(){
       allTasks = JSON.parse(localStorage.getItem('sim_tasks') || '{}');
       allOcurrencesLog = JSON.parse(localStorage.getItem('sim_ocorrencias') || '[]');
     }
-    // Atraso para garantir que a UI esteja pronta
     setTimeout(()=>{
       if (!savedUser) {
         openUserModal();
@@ -727,16 +709,14 @@ async function initializeApp(){
       setupUIRefresh();
       loadRoteiroDropdowns();
       injectSearchInputs();
-      renderRoteiros(); // Renderiza roteiros para admin
+      renderRoteiros();
     }, 300);
   }
 
   setupSectorDropdowns();
-  // Atraso na exibição do modal de login
   if (!savedUser) {
     setTimeout(openUserModal, 100);
   } else {
-    // Força a view correta ao iniciar
     if (isOperador()) {
       updateView('Operador');
     } else {
@@ -749,11 +729,10 @@ async function initializeApp(){
 function setupFirebaseListeners() {
   if (!window.db) return;
 
-  // Listeners ajustados para forçar o updateView
   let collectionsLoaded = { ofs: false, tasks: false, roteiros: false, ocorrencias: false };
   
   const forceUpdateView = () => {
-     if (!loadingIndicator.classList.contains('hidden')) return; // Não atualiza se o loading ainda estiver ativo
+     if (!loadingIndicator.classList.contains('hidden')) return;
      updateView(userViewSelect.value);
   }
   
@@ -763,7 +742,6 @@ function setupFirebaseListeners() {
         loadingIndicator.classList.add('hidden');
         if (!currentUser) { openUserModal(); }
       }
-      // Garante que a view seja atualizada após o load inicial
       updateView(userViewSelect.value || (isMaster() ? 'PCP' : 'Operador'));
       injectSearchInputs();
     }
@@ -778,7 +756,7 @@ function setupFirebaseListeners() {
     });
     collectionsLoaded.ofs = true;
     checkAllLoaded();
-    forceUpdateView(); // Atualiza em caso de criação/exclusão/conclusão de OF
+    forceUpdateView(); 
   });
   
   db.collection(TASK_COLLECTION).onSnapshot(snapshot => {
@@ -789,7 +767,7 @@ function setupFirebaseListeners() {
     });
     collectionsLoaded.tasks = true;
     checkAllLoaded();
-    forceUpdateView(); // Qualquer mudança em task (start, pause, finish) atualiza TUDO
+    forceUpdateView(); 
   });
   
   db.collection(ROTEIRO_COLLECTION).onSnapshot(snapshot => {
@@ -799,7 +777,7 @@ function setupFirebaseListeners() {
       allRoteiros[roteiroData.id] = roteiroData;
     });
     loadRoteiroDropdowns();
-    renderRoteiros(); // Atualiza a lista na tela Admin
+    renderRoteiros(); 
     collectionsLoaded.roteiros = true;
     checkAllLoaded();
   });
@@ -810,7 +788,7 @@ function setupFirebaseListeners() {
     allOcurrencesLog.sort((a,b) => getDBTimestamp(b.timestamp) - getDBTimestamp(a.timestamp));
     collectionsLoaded.ocorrencias = true;
     checkAllLoaded();
-    forceUpdateView(); // Qualquer nova ocorrência (pausa) força o update da view (KPIs e Relatório)
+    forceUpdateView();
   });
 }
 
@@ -818,7 +796,6 @@ function setupFirebaseListeners() {
    CRUD
    ============================ */
 async function addRoteiroActivity(){
-  // NOVO: IDs dos inputs da tela Admin
   const chicote_name = document.getElementById('roteiro-chicote-name-admin').value.trim().toUpperCase();
   const setor = document.getElementById('roteiro-setor-admin').value;
   const activity_name = document.getElementById('roteiro-activity-name-admin').value.trim();
@@ -864,7 +841,6 @@ async function addRoteiroActivity(){
     renderRoteiros();
     loadRoteiroDropdowns();
   }
-  // Limpa o formulário admin
   document.getElementById('roteiro-activity-name-admin').value = '';
   document.getElementById('roteiro-setup-time-admin').value = '';
   document.getElementById('roteiro-cycle-time-admin').value = '';
@@ -875,7 +851,7 @@ async function createOF(ofIdOverride, quantityOverride, chicoteOverride, priorit
   const of_id = ofIdOverride || document.getElementById('of-id').value.trim().toUpperCase();
   const quantity = quantityOverride || parseInt(document.getElementById('of-quantity').value);
   const chicote_name = chicoteOverride || document.getElementById('of-chicote').value;
-  const priority = priorityOverride || document.getElementById('of-priority').value || 'Media'; // NOVO
+  const priority = priorityOverride || document.getElementById('of-priority').value || 'Media';
   
   const messageEl = document.getElementById('of-creation-message');
   messageEl.textContent = '';
@@ -902,7 +878,7 @@ async function createOF(ofIdOverride, quantityOverride, chicoteOverride, priorit
   const newOF = {
     id: of_id, chicote: chicote_name, quantidade: quantity,
     status: 'Pendente',
-    priority: priority, // NOVO
+    priority: priority, 
     data_criacao: window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date(),
     task_count: roteiroEtapas.length,
     concluded_tasks: 0,
@@ -920,16 +896,16 @@ async function createOF(ofIdOverride, quantityOverride, chicoteOverride, priorit
         id_of: of_id, id_roteiro: etapa.id, chicote: chicote_name,
         nome_atividade: etapa.nome_atividade, setor: etapa.setor,
         tempo_setup: etapa.tempo_setup, tempo_ciclo: etapa.tempo_ciclo,
-        tempo_planejado: parseFloat(tempo_planejado.toFixed(2)), // Em minutos
+        tempo_planejado: parseFloat(tempo_planejado.toFixed(2)), 
         instrucao_trabalho: etapa.instrucao_trabalho,
         quantidade_pecas: quantity,
         status: 'Em Espera',
         ordem: order++,
-        priority: priority, // NOVO (herdado da OF)
+        priority: priority, 
     
         timestamp_inicio: null, timestamp_fim: null,
-        tempo_real_acumulado_ms: 0, // Armazena MS
-        total_pause_time_ms: 0,     // Armazena MS
+        tempo_real_acumulado_ms: 0, 
+        total_pause_time_ms: 0,     
         pause_start_timestamp: null,
         search_index: of_id.toLowerCase()+'-'+etapa.nome_atividade.toLowerCase()+'-'+etapa.setor.toLowerCase()
       };
@@ -964,7 +940,6 @@ async function updateTaskStatus(taskId, newStatus, logType = null, justification
   const updateData = { status: newStatus };
   const now = window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date();
   
-  // Usa MS
   const currentTempoRealMs = calculateTempoRealMs(task); 
 
   if (newStatus === 'Em Processo') {
@@ -974,19 +949,18 @@ async function updateTaskStatus(taskId, newStatus, logType = null, justification
       updateData.total_pause_time_ms = (task.total_pause_time_ms || 0) + currentPauseTimeMs;
       updateData.pause_start_timestamp = null;
     }
-    // Seta o início SÓ se for a primeira vez (Em Espera -> Em Processo)
     if (task.status === 'Em Espera') updateData.timestamp_inicio = now;
   } 
   else if (newStatus === 'Pausada') {
-    updateData.tempo_real_acumulado_ms = currentTempoRealMs; // Salva em MS
+    updateData.tempo_real_acumulado_ms = currentTempoRealMs;
     updateData.pause_start_timestamp = now;
     if (logType === 'PAUSA' && (justification || justificationText)) {
       await createOcorrenciaLog(task, 'PAUSA', justification, justificationText);
     }
   } 
   else if (newStatus === 'Concluído') {
-    const desvio = calculateDesvio(task); // Calcula o desvio em minutos
-    updateData.tempo_real_acumulado_ms = currentTempoRealMs; // Salva em MS
+    const desvio = calculateDesvio(task);
+    updateData.tempo_real_acumulado_ms = currentTempoRealMs;
     updateData.timestamp_fim = now;
     updateData.pause_start_timestamp = null;
     if (desvio < 0 || logType === 'FIM_ATRASO') {
@@ -1040,14 +1014,14 @@ async function createOcorrenciaLog(task, type, justification, justificationText)
 
   if (type === 'PAUSA') {
     logData.TIPO = 'PAUSA';
-    logData.TEMPO_PAUSA = 0; // CORREÇÃO: A pausa está apenas começando, a duração é 0.
+    logData.TEMPO_PAUSA = 0; 
     logData.TEMPO_ATRASO = 0;
     logData.MOTIVO_PAUSA = justification;
     logData.MOTIVO_ATRASO = null;
   } else if (type === 'FIM_ATRASO') {
-    const desvio = calculateDesvio(task); // Em minutos
+    const desvio = calculateDesvio(task);
     logData.TIPO = 'ATRASO';
-    logData.TEMPO_PAUSA = calculateTotalPauseMinutesFinal(task); // Em minutos
+    logData.TEMPO_PAUSA = calculateTotalPauseMinutesFinal(task); 
     logData.TEMPO_ATRASO = parseFloat(Math.abs(desvio).toFixed(2));
     logData.MOTIVO_PAUSA = null;
     logData.MOTIVO_ATRASO = justification;
@@ -1106,7 +1080,7 @@ async function deleteOF(ofId) {
     }
     closeModal('of-details-modal');
     alert(`OF ${ofId} excluída.`);
-    updateView(userViewSelect.value); // Força a atualização de todas as views e KPIs
+    updateView(userViewSelect.value);
   } catch(e) {
     alert("Erro ao excluir OF: " + (e.message || e));
   }
@@ -1193,47 +1167,24 @@ async function handleConfirmedAction(){
   closeModal();
 }
 
-// ================================================================
-// INÍCIO DA MUDANÇA (FASE 1) - CORREÇÃO DA IT
-// ================================================================
-
-// Renderiza a instrução de trabalho (IT) com links clicáveis
 function renderInstructionContent(rawContent) {
     if (!rawContent || rawContent.trim() === '') {
         return '<p class="text-gray-500 italic">Nenhuma instrução de trabalho cadastrada para esta etapa.</p>';
     }
-
-    // 1. Converte quebras de linha de texto ( \n ) em <br> para manter a formatação do textarea
-    //    E preserva o HTML que o usuário já usa (como <b>)
     let htmlContent = rawContent.replace(/\n/g, '<br>');
-
-    // 2. Encontra URLs (http, https)
-    //    Esta regex encontra URLs e as transforma em links clicáveis.
     const urlRegex = /(https?:\/\/[^\s<]+)/g;
     
-    // 3. Substitui URLs por links clicáveis que abrem em nova aba
     let processedContent = htmlContent.replace(urlRegex, (url) => {
         return `<a href="${url}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium underline">${url}</a>`;
     });
-    
-    // 4. A regex acima pode acidentalmente linkar uma URL que já está dentro de um <a href="...">
-    //    Vamos corrigir isso:
     processedContent = processedContent.replace(/<a [^>]*href="([^"]*)"[^>]*>[\s\S]*<a [^>]*href="([^"]*)"[^>]*>([\s\S]*)<\/a>[\s\S]*<\/a>/gi, 
         (match, p1, p2, p3) => {
-            // Se a URL interna for a mesma da externa, remove o link interno
             if(p1 === p2) return `<a href="${p1}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium underline">${p3}</a>`;
-            // Senão, mantém (caso estranho)
             return match;
         }
     );
-
     return processedContent;
 }
-
-// ================================================================
-// FIM DA MUDANÇA (FASE 1)
-// ================================================================
-
 
 function openInstructionModal(taskId) {
   const task = allTasks[taskId];
@@ -1242,8 +1193,6 @@ function openInstructionModal(taskId) {
     `OF ${task.id_of} - Chicote ${task.chicote} - Setor: ${task.setor}`;
   
   const contentEl = document.getElementById('instruction-modal-content');
-  
-  // Usa a nova função para renderizar HTML (incluindo links clicáveis)
   contentEl.innerHTML = renderInstructionContent(task.instrucao_trabalho);
   
   openModal('instruction-modal');
@@ -1279,9 +1228,9 @@ function confirmUser(){
     setUser({ role: 'OPERADOR', sector, name: 'Operador' });
   }
   document.getElementById('user-modal').style.display = 'none';
-  loadingIndicator.classList.add('hidden'); // Esconde o loading após o login
+  loadingIndicator.classList.add('hidden');
   setupSectorDropdowns();
-  updateView(isMaster() ? 'PCP' : 'Operador'); // Força a view correta no login
+  updateView(isMaster() ? 'PCP' : 'Operador');
   injectSearchInputs();
 }
 
@@ -1289,7 +1238,7 @@ function confirmUser(){
    RENDERIZAÇÃO
    ============================ */
 function setupUIRefresh(){
-  // Timer de 10s removido. O onSnapshot (Firebase) atualiza em tempo real.
+  // Timer removido.
 }
 function injectSearchInputs(){
   // PCP search
@@ -1308,7 +1257,7 @@ function injectSearchInputs(){
     const input = document.getElementById('operator-of-search');
     if (input) input.addEventListener('input', (e)=>{ operatorSearchOF = (e.target.value||"").trim().toUpperCase(); renderTasks(); });
   }
-  // NOVO: Histórico search
+  // Histórico search
   const histWrap = document.getElementById('historico-search-wrap');
   if (histWrap && !histWrap.dataset.ready){
     histWrap.classList.remove('hidden');
@@ -1321,28 +1270,32 @@ function injectSearchInputs(){
 function renderKPIs(){
   const kpisContainer = document.getElementById('kpis-container');
   if (!kpisContainer) return;
-
-  // Filtra tasks apenas de OFs Ativas
+  
   const activeOFIds = Object.keys(allOFs).filter(k => allOFs[k]?.status !== 'Concluído');
   const activeTasks = Object.values(allTasks).filter(t => activeOFIds.includes(t.id_of));
   
   const totalOFs = activeOFIds.length;
   const concludedTasks = activeTasks.filter(t=>t.status==='Concluído').length;
-  const totalTasks = activeTasks.length; // Total de tarefas ATIVAS (não de excluídas)
+  const totalTasks = activeTasks.length; 
 
-  // Filtra logs apenas de OFs Ativas
   const activeLogs = allOcurrencesLog.filter(l => activeOFIds.includes(l.OF));
   
   const logsAtraso = activeLogs.filter(l => l.TIPO === 'ATRASO');
   const totalPause = activeLogs.reduce((s,l)=> s + (l.TEMPO_PAUSA||0), 0);
   const totalAtraso = logsAtraso.reduce((s,l)=> s + (l.TEMPO_ATRASO||0), 0);
   
+  // ============================
+  // KPIs (MUDANÇA DE DESIGN)
+  // ============================
   const kpiData = [
     { title:"OFs Ativas", value: totalOFs, icon:"package", color:"bg-blue-600" },
     { title:"Tarefas Concluídas", value: `${concludedTasks} / ${totalTasks}`, icon:"check-circle", color:"bg-green-600" },
     { title:"Pausas Totais (min)", value: totalPause.toFixed(1), icon:"pause-circle", color:"bg-yellow-600" },
     { title:"Atraso Total (min)", value: totalAtraso.toFixed(1), icon:"alert-triangle", color:"bg-red-600" },
   ];
+  // As cores dos KPIs foram mantidas (azul, verde, amarelo, vermelho)
+  // pois são cores semânticas de status, o que é bom para dashboards.
+  // A sombra foi trocada por uma borda sutil.
   kpisContainer.innerHTML = kpiData.map(k=>`
     <div class="${k.color} text-white p-3 sm:p-4 rounded-xl shadow-md flex items-center justify-between">
       <div>
@@ -1356,47 +1309,42 @@ function renderKPIs(){
 
 function renderWorkloadChart() {
   const ctxEl = document.getElementById('workload-chart');
-  if (!ctxEl) return; // Sai se a view não for PCP
+  if (!ctxEl) return;
 
-  // 1. Calcular Dados (Tempo Planejado Restante)
   const tasksNaoConcluidas = Object.values(allTasks).filter(t => t.status !== 'Concluído');
   const cargaPorSetor = {}; 
 
-  // Inicializa todos os setores com 0
   SECTORS.forEach(setor => { cargaPorSetor[setor] = 0; });
-
+  
   tasksNaoConcluidas.forEach(task => {
-    // Apenas considera tarefas de OFs ATIVAS
     if (allOFs[task.id_of]?.status !== 'Concluído' && cargaPorSetor.hasOwnProperty(task.setor)) {
       cargaPorSetor[task.setor] += task.tempo_planejado || 0;
     }
   });
-
-  // Filtra setores sem carga para não poluir o gráfico
+  
   const labels = Object.keys(cargaPorSetor).filter(setor => cargaPorSetor[setor] > 0);
   const data = labels.map(setor => cargaPorSetor[setor]);
 
-  // 2. Desenhar o Gráfico
   if (workloadChart) {
-    workloadChart.destroy(); // Destrói gráfico anterior para recriar
+    workloadChart.destroy();
   }
 
   workloadChart = new Chart(ctxEl, {
-    type: 'bar', // Gráfico de Barras
+    type: 'bar', 
     data: {
       labels: labels,
       datasets: [{
         label: 'Minutos Planejados Restantes',
         data: data,
-        backgroundColor: 'rgba(30, 64, 175, 0.6)', // Azul
-        borderColor: 'rgba(30, 64, 175, 1)', 
+        backgroundColor: 'rgba(37, 99, 235, 0.6)', // Azul (SAP Like)
+        borderColor: 'rgba(37, 99, 235, 1)', 
         borderWidth: 1
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      indexAxis: 'y', // Barras Horizontais
+      indexAxis: 'y', 
       scales: {
         x: {
           beginAtZero: true,
@@ -1413,7 +1361,7 @@ function renderWorkloadChart() {
       },
       plugins: {
         legend: {
-          display: false 
+           display: false 
         }
       }
     }
@@ -1427,17 +1375,15 @@ function updateView(view){
     operatorView.classList.add('hidden'); 
     reportView.classList.add('hidden');
     adminView.classList.add('hidden'); 
-    historicoView.classList.add('hidden'); // NOVO
-    openUserModal(); 
+    historicoView.classList.add('hidden');
+    openUserModal();
     return;
   }
 
-  // Operador não pode trocar de visão
   if (isOperador() && view !== 'Operador'){ 
     view = 'Operador';
   }
   
-  // Adiciona/Remove a opção "Admin" e "Historico"
   const adminOption = userViewSelect.querySelector('option[value="Admin"]');
   const histOption = userViewSelect.querySelector('option[value="Historico"]');
   
@@ -1446,7 +1392,6 @@ function updateView(view){
       userViewSelect.innerHTML += '<option value="Admin">Visão: Administração</option>';
     }
     if (!histOption) {
-      // Adiciona "Histórico" antes de "Administração"
       const adminOptEl = userViewSelect.querySelector('option[value="Admin"]');
       const newHistOpt = document.createElement('option');
       newHistOpt.value = 'Historico';
@@ -1466,18 +1411,17 @@ function updateView(view){
   const isOperadorView = view === 'Operador';
   const isReport = view === 'Relatorio';
   const isAdmin = view === 'Admin'; 
-  const isHistorico = view === 'Historico'; // NOVO
+  const isHistorico = view === 'Historico';
 
   pcpView.classList.toggle('hidden', !isPCP);
   operatorView.classList.toggle('hidden', !isOperadorView);
   reportView.classList.toggle('hidden', !isReport);
   adminView.classList.toggle('hidden', !isAdmin); 
-  historicoView.classList.toggle('hidden', !isHistorico); // NOVO
+  historicoView.classList.toggle('hidden', !isHistorico);
   
   userViewSelect.value = view;
   userViewSelect.disabled = isOperador(); 
-
-  // Botões por permissão
+  
   btnCreateOF.classList.toggle('hidden', !isMaster());
   btnProfile.classList.remove('hidden');
 
@@ -1486,22 +1430,21 @@ function updateView(view){
   if(btnExport) btnExport.classList.toggle('hidden', !isMaster());
   if(btnDelete) btnDelete.classList.toggle('hidden', !isMaster());
 
-  // Renderiza a view ativa
   if (isPCP){ 
     renderKPIs(); 
     renderOFs(); 
-    renderWorkloadChart(); 
+    renderWorkloadChart();
   }
   else if (isOperadorView){ 
     renderTasks();
   }
   else if (isReport){ 
-    renderReport(); 
+    renderReport();
   }
   else if (isAdmin) {
-    renderRoteiros(); 
+    renderRoteiros();
   }
-  else if (isHistorico) { // NOVO
+  else if (isHistorico) {
     renderHistory();
   }
 
@@ -1514,7 +1457,6 @@ function renderReport(){
   const body = document.getElementById('report-table-body');
   if (!body) return;
   
-  // Filtra ocorrências APENAS de OFs ativas
   const activeOFIds = Object.keys(allOFs).filter(k => allOFs[k]?.status !== 'Concluído');
   const activeLogs = allOcurrencesLog.filter(log => activeOFIds.includes(log.OF));
 
@@ -1535,7 +1477,7 @@ function renderReport(){
         <td class="px-2 sm:px-4 py-2 text-center">
           <input type="checkbox" name="report_checkbox" value="${log.id}" 
                  onclick="updateDeleteButtonState()"
-                 class="report-item-checkbox rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                 class="report-item-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
         </td>
         <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm font-medium text-gray-900">${log.OF}</td>
         <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm text-gray-600">${log.CHICOTE}</td>
@@ -1573,7 +1515,6 @@ function renderOFs(){
       if (progress === 0) statusColor = 'bg-gray-200 border-gray-400';
       else if (progress < 100) statusColor = 'bg-blue-100 border-blue-400';
       
-      // Prioridade da OF afeta a cor
       if (of.priority === 'Alta') {
         statusColor = 'bg-red-100 border-red-500';
       } else {
@@ -1582,8 +1523,11 @@ function renderOFs(){
       }
     }
 
+    // ============================
+    // OF CARD (MUDANÇA DE DESIGN)
+    // ============================
     return `
-      <div class="${statusColor} p-4 rounded-xl shadow-lg border-l-4 ${statusColor.replace('bg-', 'border-')}"
+      <div class="${statusColor} p-4 rounded-xl border border-gray-300 ${statusColor.replace('bg-', 'border-')}"
            onclick="openOFDetails('${of.id}')">
         <h3 class="text-lg font-bold text-gray-800 mb-1 flex justify-between items-center">
           ${of.id}
@@ -1603,7 +1547,7 @@ function renderOFs(){
     `;
   }).join('');
 
-  ofsListContainer.innerHTML = ofsHtml.length > 0 ? ofsHtml : '<div class="col-span-3 p-6 text-center text-gray-500 bg-white rounded-xl shadow-lg">Nenhuma OF ativa.</div>';
+  ofsListContainer.innerHTML = ofsHtml.length > 0 ? ofsHtml : '<div class="col-span-3 p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">Nenhuma OF ativa.</div>';
   lucide.createIcons();
 }
 
@@ -1616,7 +1560,6 @@ function renderTasks(){
       (t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada') &&
       (!operatorSearchOF || (t.id_of || "").toUpperCase().includes(operatorSearchOF))
     )
-    // Ordena por Prioridade (Alta primeiro), depois por Status (Em Processo)
     .sort((a,b) => {
       const priorityA = a.priority === 'Alta' ? 1 : (a.priority === 'Media' ? 2 : 3);
       const priorityB = b.priority === 'Alta' ? 1 : (b.priority === 'Media' ? 2 : 3);
@@ -1625,7 +1568,7 @@ function renderTasks(){
       if (b.status === 'Em Processo') return 1;
       return a.ordem - b.ordem;
     });
-
+    
   const tasksHtml = tasks.map(task=>{
     const tempoReal = calculateTempoRealMinutes(task); 
     const desvio = calculateDesvio(task);
@@ -1634,26 +1577,31 @@ function renderTasks(){
     let statusText = task.status;
     let actions = '';
     
+    // ============================
+    // TASK BUTTONS (MUDANÇA DE DESIGN)
+    // ============================
     if (task.status === 'Em Espera'){
       statusText = 'Aguardando Início';
-      actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">Iniciar</button>`;
+      actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">Iniciar</button>`;
     } else if (task.status === 'Em Processo'){
       statusText = 'Em Processo';
       actions = `
-        <button onclick="pauseTask('${task.id}')" class="px-3 py-1.5 text-sm bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">Pausar</button>
-        <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">Concluir</button>`;
+        <button onclick="pauseTask('${task.id}')" class="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600">Pausar</button>
+        <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Concluir</button>`;
     } else if (task.status === 'Pausada'){
       statusText = 'Pausada';
       actions = `
-        <button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">Retomar</button>
-        <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">Concluir</button>`;
+        <button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">Retomar</button>
+        <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Concluir</button>`;
     }
 
-    // Classe de prioridade aplicada ao card
     const priorityClass = getPriorityClass(task.priority);
-
+    
+    // ============================
+    // TASK CARD (MUDANÇA DE DESIGN)
+    // ============================
     return `
-      <div class="${priorityClass} border p-3 sm:p-4 rounded-xl shadow">
+      <div class="${priorityClass} border border-gray-300 p-3 sm:p-4 rounded-xl">
         <div class="flex justify-between items-center mb-2">
           <div>
             <p class="text-sm font-bold text-gray-800">${task.nome_atividade}</p>
@@ -1678,11 +1626,10 @@ function renderTasks(){
     `;
   }).join('');
 
-  tasksListContainer.innerHTML = tasksHtml || '<div class="p-6 text-center text-gray-500 bg-white rounded-xl shadow-lg">Sem tarefas para este setor/OF.</div>';
+  tasksListContainer.innerHTML = tasksHtml.length > 0 ? tasksHtml : '<div class="p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">Sem tarefas para este setor/OF.</div>';
   lucide.createIcons();
 }
 
-// NOVO: Renderiza a tela de Histórico
 function renderHistory() {
     if (historicoView.classList.contains('hidden')) return;
 
@@ -1690,13 +1637,15 @@ function renderHistory() {
     
     if (historicoSearchOF) historyOFs = historyOFs.filter(of => (of.id || "").toUpperCase().includes(historicoSearchOF));
     
-    // Ordena pela data de criação (mais recente primeiro)
     historyOFs.sort((a, b) => {
         const dateA = getDBTimestamp(a.data_criacao); 
         const dateB = getDBTimestamp(b.data_criacao);
         return dateB - dateA;
     });
 
+    // ============================
+    // HISTORY CARD (MUDANÇA DE DESIGN)
+    // ============================
     const historyHtml = historyOFs.map(of => {
         const tasks = Object.values(allTasks).filter(t => t.id_of === of.id);
         const totalTempoReal = tasks.reduce((sum, t) => sum + calculateTempoRealMinutes(t), 0);
@@ -1707,7 +1656,7 @@ function renderHistory() {
         const desvioText = desvioTotal < 0 ? `-${formatMinutes(Math.abs(desvioTotal))}` : `+${formatMinutes(desvioTotal)}`;
 
         return `
-            <div class="of-concluida-card p-4 rounded-xl shadow-lg border-l-4"
+            <div class="of-concluida-card p-4 rounded-xl border border-gray-300"
                  onclick="openOFDetails('${of.id}', true)">
                 <h3 class="text-lg font-bold text-gray-800 mb-1 flex justify-between items-center">
                     ${of.id}
@@ -1726,7 +1675,7 @@ function renderHistory() {
     }).join('');
 
     const container = document.getElementById('historico-list-container');
-    container.innerHTML = historyHtml.length > 0 ? historyHtml : '<div class="col-span-3 p-6 text-center text-gray-500 bg-white rounded-xl shadow-lg">Nenhuma OF concluída no histórico.</div>';
+    container.innerHTML = historyHtml.length > 0 ? historyHtml : '<div class="col-span-3 p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">Nenhuma OF concluída no histórico.</div>';
     lucide.createIcons();
 }
 
@@ -1740,7 +1689,6 @@ function openOFDetails(ofId, isHistory = false){
   const completed = tasks.filter(t => t.status === 'Concluído').length;
   const progress = tasks.length ? Math.floor((completed / tasks.length) * 100) : 0;
   
-  // Detalhes calculados para o resumo
   const totalTempoReal = tasks.reduce((sum, t) => sum + calculateTempoRealMinutes(t), 0);
   const totalTempoPlanejado = tasks.reduce((sum, t) => sum + (t.tempo_planejado || 0), 0);
 
@@ -1752,7 +1700,7 @@ function openOFDetails(ofId, isHistory = false){
     <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">T. Real</p><p class="font-semibold">${formatMinutes(totalTempoReal)}</p></div>
   `;
   document.getElementById('of-details-progress').style.width = `${progress}%`;
-
+  
   const content = tasks.sort((a,b)=> a.ordem - b.ordem).map(task=>{
     const tempoReal = calculateTempoRealMinutes(task); 
     const desvio = calculateDesvio(task);
@@ -1775,16 +1723,7 @@ function openOFDetails(ofId, isHistory = false){
   }).join('');
   document.getElementById('of-details-content').innerHTML = content;
 
-  // ================================================================
-  // INÍCIO DA MUDANÇA (FASE 1) - EXCLUIR DO HISTÓRICO
-  // ================================================================
-  
-  // Botão de Excluir só aparece se for MASTER (agora visível também no Histórico)
   btnDeleteOF.classList.toggle('hidden', !isMaster());
-  
-  // ================================================================
-  // FIM DA MUDANÇA (FASE 1)
-  // ================================================================
   
   openModal('of-details-modal');
 }
@@ -1797,7 +1736,6 @@ function exportReportCSV(){
   downloadCSV(rows, `relatorio_ocorrencias_${new Date().toISOString().slice(0,10)}.csv`);
 }
 
-// Funções de Exclusão em Massa (do seu código)
 function updateDeleteButtonState() {
   const btn = document.getElementById('btn-delete-report');
   if (!btn) return;
@@ -1828,7 +1766,7 @@ async function deleteSelectedOcorrencias() {
   }
   const btn = document.getElementById('btn-delete-report');
   if (btn) btn.disabled = true;
-
+  
   try {
     if (window.db) {
       const batch = db.batch();
@@ -1836,7 +1774,6 @@ async function deleteSelectedOcorrencias() {
         batch.delete(db.collection(OCORRENCIA_COLLECTION).doc(id));
       });
       await batch.commit();
-      // O listener (onSnapshot) atualiza a tela
     } else {
       allOcurrencesLog = allOcurrencesLog.filter(log => !selectedIds.includes(log.id));
       localStorage.setItem('sim_ocorrencias', JSON.stringify(allOcurrencesLog));
@@ -1863,10 +1800,7 @@ function exportOFTasksCSV(ofId){
   downloadCSV(rows, `of_${ofId}_tasks_${new Date().toISOString().slice(0,10)}.csv`);
 }
 function downloadCSV(rows, filename){
-  // 1. ALTERAÇÃO: Trocamos .join(',') por .join(';') para o Excel entender as colunas.
   const csvContent = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
-  
-  // 2. ALTERAÇÃO: Adicionamos '\uFEFF' (BOM) no início para forçar o Excel a ler UTF-8 (corrigindo 'ç', 'ã', etc.)
   const blob = new Blob(['\uFEFF' + csvContent], {type:'text/csv;charset=utf-8;'});
   
   const url = URL.createObjectURL(blob);
@@ -1922,9 +1856,7 @@ window.updateSectorFilter = updateSectorFilter;
 window.deleteSelectedOcorrencias = deleteSelectedOcorrencias;
 window.toggleSelectAllOcorrencias = toggleSelectAllOcorrencias;
 window.updateDeleteButtonState = updateDeleteButtonState;
-window.renderHistory = renderHistory; // Exposição global do novo método
+window.renderHistory = renderHistory;
 </script>
 </body>
 </html>
-
-
