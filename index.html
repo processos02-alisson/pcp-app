@@ -2000,3 +2000,22 @@ window.renderHistory = renderHistory;
 // INÍCIO DA MUDANÇA (FASE 2) - Exposição global das novas funções
 window.handleCheckboxITConfirmation = handleCheckboxITConfirmation;
 window.checkAllBoxesChecked = check
+window.deleteSelectedOcorrencias = deleteSelectedOcorrencias;
+window.toggleSelectAllOcorrencias = toggleSelectAllOcorrencias;
+window.updateDeleteButtonState = updateDeleteButtonState;
+window.renderHistory = renderHistory;
+
+// INÍCIO DA MUDANÇA (FASE 2) - Exposição global das novas funções
+window.handleCheckboxITConfirmation = handleCheckboxITConfirmation;
+// CORREÇÃO: A linha abaixo estava incompleta
+window.checkAllBoxesChecked = checkAllBoxesChecked; 
+
+// ============================
+// BOOTSTRAP (Estava faltando o fechamento do EventListener)
+// ============================
+}); // <-- Esta chave '}' fecha o 'DOMContentLoaded'
+
+</script> 
+
+</body>
+</html>
