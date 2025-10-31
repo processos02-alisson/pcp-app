@@ -1,449 +1,477 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>PCP – Controle de Produção</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PCP – Controle de Produção (v. Monte Carlo)</title>   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-  
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+  
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-  
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
+    :root {
+      color-scheme: light dark;
+      --app-bg-color: #f3f4f6;
+      --app-bg-image: none;
+      
+      /* Cores de Prioridade (Mantidas) */
+      --cor-perigo: #dc2626; /* Vermelho */
+      --cor-neutra: #3b82f6; /* Azul */
+    }
+    body {
+      font-family: "Inter", sans-serif;
+      background: var(--app-bg-color) fixed no-repeat center/cover;
+      background-image: var(--app-bg-image);
 
-  <style>
-    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
-    :root {
-      color-scheme: light dark;
-      --app-bg-color: #f3f4f6;
-      --app-bg-image: none;
-      
-      /* Cores de Prioridade (Mantidas) */
-      --cor-perigo: #dc2626; /* Vermelho */
-      --cor-neutra: #3b82f6; /* Azul */
-    }
-    body {
-      font-family: "Inter", sans-serif;
-      background: var(--app-bg-color) fixed no-repeat center/cover;
-      background-image: var(--app-bg-image);
+      padding-left: max(env(safe-area-inset-left), 0px);
+      padding-right: max(env(safe-area-inset-right), 0px);
+    }
 
-      padding-left: max(env(safe-area-inset-left), 0px);
-      padding-right: max(env(safe-area-inset-right), 0px);
-    }
-    
-    /* REMOVIDO: .bg-gradient-header não é mais usado */
+    /* CLASSES DE PRIORIDADE VISUAL (Operador) */
+    .priority-high {
+      border-left-width: 6px;
+      border-left-color: var(--cor-perigo);
+      background-color: #fef2f2; /* Fundo Vermelho Claro */
+    }
+    .priority-medium {
+      border-left-width: 6px;
+      border-left-color: var(--cor-neutra);
+      background-color: #eff6ff; /* Fundo Azul Claro */
+    }
+    .priority-low {
+      border-left-width: 6px;
+      border-left-color: #d1d5db; /* Cinza */
+    }
+    
+    /* Cor de fundo para OFs Concluídas no Histórico */
+    .of-concluida-card {
+        background-color: #f0fdf4; /* Verde bem clarinho */
+        border-left-color: #10b981; /* Verde esmeralda */
+    }
 
-    /* CLASSES DE PRIORIDADE VISUAL (Operador) */
-    .priority-high {
-      border-left-width: 6px;
-      border-left-color: var(--cor-perigo);
-      background-color: #fef2f2; /* Fundo Vermelho Claro */
-    }
-    .priority-medium {
-      border-left-width: 6px;
-      border-left-color: var(--cor-neutra);
-      background-color: #eff6ff; /* Fundo Azul Claro */
-    }
-    .priority-low {
-      border-left-width: 6px;
-      border-left-color: #d1d5db; /* Cinza */
-    }
-    
-    /* Cor de fundo para OFs Concluídas no Histórico */
-    .of-concluida-card {
-        background-color: #f0fdf4; /* Verde bem clarinho */
-        border-left-color: #10b981; /* Verde esmeralda */
-    }
+    /* Estilo do Modal de IT (Melhoria Visual) */
+    #instruction-modal .modal-panel {
+        border-top: 8px solid #4f46e5; /* Índigo */
+    }
 
-    /* Estilo do Modal de IT (Melhoria Visual) */
-    #instruction-modal .modal-panel {
-        border-top: 8px solid #4f46e5; /* Índigo */
-    }
-
-    .modal-fixed { position: fixed; inset: 0; }
-    .modal-panel { max-height: calc(100dvh - 2rem); }
-    .modal-body-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }
-    .sticky-footer { position: sticky; bottom: 0; background: white; padding-top: .5rem; }
-    .highlight-red { color: #dc2626; font-weight: 600; }
-    
-    @media (max-width: 640px){
-      .modal-panel{ width:100vw!important; max-width:100vw!important; height:100dvh!important; max-height:100dvh!important; border-radius:0!important; margin:0!important; display:flex; flex-direction:column; }
-      .card-tap-big{ padding:1rem; }
-    }
-  </style>
+    .modal-fixed { position: fixed; inset: 0; }
+    .modal-panel { max-height: calc(100dvh - 2rem); }
+    .modal-body-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .sticky-footer { position: sticky; bottom: 0; background: white; padding-top: .5rem; }
+    .highlight-red { color: #dc2626; font-weight: 600; }
+    
+    /* NOVO: CSS para o Log de Auditoria */
+    #audit-log-toggle {
+        color: #4f46e5; /* Índigo */
+        cursor: pointer;
+        text-decoration: underline;
+        font-size: 0.875rem;
+        font-weight: 600;
+        margin-top: 10px;
+        display: inline-block;
+    }
+    #audit-log-content {
+        background-color: #f9fafb; /* Cinza bem claro */
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-top: 8px;
+        font-family: monospace;
+        font-size: 0.875rem;
+        line-height: 1.6;
+        white-space: pre-wrap; /* Mantém a formatação do log */
+    }
+    
+    @media (max-width: 640px){
+      .modal-panel{ width:100vw!important; max-width:100vw!important; height:100dvh!important; max-height:100dvh!important; border-radius:0!important; margin:0!important; display:flex; flex-direction:column; }
+      .card-tap-big{ padding:1rem; }
+    }
+  </style>
 </head>
 <body class="min-h-screen bg-gray-100 antialiased">
 
-  <header class="bg-gray-800 shadow-md p-3 sm:p-4 sticky top-0 z-10">
-    <div class="max-w-7xl mx-auto flex justify-between items-center gap-2">
-      <h1 class="text-2xl sm:text-3xl font-extrabold text-white flex items-center">
-        <i data-lucide="factory" class="w-7 h-7 sm:w-8 sm:h-8 mr-2"></i>
-        Controle de Produção
-      </h1>
-      <div class="flex gap-2 items-center">
-        
-        <button id="btn-profile"
-                class="text-white bg-gray-700 hover:bg-gray-600 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden"
-                onclick="openUserModal()">
-          <i data-lucide="user-cog" class="w-5 h-5 inline-block mr-1"></i>
-          <span class="hidden sm:inline">Perfil</span>
-        </button>
+  <header class="bg-gray-800 shadow-md p-3 sm:p-4 sticky top-0 z-10">
+    <div class="max-w-7xl mx-auto flex justify-between items-center gap-2">
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-white flex items-center">
+        <i data-lucide="factory" class="w-7 h-7 sm:w-8 sm:h-8 mr-2"></i>
+        Controle de Produção
+      </h1>
+      <div class="flex gap-2 items-center">
+        
+        <button id="btn-profile"
+                class="text-white bg-gray-700 hover:bg-gray-600 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden"
+                onclick="openUserModal()">
+          <i data-lucide="user-cog" class="w-5 h-5 inline-block mr-1"></i>
+          <span class="hidden sm:inline">Perfil</span>
+        </button>
 
-        <select id="user-view-select" onchange="updateView(this.value)"
-                class="bg-gray-700 text-white text-xs sm:text-sm font-semibold py-2 px-2 rounded-lg transition hover:bg-gray-600 focus:ring-2 focus:ring-indigo-300">
-          <option value="PCP">Visão: PCP</option>
-          <option value="Operador">Visão: Operador</option>
-          <option value="Relatorio">Visão: Relatório</option>
-          </select>
+        <select id="user-view-select" onchange="updateView(this.value)"
+                class="bg-gray-700 text-white text-xs sm:text-sm font-semibold py-2 px-2 rounded-lg transition hover:bg-gray-600 focus:ring-2 focus:ring-indigo-300">
+          <option value="PCP">Visão: PCP</option>
+          <option value="Operador">Visão: Operador</option>
+          <option value="Relatorio">Visão: Relatório</option>
+          </select>
 
-        <button onclick="openModal('create-of-modal')" id="btn-create-of"
-                class="text-white bg-emerald-600 hover:bg-emerald-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden">
-          <i data-lucide="plus" class="w-5 h-5 inline-block mr-1"></i>
-          <span class="hidden sm:inline">Criar OF</span>
-        </button>
-        
-      </div>
-    </div>
-  </header>
+        <button onclick="openModal('create-of-modal')" id="btn-create-of"
+                class="text-white bg-emerald-600 hover:bg-emerald-700 font-semibold py-2 px-3 rounded-lg shadow-md transition hidden">
+          <i data-lucide="plus" class="w-5 h-5 inline-block mr-1"></i>
+          <span class="hidden sm:inline">Criar OF</span>
+        </button>
+        
+      </div>
+    </div>
+  </header>
 
-  <main class="max-w-7xl mx-auto p-3 sm:p-6 lg:p-8">
-    <div id="loading-indicator" class="flex flex-col items-center justify-center p-6 sm:p-12 bg-white rounded-xl border border-gray-300">
-      <i data-lucide="loader-circle" class="w-8 h-8 sm:w-10 sm:h-10 text-gray-500 animate-spin"></i>
-      <p class="mt-3 sm:mt-4 text-gray-600 font-semibold text-sm sm:text-base">Carregando dados e autenticando...</p>
-    </div>
+  <main class="max-w-7xl mx-auto p-3 sm:p-6 lg:p-8">
+    <div id="loading-indicator" class="flex flex-col items-center justify-center p-6 sm:p-12 bg-white rounded-xl border border-gray-300">
+      <i data-lucide="loader-circle" class="w-8 h-8 sm:w-10 sm:h-10 text-gray-500 animate-spin"></i>
+      <p class="mt-3 sm:mt-4 text-gray-600 font-semibold text-sm sm:text-base">Carregando dados e autenticando...</p>
+    </div>
 
-    <div id="pcp-view" class="space-y-4 sm:space-y-6 hidden">
-      <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
-        <i data-lucide="bar-chart-3" class="w-5 h-5 sm:w-6 sm:h-6 mr-2"></i>
-        Painel PCP
-      </h2>
-      <div id="pcp-of-search-wrap" class="mb-2 hidden">
-        <input id="pcp-of-search" type="text" placeholder="Pesquisar OF Ativa..."
-               class="w-full sm:w-64 border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500">
-      </div>
-      
-      <div id="kpis-container" class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4"></div>
+    <div id="pcp-view" class="space-y-4 sm:space-y-6 hidden">
+      <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
+        <i data-lucide="bar-chart-3" class="w-5 h-5 sm:w-6 sm:h-6 mr-2"></i>
+        Painel PCP
+      </h2>
+      <div id="pcp-of-search-wrap" class="mb-2 hidden">
+        <input id="pcp-of-search" type="text" placeholder="Pesquisar OF Ativa..."
+               class="w-full sm:w-64 border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500">
+      </div>
+      
+      <div id="kpis-container" class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4"></div>
 
-      <div id="workload-chart-container" class="bg-white p-4 sm:p-6 rounded-xl border border-gray-300 mb-4">
-          <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
-              <i data-lucide="gauge" class="w-5 h-5 mr-2 text-indigo-600"></i> Carga de Trabalho por Setor (Minutos Planejados Restantes)
-          </h3>
-          <div class="h-64 sm:h-80 relative">
-            <canvas id="workload-chart"></canvas>
-          </div>
-      </div>
+      <div id="workload-chart-container" class="bg-white p-4 sm:p-6 rounded-xl border border-gray-300 mb-4">
+          <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+              <i data-lucide="gauge" class="w-5 h-5 mr-2 text-indigo-600"></i> Carga de Trabalho por Setor (Minutos Esperados Restantes - P50)           </h3>
+          <div class="h-64 sm:h-80 relative">
+            <canvas id="workload-chart"></canvas>
+          </div>
+      </div>
 
-      <div id="ofs-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6"></div>
-    </div>
+      <div id="ofs-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6"></div>
+    </div>
 
-    <div id="operator-view" class="space-y-4 sm:space-y-6 hidden">
-      <div class="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 mb-4 sm:mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <h2 class="text-lg sm:text-xl font-bold text-gray-800 flex items-center">
-          <i data-lucide="clipboard-list" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-gray-600"></i>
-          Minhas Tarefas
-        </h2>
-        <div class="flex items-center gap-2 w-full sm:w-auto">
-          <label for="sector-filter" class="text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">Setor:</label>
-          <select id="sector-filter" onchange="updateSectorFilter(this.value)"
-                  class="p-2 border border-gray-300 rounded-lg bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500 w-full sm:w-48"></select>
-        </div>
-        <div id="operator-of-search-wrap" class="flex items-center gap-2 w-full sm:w-auto hidden">
-          <label class="text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">OF:</label>
-          <input id="operator-of-search" type="text" placeholder="Filtrar por OF..."
-                 class="p-2 border border-gray-300 rounded-lg bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500 w-full sm:w-48">
-        </div>
-      </div>
-      <div id="tasks-list-container" class="space-y-3 sm:space-y-4"></div>
-    </div>
+    <div id="operator-view" class="space-y-4 sm:space-y-6 hidden">
+      <div class="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 mb-4 sm:mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <h2 class="text-lg sm:text-xl font-bold text-gray-800 flex items-center">
+          <i data-lucide="clipboard-list" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-gray-600"></i>
+          Minhas Tarefas
+        </h2>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <label for="sector-filter" class="text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">Setor:</label>
+          <select id="sector-filter" onchange="updateSectorFilter(this.value)"
+                  class="p-2 border border-gray-300 rounded-lg bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500 w-full sm:w-48"></select>
+        </div>
+        <div id="operator-of-search-wrap" class="flex items-center gap-2 w-full sm:w-auto hidden">
+          <label class="text-xs sm:text-sm font-semibold text-gray-700 flex-shrink-0">OF:</label>
+          <input id="operator-of-search" type="text" placeholder="Filtrar por OF..."
+                 class="p-2 border border-gray-300 rounded-lg bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500 w-full sm:w-48">
+        </div>
+      </div>
+      <div id="tasks-list-container" class="space-y-3 sm:space-y-4"></div>
+    </div>
 
-    <div id="report-view" class="space-y-4 sm:space-y-6 hidden">
-      <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
-        <i data-lucide="file-text" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-purple-600"></i>
-        Relatório de Ocorrências (OFS Ativas)
-      </h2>
-      <div class="bg-white p-3 sm:p-4 rounded-xl border border-gray-300">
-        <div class="flex justify-between items-center mb-3 sm:mb-4">
-          <h3 class="text-base sm:text-xl font-semibold text-gray-700">Pausas & Atrasos</h3>
-          <div class="flex gap-2">
-            <button id="btn-delete-report" onclick="deleteSelectedOcorrencias()"
-                    class="px-3 sm:px-4 py-2 bg-red-600 text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled> 
-              <i data-lucide="trash-2" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> 
-              <span class="hidden sm:inline">Excluir Selecionados</span>
-            </button>
-            <button id="btn-export-report" onclick="exportReportCSV()"
-                    class="px-3 sm:px-4 py-2 bg-indigo-600 text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-indigo-700 transition">
-              <i data-lucide="download" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Exportar (CSV)
-            </button>
-          </div>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-2 sm:px-4 py-2 sm:py-3 text-center w-12">
-                   <input type="checkbox" id="report-select-all" 
-                         onclick="toggleSelectAllOcorrencias(this)"
-                         class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                </th>
-                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">OF</th>
-                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">CHICOTE</th>
-                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">ATIVIDADE</th>
-                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">MOTIVO PAUSA</th>
-                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">MOTIVO ATRASO</th>
-                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">T. PAUSA (min)</th>
-                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">T. ATRASO (min)</th>
-              </tr>
-            </thead>
-            <tbody id="report-table-body" class="bg-white divide-y divide-gray-200"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-    
-    <div id="historico-view" class="space-y-4 sm:space-y-6 hidden">
-        <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
-            <i data-lucide="archive" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-green-600"></i>
-            Histórico de Ordens de Fabricação Concluídas
-        </h2>
-        <div id="historico-search-wrap" class="mb-2 hidden">
-            <input id="historico-of-search" type="text" placeholder="Pesquisar OF Concluída..."
-                   class="w-full sm:w-64 border border-gray-300 rounded-lg p-2 focus:ring-green-500 focus:border-green-500">
-        </div>
-        <div id="historico-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-        </div>
-    </div>
-    
-    <div id="admin-view" class="space-y-4 sm:space-y-6 hidden">
-      <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
-        <i data-lucide="shield-check" class="w-5 h-5 sm:w-6 sm:h-6 mr-2"></i>
-        Painel de Administração (Master)
-      </h2>
+    <div id="report-view" class="space-y-4 sm:space-y-6 hidden">
+      <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
+        <i data-lucide="file-text" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-purple-600"></i>
+        Relatório de Ocorrências (OFS Ativas)
+      </h2>
+      <div class="bg-white p-3 sm:p-4 rounded-xl border border-gray-300">
+        <div class="flex justify-between items-center mb-3 sm:mb-4">
+          <h3 class="text-base sm:text-xl font-semibold text-gray-700">Pausas & Atrasos</h3>
+          <div class="flex gap-2">
+            <button id="btn-delete-report" onclick="deleteSelectedOcorrencias()"
+                    class="px-3 sm:px-4 py-2 bg-red-600 text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled> 
+              <i data-lucide="trash-2" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> 
+              <span class="hidden sm:inline">Excluir Selecionados</span>
+            </button>
+            <button id="btn-export-report" onclick="exportReportCSV()"
+                    class="px-3 sm:px-4 py-2 bg-indigo-600 text-white text-sm sm:text-base font-semibold rounded-lg hover:bg-indigo-700 transition">
+              <i data-lucide="download" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Exportar (CSV)
+            </button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-2 sm:px-4 py-2 sm:py-3 text-center w-12">
+                   <input type="checkbox" id="report-select-all" 
+                         onclick="toggleSelectAllOcorrencias(this)"
+                         class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                </th>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">OF</th>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">CHICOTE</th>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">ATIVIDADE</th>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">MOTIVO PAUSA</th>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">MOTIVO ATRASO</th>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">T. PAUSA (min)</th>
+                <th class="px-3 sm:px-6 py-2 sm:py-3 text-left font-medium text-gray-500 uppercase tracking-wider">T. ATRASO (min)</th>
+              </tr>
+            </thead>
+            <tbody id="report-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    
+    <div id="historico-view" class="space-y-4 sm:space-y-6 hidden">
+        <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
+            <i data-lucide="archive" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-green-600"></i>
+            Histórico de Ordens de Fabricação Concluídas
+        </h2>
+        <div id="historico-search-wrap" class="mb-2 hidden">
+            <input id="historico-of-search" type="text" placeholder="Pesquisar OF Concluída..."
+                   class="w-full sm:w-64 border border-gray-300 rounded-lg p-2 focus:ring-green-500 focus:border-green-500">
+        </div>
+        <div id="historico-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+        </div>
+    </div>
+    
+                <div id="admin-view" class="space-y-4 sm:space-y-6 hidden">
+      <h2 class="text-xl sm:text-2xl font-bold text-gray-800 border-b pb-2 mb-2 sm:mb-4 flex items-center">
+        <i data-lucide="shield-check" class="w-5 h-5 sm:w-6 sm:h-6 mr-2"></i>
+        Painel de Administração (Master)
+      </h2>
 
-      <div class="bg-white p-4 sm:p-6 rounded-xl border border-gray-300">
-        <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Setup: Cadastro de Roteiros Mestres</h3>
-        
-        <div class="flex flex-col lg:flex-row gap-4">
-          <div id="roteiro-list-admin" class="space-y-4 h-[50vh] lg:h-[60vh] overflow-y-auto mb-4 p-2 border rounded-lg bg-gray-50 modal-body-scroll lg:w-1/2">
-          </div>
-          
-          <div class="border-t lg:border-t-0 lg:border-l lg:pl-4 pt-4 lg:pt-0 space-y-4 lg:w-1/2">
-            <h4 class="text-base sm:text-lg font-semibold text-gray-700">Nova Etapa para Roteiro:</h4>
-            <div class="flex flex-col gap-3">
-          
-            <div class="flex flex-col sm:flex-row gap-3">
-                <input type="text" id="roteiro-chicote-name-admin" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Nome do Chicote (Ex: CHICOTE-A)">
-                <select id="roteiro-setor-admin" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500"></select>
-              </div>
-              <input type="text" id="roteiro-activity-name-admin" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Nome da Atividade (Ex: Pré Conexão)">
-             
-            <div class="flex flex-col sm:flex-row gap-3">
-                <input type="number" id="roteiro-setup-time-admin" min="0" step="0.1" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Setup (min)">
-                <input type="number" id="roteiro-cycle-time-admin" min="0" step="0.1" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ciclo (min/pç)">
-              </div>
-              <div>
-                <label for="roteiro-instruction-text-admin" class="block text-sm font-medium text-gray-700 mb-1">Instrução de Trabalho (HTML, links de imagem/YouTube):</label>
-                <textarea id="roteiro-instruction-text-admin" rows="4" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: <b>1. Preparação:</b> ... https://link.para/imagem.jpg"></textarea>
-              </div>
-              <button onclick="addRoteiroActivity()" class="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
-                <i data-lucide="plus" class="w-5 h-5 inline-block mr-1"></i> Adicionar Etapa
-              </button>
-            </div>
-            <div id="roteiro-message-admin" class="text-sm text-red-500"></div>
-          </div>
-        </div>
-      </div>
-      
-      <div id="user-management-container" class="bg-white p-4 sm:p-6 rounded-xl border border-gray-300 hidden">
-         <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Gerenciamento de Usuários (Fase 2)</h3>
-         <p>A interface de criação de usuários (Firebase Auth) aparecerá aqui.</p>
-      </div>
-    </div>
-  </main>
+      <div class="bg-white p-4 sm:p-6 rounded-xl border border-gray-300">
+        <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Setup: Cadastro de Roteiros Mestres</h3>
+        
+        <div class="flex flex-col lg:flex-row gap-4">
+          <div id="roteiro-list-admin" class="space-y-4 h-[60vh] lg:h-[70vh] overflow-y-auto mb-4 p-2 border rounded-lg bg-gray-50 modal-body-scroll lg:w-1/2">
+                      </div>
+          
+          <div class="border-t lg:border-t-0 lg:border-l lg:pl-4 pt-4 lg:pt-0 space-y-4 lg:w-1/2">
+            <h4 class="text-base sm:text-lg font-semibold text-gray-700">Nova Etapa para Roteiro:</h4>
+            <div class="flex flex-col gap-3">
+          
+            <div class="flex flex-col sm:flex-row gap-3">
+                <input type="text" id="roteiro-chicote-name-admin" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Nome do Chicote (Ex: CHICOTE-A)">
+                <select id="roteiro-setor-admin" class="w-full sm:w-1/2 border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500"></select>
+              </div>
+              <input type="text" id="roteiro-activity-name-admin" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Nome da Atividade (Ex: Pré Conexão)">
+             
+              <p class="text-sm font-medium text-gray-700 -mb-2">Parâmetros de Tempo (em Minutos):</p>
+                            <div class="grid grid-cols-2 gap-3">
+                <input type="number" id="roteiro-media-ciclo-admin" min="0" step="0.01" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Média Ciclo (min/pç)">
+                <input type="number" id="roteiro-desvio-ciclo-admin" min="0" step="0.01" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Desvio Ciclo (min/pç)">
+                <input type="number" id="roteiro-media-setup-admin" min="0" step="0.1" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Média Setup (min)">
+                <input type="number" id="roteiro-desvio-setup-admin" min="0" step="0.1" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Desvio Setup (min)">
+              </div>
+              
+              <div>
+                <label for="roteiro-instruction-text-admin" class="block text-sm font-medium text-gray-700 mb-1">Instrução de Trabalho (HTML, links de imagem/YouTube):</label>
+                <textarea id="roteiro-instruction-text-admin" rows="4" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: <b>1. Preparação:</b> ... https://link.para/imagem.jpg"></textarea>
+              </div>
+              <button onclick="addRoteiroActivity()" class="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+                <i data-lucide="plus" class="w-5 h-5 inline-block mr-1"></i> Adicionar Etapa
+              </button>
+            </div>
+            <div id="roteiro-message-admin" class="text-sm text-red-500"></div>
+          </div>
+        </div>
+      </div>
+      
+      <div id="user-management-container" class="bg-white p-4 sm:p-6 rounded-xl border border-gray-300 hidden">
+         <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Gerenciamento de Usuários (Fase 2)</h3>
+         <p>A interface de criação de usuários (Firebase Auth) aparecerá aqui.</p>
+      </div>
+    </div>
+              </main>
 
-  <div id="action-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
-    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-md modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
-      <h3 id="modal-title" class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2"></h3>
-      <div class="modal-body-scroll">
-        <p id="modal-message" class="text-gray-600 mb-3 sm:mb-4"></p>
-        <div id="modal-content">
-          <div id="justification-area" class="space-y-3 sm:space-y-4">
-            <label for="justification-select" class="block text-sm font-medium text-gray-700">Selecione o Motivo Principal:</label>
-            <select id="justification-select" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-indigo-500 focus:border-indigo-500 transition">
-              <option value="">-- Selecione uma opção --</option>
-            </select>
-            <label for="justification-text" class="block text-sm font-medium text-gray-700">Detalhes Adicionais (Opcional):</label>
-            <textarea id="justification-text" rows="2" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder=""></textarea>
-            <p id="justification-required-text" class="text-sm text-red-500 hidden font-semibold">🚨 Campo obrigatório devido ao desvio de tempo!</p>
-          </div>
-        </div>
-      </div>
-      <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3 sticky-footer">
-        <button onclick="closeModal()" class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition">Cancelar</button>
-        <button id="modal-confirm-button" class="px-3 sm:px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition" onclick="handleConfirmedAction()">Confirmar</button>
-      </div>
-    </div>
-  </div>
+  <div id="action-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
+    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-md modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
+      <h3 id="modal-title" class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2"></h3>
+      <div class="modal-body-scroll">
+        <p id="modal-message" class="text-gray-600 mb-3 sm:mb-4"></p>
+        <div id="modal-content">
+          <div id="justification-area" class="space-y-3 sm:space-y-4">
+            <label for="justification-select" class="block text-sm font-medium text-gray-700">Selecione o Motivo Principal:</label>
+            <select id="justification-select" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-indigo-500 focus:border-indigo-500 transition">
+              <option value="">-- Selecione uma opção --</option>
+            </select>
+            <label for="justification-text" class="block text-sm font-medium text-gray-700">Detalhes Adicionais (Opcional):</label>
+            <textarea id="justification-text" rows="2" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder=""></textarea>
+            <p id="justification-required-text" class="text-sm text-red-500 hidden font-semibold">🚨 Campo obrigatório devido ao desvio de tempo!</p>
+          </div>
+        </div>
+      </div>
+      <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3 sticky-footer">
+        <button onclick="closeModal()" class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition">Cancelar</button>
+        <button id="modal-confirm-button" class="px-3 sm:px-4 py-2 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-600 transition" onclick="handleConfirmedAction()">Confirmar</button>
+      </div>
+    </div>
+  </div>
 
-  <div id="instruction-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal('instruction-modal')">
-    <div class="bg-white rounded-xl shadow-2xl p-5 sm:p-8 w-full max-w-2xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
-      <h3 class="text-xl sm:text-2xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2 flex items-center">
-        <i data-lucide="book-open-text" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-indigo-600"></i> Instrução de Trabalho
-      </h3>
-      <div class="max-h-[65vh] sm:max-h-[70vh] overflow-y-auto pr-1 sm:pr-2 modal-body-scroll">
-        <p class="text-sm font-semibold text-gray-700 mb-2" id="instruction-modal-header"></p>
-        <div id="instruction-modal-content" class="text-gray-700 space-y-3"></div>
-      </div>
-      <div class="mt-4 sm:mt-6 flex justify-end">
-        <button onclick="closeModal('instruction-modal')" class="px-3 sm:px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition">Fechar</button>
-      </div>
-    </div>
-  </div>
+  <div id="instruction-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal('instruction-modal')">
+    <div class="bg-white rounded-xl shadow-2xl p-5 sm:p-8 w-full max-w-2xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
+      <h3 class="text-xl sm:text-2xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2 flex items-center">
+        <i data-lucide="book-open-text" class="w-5 h-5 sm:w-6 sm:h-6 mr-2 text-indigo-600"></i> Instrução de Trabalho
+      </h3>
+      <div class="max-h-[65vh] sm:max-h-[70vh] overflow-y-auto pr-1 sm:pr-2 modal-body-scroll">
+        <p class="text-sm font-semibold text-gray-700 mb-2" id="instruction-modal-header"></p>
+        <div id="instruction-modal-content" class="text-gray-700 space-y-3"></div>
+      </div>
+      <div class="mt-4 sm:mt-6 flex justify-end">
+        <button onclick="closeModal('instruction-modal')" class="px-3 sm:px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition">Fechar</button>
+      </div>
+    </div>
+  </div>
 
-  <div id="create-of-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
-    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-lg modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
-      <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Criar Nova Ordem de Fabricação (OF)</h3>
-      <div class="space-y-3 sm:space-y-4 modal-body-scroll">
-        <div>
-          <label for="of-id" class="block text-sm font-medium text-gray-700">Código da OF:</label>
-          <input type="text" id="of-id" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: OF-003">
-        </div>
-        <div>
-          <label for="of-quantity" class="block text-sm font-medium text-gray-700">Quantidade de Peças:</label>
-          <input type="number" id="of-quantity" min="1" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: 50">
-        </div>
-        <div>
-          <label for="of-chicote" class="block text-sm font-medium text-gray-700">Modelo do Chicote (Roteiro Mestre):</label>
-          <select id="of-chicote" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500">
-            <option value="">Carregando roteiros...</option>
-          </select>
-        </div>
-        
-        <div>
-          <label for="of-priority" class="block text-sm font-medium text-gray-700">Prioridade:</label>
-          <select id="of-priority" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500">
-            <option value="Media">Média (Padrão)</option>
-            <option value="Alta">Alta (Urgente)</option>
-            <option value="Baixa">Baixa</option>
-          </select>
-        </div>
-        
-        <div id="of-creation-message" class="text-sm text-red-500 hidden"></div>
-      </div>
-      <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3 sticky-footer">
-        <button onclick="closeModal('create-of-modal')" class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition">Cancelar</button>
-        <button onclick="createOF()" class="px-3 sm:px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700">
-          <i data-lucide="factory" class="w-5 h-5 inline-block mr-1"></i> Gerar OF
-        </button>
-      </div>
-    </div>
-  </div>
+  <div id="create-of-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal()">
+    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-lg modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
+      <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Criar Nova Ordem de Fabricação (OF)</h3>
+      <div class="space-y-3 sm:space-y-4 modal-body-scroll">
+        <div>
+          <label for="of-id" class="block text-sm font-medium text-gray-700">Código da OF:</label>
+          <input type="text" id="of-id" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: OF-003">
+        </div>
+        <div>
+          <label for="of-quantity" class="block text-sm font-medium text-gray-700">Quantidade de Peças:</label>
+          <input type="number" id="of-quantity" min="1" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: 50">
+        </div>
+        <div>
+          <label for="of-chicote" class="block text-sm font-medium text-gray-700">Modelo do Chicote (Roteiro Mestre):</label>
+          <select id="of-chicote" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500">
+            <option value="">Carregando roteiros...</option>
+          </select>
+        </div>
+        
+        <div>
+          <label for="of-priority" class="block text-sm font-medium text-gray-700">Prioridade:</label>
+          <select id="of-priority" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500">
+            <option value="Media">Média (Padrão)</option>
+            <option value="Alta">Alta (Urgente)</option>
+            <option value="Baixa">Baixa</option>
+          </select>
+        </div>
+        
+        <div id="of-creation-message" class="text-sm text-red-500 hidden"></div>
+      </div>
+      <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3 sticky-footer">
+        <button onclick="closeModal('create-of-modal')" class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition">Cancelar</button>
+        <button onclick="createOF()" class="px-3 sm:px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700">
+          <i data-lucide="factory" class="w-5 h-5 inline-block mr-1"></i> Gerar OF
+        </button>
+      </div>
+    </div>
+  </div>
 
-  <div id="of-details-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal('of-details-modal')">
-    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-3xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
-      <div class="flex items-center justify-between mb-2">
-        <h3 id="of-details-title" class="text-xl sm:text-2xl font-bold text-gray-800"></h3>
-        <button class="p-2 rounded-lg hover:bg-gray-100" onclick="closeModal('of-details-modal')"><i data-lucide="x" class="w-6 h-6"></i></button>
-      </div>
-      <div id="of-details-summary" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 sm:mb-4"></div>
-      <div class="w-full bg-gray-200 rounded-full h-2 mb-3 sm:mb-4"><div id="of-details-progress" class="h-2 rounded-full bg-blue-500" style="width:0%"></div></div>
-      <div id="of-details-content" class="max-h-[60vh] overflow-y-auto space-y-3 sm:space-y-4 modal-body-scroll"></div>
-      <div class="mt-4 sm:mt-5 flex justify-between gap-3 sticky-footer">
-        <button id="btn-delete-of" class="px-3 sm:px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition hidden" onclick="deleteOF(window.__ofDetailsOpenId)">
-          <i data-lucide="trash-2" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Excluir OF
-        </button>
-        <div class="flex gap-2 sm:gap-3">
-          <button id="btn-export-of" class="px-3 sm:px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition" onclick="exportOFTasksCSV(window.__ofDetailsOpenId)">Exportar CSV</button>
-          <button class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition" onclick="closeModal('of-details-modal')">Fechar</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="user-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="event.stopPropagation()">
-    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-md modal-panel mx-0 sm:mx-4">
-      <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Acesso</h3>
-      <div class="space-y-3 sm:space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700">Perfil</label>
-          <select id="user-role" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500">
-            <option value="OPERADOR">Operador</option>
-            <option value="MASTER">Master</option>
-          </select>
-        </div>
-        <div id="user-sector-wrap">
-          <label class="block text-sm font-medium text-gray-700">Setor do Operador</label>
-          <select id="user-sector" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500"></select>
-        </div>
-        <div id="user-pin-wrap" class="hidden">
-          <label class="block text-sm font-medium text-gray-700">PIN do Master</label>
-          <input type="password" id="user-pin" class="w-full border border-gray-300 rounded-lg p-2 mt-1" placeholder="****">
-          <p class="text-xs text-gray-500 mt-1">Apenas numeros</p>
-        </div>
-      </div>
-      <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3">
-        <button class="px-3 sm:px-4 py-2 bg-gray-200 rounded-lg font-semibold hover:bg-gray-300" onclick="closeModal('user-modal')">Cancelar</button>
-        <button class="px-3 sm:px-4 py-2 bg-gray-700 text-white rounded-lg font-semibold hover:bg-gray-600" onclick="confirmUser()">Entrar</button>
-      </div>
-    </div>
-  </div>
+        <div id="of-details-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal('of-details-modal')">
+    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-3xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between mb-2">
+        <h3 id="of-details-title" class="text-xl sm:text-2xl font-bold text-gray-800"></h3>
+        <button class="p-2 rounded-lg hover:bg-gray-100" onclick="closeModal('of-details-modal')"><i data-lucide="x" class="w-6 h-6"></i></button>
+      </div>
+            <div id="of-details-summary" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 sm:mb-4">
+              </div>
+      <div class="w-full bg-gray-200 rounded-full h-2 mb-3 sm:mb-4"><div id="of-details-progress" class="h-2 rounded-full bg-blue-500" style="width:0%"></div></div>
+      
+            <div id="of-details-content" class="max-h-[60vh] overflow-y-auto space-y-3 sm:space-y-4 modal-body-scroll">
+              </div>
+      
+            <a id="audit-log-toggle" class="hidden" onclick="toggleAuditLog()">[Ver Detalhes do Cálculo]</a>
+      <div id="audit-log-content" class="hidden modal-body-scroll max-h-[200px]">
+              </div>
+      
+      <div class="mt-4 sm:mt-5 flex justify-between gap-3 sticky-footer">
+        <button id="btn-delete-of" class="px-3 sm:px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition hidden" onclick="deleteOF(window.__ofDetailsOpenId)">
+          <i data-lucide="trash-2" class="w-4 h-4 sm:w-5 sm:h-5 inline-block mr-1"></i> Excluir OF
+        </button>
+        <div class="flex gap-2 sm:gap-3">
+          <button id="btn-export-of" class="px-3 sm:px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition" onclick="exportOFTasksCSV(window.__ofDetailsOpenId)">Exportar CSV</button>
+          <button class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition" onclick="closeModal('of-details-modal')">Fechar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+        <div id="user-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="event.stopPropagation()">
+    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-md modal-panel mx-0 sm:mx-4">
+      <h3 class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Acesso</h3>
+      <div class="space-y-3 sm:space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Perfil</label>
+          <select id="user-role" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500">
+            <option value="OPERADOR">Operador</option>
+            <option value="MASTER">Master</option>
+          </select>
+        </div>
+        <div id="user-sector-wrap">
+          <label class="block text-sm font-medium text-gray-700">Setor do Operador</label>
+          <select id="user-sector" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500"></select>
+        </div>
+        <div id="user-pin-wrap" class="hidden">
+          <label class="block text-sm font-medium text-gray-700">PIN do Master</label>
+          <input type="password" id="user-pin" class="w-full border border-gray-300 rounded-lg p-2 mt-1" placeholder="****">
+          <p class="text-xs text-gray-500 mt-1">Apenas numeros</p>
+        </div>
+      </div>
+      <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3">
+        <button class="px-3 sm:px-4 py-2 bg-gray-200 rounded-lg font-semibold hover:bg-gray-300" onclick="closeModal('user-modal')">Cancelar</button>
+        <button class="px-3 sm:px-4 py-2 bg-gray-700 text-white rounded-lg font-semibold hover:bg-gray-600" onclick="confirmUser()">Entrar</button>
+      </div>
+    </div>
+  </div>
 
 <script>
 /* ============================
-   FIREBASE CONFIG
-   ============================ */
+   FIREBASE CONFIG
+   ============================ */
 const firebaseConfig = {
-  apiKey: "AIzaSyDIJJIe4WIVj5OKYTtR-HQscrxIzxNK9eY",
-  authDomain: "pcp-app-24c56.firebaseapp.com",
-  projectId: "pcp-app-24c56",
-  storageBucket: "pcp-app-24c56.firebasestorage.app",
-  messagingSenderId: "675295958467",
-  appId: "1:675295958467:web:9d79700af6fc1c28db5976",
-  measurementId: "G-DH06WDCKJY"
+  apiKey: "AIzaSyDIJJIe4WIVj5OKYTtR-HQscrxIzxNK9eY",
+  authDomain: "pcp-app-24c56.firebaseapp.com",
+  projectId: "pcp-app-24c56",
+  storageBucket: "pcp-app-24c56.firebasestorage.app",
+  messagingSenderId: "675295958467",
+  appId: "1:675295958467:web:9d79700af6fc1c28db5976",
+  measurementId: "G-DH06WDCKJY"
 };
 // Inicialização Firebase
 if (firebaseConfig && firebaseConfig.projectId && firebaseConfig.projectId !== "SEU_PROJECT_ID") {
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-  const storage = firebase.storage();
-  window.db = db;
-  window.storage = storage;
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const storage = firebase.storage();
+  window.db = db;
+  window.storage = storage;
 
-  // Coleções
-  const OF_COLLECTION = 'ofs';
-  const TASK_COLLECTION = 'tasks';
-  const ROTEIRO_COLLECTION = 'roteiros';
-  const OCORRENCIA_COLLECTION = 'ocorrencias';
-  window.OF_COLLECTION = OF_COLLECTION;
-  window.TASK_COLLECTION = TASK_COLLECTION;
-  window.ROTEIRO_COLLECTION = ROTEIRO_COLLECTION;
-  window.OCORRENCIA_COLLECTION = OCORRENCIA_COLLECTION;
+  // Coleções
+  const OF_COLLECTION = 'ofs';
+  const TASK_COLLECTION = 'tasks';
+  const ROTEIRO_COLLECTION = 'roteiros';
+  const OCORRENCIA_COLLECTION = 'ocorrencias';
+  window.OF_COLLECTION = OF_COLLECTION;
+  window.TASK_COLLECTION = TASK_COLLECTION;
+  window.ROTEIRO_COLLECTION = ROTEIRO_COLLECTION;
+  window.OCORRENCIA_COLLECTION = OCORRENCIA_COLLECTION;
 } else {
-  console.warn("Firebase não configurado — rodando em modo simulado.");
-  window.db = null;
-  window.storage = null;
+  console.warn("Firebase não configurado — rodando em modo simulado.");
+  window.db = null;
+  window.storage = null;
 }
 
 /* ============================
-   CONSTANTES & ESTADO
-   ============================ */
+   CONSTANTES & ESTADO
+   ============================ */
 const MASTER_PIN = "7889";
 const SECTORS = [
-  'Corte','Corte de Revestimentos','Pré-Montagem','Preparação','Pré Conexão',
-  'Conexão','Pré Grampeação','Grampeação','Acabamento','Embalagem','Montagem','Cabo de Bateria 1','Cabo de Bateria 2'
+  'Corte','Corte de Revestimentos','Pré-Montagem','Preparação','Pré Conexão',
+  'Conexão','Pré Grampeação','Grampeação','Acabamento','Embalagem','Montagem','Cabo de Bateria 1','Cabo de Bateria 2'
 ];
 const PAUSE_REASONS = [
-  "Falta de material na bancada","Manutenção/Ajuste de máquina","Instrução de trabalho confusa/ausente",
-  "Necessidade de assistência técnica","Troca de turno/intervalo programado","Outro (Detalhar abaixo)"
+  "Falta de material na bancada","Manutenção/Ajuste de máquina","Instrução de trabalho confusa/ausente",
+  "Necessidade de assistência técnica","Troca de turno/intervalo programado","Outro (Detalhar abaixo)"
 ];
 const DELAY_REASONS = [
-  "Complexidade inesperada da peça","Problema de qualidade na etapa anterior","Falta de treinamento/experiência",
-  "Tempo padrão calculado incorretamente","Quebra/defeito de ferramenta","Outro (Detalhar abaixo)"
+  "Complexidade inesperada da peça","Problema de qualidade na etapa anterior","Falta de treinamento/experiência",
+  "Tempo padrão calculado incorretamente","Quebra/defeito de ferramenta","Outro (Detalhar abaixo)"
 ];
 let allOFs = {};
 let allTasks = {};
@@ -464,29 +492,53 @@ let historicoSearchOF = "";
 // Simulação
 let taskCounter = 1;
 let roteiroCounter = 7;
+// ####################################################################
+// #                           INÍCIO DAS MUDANÇAS                         #
+// ####################################################################
+// DADOS DE SIMULAÇÃO ATUALIZADOS com Média e Desvio Padrão (20% do valor da média por padrão)
 const DEFAULT_ROTEIROS = {
-  "r1": { id:"r1", chicote_nome:"CHICOTE-001", setor:"Corte", nome_atividade:"Corte dos Fios", tempo_setup:5, tempo_ciclo:0.2,
-    instrucao_trabalho:"<b>1. Preparação:</b> Verifique a faca...<br><b>2. Medição:</b> Corte 50 peças de 150mm.<br><b>3. Conferência:</b> Visual."
-  },
-  "r2": { id:"r2", chicote_nome:"CHICOTE-001", setor:"Pré-Montagem", nome_atividade:"Crimpagem de Terminais", tempo_setup:8, tempo_ciclo:0.5,
-    instrucao_trabalho:"<b>Fio Preto:</b> ...<br><b>Fio Vermelho:</b> ...<br><b>Teste:</b> > 10Kgf."
-  },
-  "r3": { id:"r3", chicote_nome:"CHICOTE-001", setor:"Montagem Final", nome_atividade:"Montagem de Conectores", tempo_setup:15, tempo_ciclo:1.0,
-    instrucao_trabalho:"Conectar posições 35 e 33. Proibido forçar."
-  },
-  "r4": { id:"r4", chicote_nome:"CHICOTE-001", setor:"Qualidade", nome_atividade:"Teste de Continuidade", tempo_setup:3, tempo_ciclo:0.1,
-    instrucao_trabalho:"Usar jig JIG-10B. 100% devem passar."
-  },
-  "r5": { id:"r5", chicote_nome:"CHICOTE-B", setor:"Corte", nome_atividade:"Corte Reforçado", tempo_setup:10, tempo_ciclo:0.3, instrucao_trabalho:"Instrução básica B."},
-  "r6": { id:"r6", chicote_nome:"CHICOTE-B", setor:"Montagem Final", nome_atividade:"Montagem Simples", tempo_setup:5, tempo_ciclo:0.8, instrucao_trabalho:"Conectar 4 vias."},
+  "r1": { id:"r1", chicote_nome:"CHICOTE-001", setor:"Corte", nome_atividade:"Corte dos Fios",
+    media_setup_min: 5, desvio_setup_min: 1,  // 20% de 5
+    media_ciclo_min: 0.2, desvio_ciclo_min: 0.04, // 20% de 0.2
+    instrucao_trabalho:"<b>1. Preparação:</b> Verifique a faca...<br><b>2. Medição:</b> Corte 50 peças de 150mm.<br><b>3. Conferência:</b> Visual."
+  },
+  "r2": { id:"r2", chicote_nome:"CHICOTE-001", setor:"Pré-Montagem", nome_atividade:"Crimpagem de Terminais",
+    media_setup_min: 8, desvio_setup_min: 1.6,
+    media_ciclo_min: 0.5, desvio_ciclo_min: 0.1,
+    instrucao_trabalho:"<b>Fio Preto:</b> ...<br><b>Fio Vermelho:</b> ...<br><b>Teste:</b> > 10Kgf."
+  },
+  "r3": { id:"r3", chicote_nome:"CHICOTE-001", setor:"Montagem Final", nome_atividade:"Montagem de Conectores",
+    media_setup_min: 15, desvio_setup_min: 3,
+    media_ciclo_min: 1.0, desvio_ciclo_min: 0.2,
+    instrucao_trabalho:"Conectar posições 35 e 33. Proibido forçar."
+  },
+  "r4": { id:"r4", chicote_nome:"CHICOTE-001", setor:"Qualidade", nome_atividade:"Teste de Continuidade",
+    media_setup_min: 3, desvio_setup_min: 0.6,
+    media_ciclo_min: 0.1, desvio_ciclo_min: 0.02,
+    instrucao_trabalho:"Usar jig JIG-10B. 100% devem passar."
+  },
+  "r5": { id:"r5", chicote_nome:"CHICOTE-B", setor:"Corte", nome_atividade:"Corte Reforçado",
+    media_setup_min: 10, desvio_setup_min: 2,
+    media_ciclo_min: 0.3, desvio_ciclo_min: 0.06,
+    instrucao_trabalho:"Instrução básica B."
+  },
+  "r6": { id:"r6", chicote_nome:"CHICOTE-B", setor:"Montagem Final", nome_atividade:"Montagem Simples",
+    media_setup_min: 5, desvio_setup_min: 1,
+    media_ciclo_min: 0.8, desvio_ciclo_min: 0.16,
+    instrucao_trabalho:"Conectar 4 vias."
+  },
 };
+// ####################################################################
+// #                           FIM DAS MUDANÇAS                           #
+// ####################################################################
+
 /* ============================
-   ELEMENTOS UI
-   ============================ */
+   ELEMENTOS UI
+   ============================ */
 const pcpView = document.getElementById("pcp-view");
 const operatorView = document.getElementById("operator-view");
 const reportView = document.getElementById("report-view");
-const adminView = document.getElementById("admin-view"); 
+const adminView = document.getElementById("admin-view"); 
 const historicoView = document.getElementById("historico-view");
 const loadingIndicator = document.getElementById("loading-indicator");
 const ofsListContainer = document.getElementById("ofs-list-container");
@@ -497,27 +549,118 @@ const btnProfile = document.getElementById("btn-profile");
 const btnExportReport = document.getElementById("btn-export-report");
 const btnDeleteOF = document.getElementById("btn-delete-of");
 
+// ####################################################################
+// #                           INÍCIO DAS MUDANÇAS                         #
+// ####################################################################
 /* ============================
-   HELPERS & PERMISSÕES
-   ============================ */
+   FUNÇÕES MONTE CARLO & HELPERS
+   ============================ */
+
+/**
+ * Gerador de números aleatórios Gaussianos (Distribuição Normal)
+ * Usa a transformação Box-Muller.
+ */
+let __z1 = null;
+let __useLast = false;
+function gaussianRandom() {
+  if (__useLast) {
+    __useLast = false;
+    return __z1;
+  }
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random(); // (0,1]
+  while (v === 0) v = Math.random(); // (0,1]
+  const z0 = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+  __z1 = Math.sqrt(-2.0 * Math.log(u)) * Math.sin(2.0 * Math.PI * v);
+  __useLast = true;
+  return z0;
+}
+
+/**
+ * Roda uma simulação de Monte Carlo.
+ * @param {number} media - A média da distribuição (Ex: Média total do lote).
+ * @param {number} desvio - O desvio padrão da distribuição (Ex: Desvio total do lote).
+ * @param {number} nSimulacoes - Número de iterações (ex: 100000).
+ * @param {number} percentil - O percentil desejado (ex: 0.95 para P95).
+ * @returns {number} O valor no percentil solicitado.
+ */
+function runSimulation(media, desvio, nSimulacoes, percentil) {
+  if (desvio === 0 || isNaN(desvio)) {
+    return media; // Se não há variabilidade, o resultado é a própria média.
+  }
+  const resultadosSimulacao = new Array(nSimulacoes);
+  for (let i = 0; i < nSimulacoes; i++) {
+    const tempoSimulado = (gaussianRandom() * desvio) + media;
+    resultadosSimulacao[i] = Math.max(0.0, tempoSimulado); // Garante que não seja negativo
+  }
+  // Ordena a lista para encontrar o percentil
+  resultadosSimulacao.sort((a, b) => a - b);
+  // Calcula o índice
+  const indice = Math.ceil(percentil * nSimulacoes) - 1;
+  return resultadosSimulacao[indice];
+}
+
+/**
+ * Converte minutos totais (ex: 115.33) para formato HH:MM:SS
+ * @param {number} totalMinutos O número total de minutos.
+ * @returns {string} O tempo formatado.
+ */
+function formatarMinutosParaHMS(totalMinutos) {
+  if (isNaN(totalMinutos) || totalMinutos === null) return "00:00:00";
+  const totalSegundos = totalMinutos * 60;
+  
+  const horas = Math.floor(totalSegundos / 3600);
+  const restoHoras = totalSegundos % 3600;
+  const minutos = Math.floor(restoHoras / 60);
+  const segundos = Math.floor(restoHoras % 60); // Arredonda segundos
+
+  const hFormat = String(horas).padStart(2, '0');
+  const mFormat = String(minutos).padStart(2, '0');
+  const sFormat = String(segundos).padStart(2, '0');
+  
+  return `${hFormat}:${mFormat}:${sFormat}`;
+}
+
+/**
+ * Alterna a visibilidade do log de auditoria no modal de detalhes da OF.
+ */
+function toggleAuditLog() {
+  const div = document.getElementById('audit-log-content');
+  const link = document.getElementById('audit-log-toggle');
+  if (div.classList.contains('hidden')) {
+    div.classList.remove('hidden');
+    link.textContent = "[Ocultar Detalhes do Cálculo]";
+  } else {
+    div.classList.add('hidden');
+    link.textContent = "[Ver Detalhes do Cálculo]";
+  }
+}
+// ####################################################################
+// #                           FIM DAS MUDANÇAS                           #
+// ####################################################################
+
+
+/* ============================
+   HELPERS & PERMISSÕES
+   ============================ */
 function msToMinutes(ms){ if (typeof ms !== 'number' || ms < 0) return 0;
 return parseFloat((ms / (1000*60)).toFixed(2)); }
 function formatMinutes(v){ return `${Number(v||0).toFixed(2)} min`; }
 function formatDate(d) {
-    if (!d) return '-';
-    const date = d instanceof Date ? d : new Date(getDBTimestamp(d));
-    return date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    if (!d) return '-';
+    const date = d instanceof Date ? d : new Date(getDBTimestamp(d));
+    return date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
 function setUser(u){
-  currentUser = u;
-  try { sessionStorage.setItem("pcp_current_user", JSON.stringify(u));
-  } catch(_){}
+  currentUser = u;
+  try { sessionStorage.setItem("pcp_current_user", JSON.stringify(u));
+  } catch(_){}
 }
 function getUser(){
-  try { return JSON.parse(sessionStorage.getItem("pcp_current_user") || "null");
-  }
-  catch(e){ return null; }
+  try { return JSON.parse(sessionStorage.getItem("pcp_current_user") || "null");
+  }
+  catch(e){ return null; }
 }
 function clearUser(){ try{ sessionStorage.removeItem("pcp_current_user");
 }catch(_){} currentUser=null; }
@@ -528,1335 +671,1272 @@ function isOperador(){ return currentUser && currentUser.role === "OPERADOR";
 }
 
 function getDBTimestamp(ts) {
-  if (!ts) return null;
-  if (typeof ts.toDate === 'function') return ts.toDate().getTime();
-  if (ts instanceof Date) return ts.getTime();
-  return ts;
+  if (!ts) return null;
+  if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+  if (ts instanceof Date) return ts.getTime();
+  return ts;
 }
 
 /* Helper visual de Prioridade */
 function getPriorityClass(priority) {
-  if (priority === 'Alta') return 'priority-high';
-  if (priority === 'Baixa') return 'priority-low';
-  return 'priority-medium'; // Padrão é Média
+  if (priority === 'Alta') return 'priority-high';
+  if (priority === 'Baixa') return 'priority-low';
+  return 'priority-medium'; // Padrão é Média
 }
 
 
 /* ============================
-   THEME (Simplificado)
-   ============================ */
+   THEME (Simplificado)
+   ============================ */
 function listenTheme(){
-  if (!window.db) return;
-  db.collection('settings').doc('ui').onSnapshot(doc=>{
-    const s = doc.exists ? doc.data() : null;
-    applyTheme(s);
-  });
+  if (!window.db) return;
+  db.collection('settings').doc('ui').onSnapshot(doc=>{
+    const s = doc.exists ? doc.data() : null;
+    applyTheme(s);
+  });
 }
 function applyTheme(s){
-  const r = document.documentElement.style;
-  // Default é o Fundo Cinza Padrão
-  const defaultColor = '#f3f4f6'; 
-  if (!s || s.mode === 'color'){
-    r.setProperty('--app-bg-color', s?.color || defaultColor);
-    r.setProperty('--app-bg-image', 'none');
-  } else {
-    r.setProperty('--app-bg-color', '#000000');
-    r.setProperty('--app-bg-image', `url("${s.imageUrl}")`);
-  }
+  const r = document.documentElement.style;
+  // Default é o Fundo Cinza Padrão
+  const defaultColor = '#f3f4f6'; 
+  if (!s || s.mode === 'color'){
+    r.setProperty('--app-bg-color', s?.color || defaultColor);
+    r.setProperty('--app-bg-image', 'none');
+  } else {
+    r.setProperty('--app-bg-color', '#000000');
+    r.setProperty('--app-bg-image', `url("${s.imageUrl}")`);
+  }
 }
 
 
 /* ============================
-   CÁLCULOS DE TEMPO 
-   ============================ */
-   
+   CÁLCULOS DE TEMPO 
+   ============================ */
+   
 // Função para obter o valor acumulado em milissegundos
 function calculateTempoRealMs(task){
-  if (task.status === 'Concluído' || task.status === 'Bloqueada' || task.status === 'Em Espera') {
-    return task.tempo_real_acumulado_ms || 0;
-  }
-  
-  const now = Date.now();
-  let tempoAcumulado = task.tempo_real_acumulado_ms || 0; 
-  let ultimaAtividade = getDBTimestamp(task.timestamp_inicio);
+  if (task.status === 'Concluído' || task.status === 'Bloqueada' || task.status === 'Em Espera') {
+    return task.tempo_real_acumulado_ms || 0;
+  }
+  
+  const now = Date.now();
+  let tempoAcumulado = task.tempo_real_acumulado_ms || 0; 
+  let ultimaAtividade = getDBTimestamp(task.timestamp_inicio);
 
-  if (!ultimaAtividade) return tempoAcumulado;
-  if (task.status === 'Em Processo'){
-    tempoAcumulado += (now - ultimaAtividade);
-  }
-  
-  return tempoAcumulado;
+  if (!ultimaAtividade) return tempoAcumulado;
+  if (task.status === 'Em Processo'){
+    tempoAcumulado += (now - ultimaAtividade);
+  }
+  
+  return tempoAcumulado;
 }
 
 // Funções que retornam minutos
 function calculateTempoRealMinutes(task){
-  if (task.status === 'Concluído') {
-      return msToMinutes(task.tempo_real_acumulado_ms || 0);
-  }
-  return msToMinutes(calculateTempoRealMs(task));
+  if (task.status === 'Concluído') {
+      return msToMinutes(task.tempo_real_acumulado_ms || 0);
+  }
+  return msToMinutes(calculateTempoRealMs(task));
 }
 
 function calculateDesvio(task){
-  const realMinutes = calculateTempoRealMinutes(task); 
-  const planned = task.tempo_planejado || 0;
-  
-  return parseFloat((planned - realMinutes).toFixed(2));
+  const realMinutes = calculateTempoRealMinutes(task); 
+  const planned = task.tempo_planejado || 0; // tempo_planejado agora é o P50 (Média)
+  
+  return parseFloat((planned - realMinutes).toFixed(2));
 }
 
 function calculateTotalPauseMinutes(task){
-  let totalMs = task.total_pause_time_ms || 0;
-  if (task.status === 'Pausada' && task.pause_start_timestamp){
-    totalMs += (Date.now() - getDBTimestamp(task.pause_start_timestamp));
-  }
-  return msToMinutes(totalMs);
+  let totalMs = task.total_pause_time_ms || 0;
+  if (task.status === 'Pausada' && task.pause_start_timestamp){
+    totalMs += (Date.now() - getDBTimestamp(task.pause_start_timestamp));
+  }
+  return msToMinutes(totalMs);
 }
 
-function calculateTotalPauseMinutesFinal(task){ 
-  return msToMinutes(task.total_pause_time_ms || 0);
+function calculateTotalPauseMinutesFinal(task){ 
+  return msToMinutes(task.total_pause_time_ms || 0);
 }
 
 
 /* ============================
-   INICIALIZAÇÃO & LISTENERS
-   ============================ */
+   INICIALIZAÇÃO & LISTENERS
+   ============================ */
 function setupSectorDropdowns(){
-  const roteiroSetorSelect = document.getElementById('roteiro-setor-admin');
-  const userSectorSelect = document.getElementById('user-sector');
-  const sectorFilterSelect = document.getElementById('sector-filter');
-  
-  [roteiroSetorSelect, sectorFilterSelect, userSectorSelect].forEach(sel => { if (sel) sel.innerHTML = ''; });
-  
-  SECTORS.forEach(sector=>{
-    const o1 = document.createElement('option'); o1.value=sector; o1.textContent=sector;
-    const o2 = o1.cloneNode(true);
-    const o3 = o1.cloneNode(true);
-    if (roteiroSetorSelect) roteiroSetorSelect.appendChild(o1);
-    if (userSectorSelect) userSectorSelect.appendChild(o2);
-  });
-  
-  if (sectorFilterSelect){
-    if (isOperador()){
-      const o = document.createElement('option');
-      o.value=currentUser.sector; o.textContent=currentUser.sector; sectorFilterSelect.appendChild(o);
-      sectorFilterSelect.value=currentUser.sector;
-      sectorFilterSelect.disabled = true;
-      currentSectorFilter = currentUser.sector;
-    } else {
-      SECTORS.forEach(sector=>{
-        const o2 = document.createElement('option'); o2.value=sector; o2.textContent=sector; sectorFilterSelect.appendChild(o2);
-      });
-      currentSectorFilter = SECTORS[0];
-      sectorFilterSelect.value = SECTORS[0];
-      sectorFilterSelect.disabled = false;
-    }
-  }
+  const roteiroSetorSelect = document.getElementById('roteiro-setor-admin');
+  const userSectorSelect = document.getElementById('user-sector');
+  const sectorFilterSelect = document.getElementById('sector-filter');
+  
+  [roteiroSetorSelect, sectorFilterSelect, userSectorSelect].forEach(sel => { if (sel) sel.innerHTML = ''; });
+  
+  SECTORS.forEach(sector=>{
+    const o1 = document.createElement('option'); o1.value=sector; o1.textContent=sector;
+    const o2 = o1.cloneNode(true);
+    const o3 = o1.cloneNode(true);
+    if (roteiroSetorSelect) roteiroSetorSelect.appendChild(o1);
+    if (userSectorSelect) userSectorSelect.appendChild(o2);
+  });
+  
+  if (sectorFilterSelect){
+    if (isOperador()){
+      const o = document.createElement('option');
+      o.value=currentUser.sector; o.textContent=currentUser.sector; sectorFilterSelect.appendChild(o);
+      sectorFilterSelect.value=currentUser.sector;
+      sectorFilterSelect.disabled = true;
+      currentSectorFilter = currentUser.sector;
+    } else {
+      SECTORS.forEach(sector=>{
+        const o2 = document.createElement('option'); o2.value=sector; o2.textContent=sector; sectorFilterSelect.appendChild(o2);
+      });
+      currentSectorFilter = SECTORS[0];
+      sectorFilterSelect.value = SECTORS[0];
+      sectorFilterSelect.disabled = false;
+    }
+  }
 }
 function updateSectorFilter(sector){ currentSectorFilter = sector; renderTasks();
 }
 
 function loadRoteiroDropdowns() {
-  const select = document.getElementById('of-chicote');
-  if (!select) return;
-  const roteiros = Object.values(allRoteiros);
-  const chicotes = [...new Set(roteiros.map(r => r.chicote_nome))];
-  select.innerHTML = '<option value="">-- Selecione um Modelo --</option>';
-  chicotes.forEach(chicote => {
-    const option = document.createElement('option');
-    option.value = chicote;
-    option.textContent = chicote;
-    select.appendChild(option);
-  });
-  if (chicotes.length === 0) {
-    select.innerHTML = '<option value="">Nenhum roteiro mestre cadastrado.</option>';
-  }
+  const select = document.getElementById('of-chicote');
+  if (!select) return;
+  const roteiros = Object.values(allRoteiros);
+  const chicotes = [...new Set(roteiros.map(r => r.chicote_nome))];
+  select.innerHTML = '<option value="">-- Selecione um Modelo --</option>';
+  chicotes.forEach(chicote => {
+    const option = document.createElement('option');
+    option.value = chicote;
+    option.textContent = chicote;
+    select.appendChild(option);
+  });
+  if (chicotes.length === 0) {
+    select.innerHTML = '<option value="">Nenhum roteiro mestre cadastrado.</option>';
+  }
 }
 
 async function initializeApp(){
-  loadingIndicator.classList.remove('hidden');
-  pcpView.classList.add('hidden');
-  operatorView.classList.add('hidden');
-  reportView.classList.add('hidden');
-  adminView.classList.add('hidden'); 
-  historicoView.classList.add('hidden');
+  loadingIndicator.classList.remove('hidden');
+  pcpView.classList.add('hidden');
+  operatorView.classList.add('hidden');
+  reportView.classList.add('hidden');
+  adminView.classList.add('hidden'); 
+  historicoView.classList.add('hidden');
 
-  listenTheme();
-  const savedUser = getUser();
-  if (savedUser){ setUser(savedUser);
-  }
+  listenTheme();
+  const savedUser = getUser();
+  if (savedUser){ setUser(savedUser);
+  }
 
-  if (window.db) {
-    setupFirebaseListeners();
-  } else {
-    // SIMULAÇÃO
-    allRoteiros = { ...DEFAULT_ROTEIROS };
-    if (!localStorage.getItem('sim_data_initialized')) {
-      await createOF('OF-001', 10, 'CHICOTE-001', 'Media', true);
-      await createOF('OF-002', 20, 'CHICOTE-B', 'Alta', true);
-      localStorage.setItem('sim_data_initialized', 'true');
-    } else {
-      allOFs = JSON.parse(localStorage.getItem('sim_ofs') || '{}');
-      allTasks = JSON.parse(localStorage.getItem('sim_tasks') || '{}');
-      allOcurrencesLog = JSON.parse(localStorage.getItem('sim_ocorrencias') || '[]');
-    }
-    setTimeout(()=>{
-      if (!savedUser) {
-        openUserModal();
-      } else {
-        if (isOperador()) { updateView('Operador'); }
-        else { updateView('PCP'); }
-      }
-      loadingIndicator.classList.add('hidden');
-      setupUIRefresh();
-      loadRoteiroDropdowns();
-      injectSearchInputs();
-      renderRoteiros();
-    }, 300);
-  }
+  if (window.db) {
+    setupFirebaseListeners();
+  } else {
+    // SIMULAÇÃO
+    allRoteiros = { ...DEFAULT_ROTEIROS };
+    if (!localStorage.getItem('sim_data_initialized')) {
+      await createOF('OF-001', 10, 'CHICOTE-001', 'Media', true);
+      await createOF('OF-002', 20, 'CHICOTE-B', 'Alta', true);
+      localStorage.setItem('sim_data_initialized', 'true');
+    } else {
+      allOFs = JSON.parse(localStorage.getItem('sim_ofs') || '{}');
+      allTasks = JSON.parse(localStorage.getItem('sim_tasks') || '{}');
+      allOcurrencesLog = JSON.parse(localStorage.getItem('sim_ocorrencias') || '[]');
+    }
+    setTimeout(()=>{
+      if (!savedUser) {
+        openUserModal();
+      } else {
+        if (isOperador()) { updateView('Operador'); }
+        else { updateView('PCP'); }
+      }
+      loadingIndicator.classList.add('hidden');
+      setupUIRefresh();
+      loadRoteiroDropdowns();
+      injectSearchInputs();
+      renderRoteiros();
+    }, 300);
+  }
 
-  setupSectorDropdowns();
-  if (!savedUser) {
-    setTimeout(openUserModal, 100);
-  } else {
-    if (isOperador()) {
-      updateView('Operador');
-    } else {
-      updateView('PCP');
-    }
-    injectSearchInputs();
-  }
+  setupSectorDropdowns();
+  if (!savedUser) {
+    setTimeout(openUserModal, 100);
+  } else {
+    if (isOperador()) {
+      updateView('Operador');
+    } else {
+      updateView('PCP');
+    }
+    injectSearchInputs();
+  }
 }
 
 function setupFirebaseListeners() {
-  if (!window.db) return;
+  if (!window.db) return;
 
-  let collectionsLoaded = { ofs: false, tasks: false, roteiros: false, ocorrencias: false };
-  
-  const forceUpdateView = () => {
-     if (!loadingIndicator.classList.contains('hidden')) return;
-     updateView(userViewSelect.value);
-  }
-  
-  const checkAllLoaded = () => {
-    if (Object.values(collectionsLoaded).every(Boolean)) {
-      if (!loadingIndicator.classList.contains('hidden')){
-        loadingIndicator.classList.add('hidden');
-        if (!currentUser) { openUserModal(); }
-      }
-      updateView(userViewSelect.value || (isMaster() ? 'PCP' : 'Operador'));
-      injectSearchInputs();
-    }
-  };
+  let collectionsLoaded = { ofs: false, tasks: false, roteiros: false, ocorrencias: false };
+  
+  const forceUpdateView = () => {
+     if (!loadingIndicator.classList.contains('hidden')) return;
+     updateView(userViewSelect.value);
+  }
+  
+  const checkAllLoaded = () => {
+    if (Object.values(collectionsLoaded).every(Boolean)) {
+      if (!loadingIndicator.classList.contains('hidden')){
+        loadingIndicator.classList.add('hidden');
+        if (!currentUser) { openUserModal(); }
+      }
+      updateView(userViewSelect.value || (isMaster() ? 'PCP' : 'Operador'));
+      injectSearchInputs();
+    }
+  };
 
 
-  db.collection(OF_COLLECTION).onSnapshot(snapshot => {
-    snapshot.docChanges().forEach(change => {
-      const ofData = { id: change.doc.id, ...change.doc.data() };
-      if (change.type === 'removed') delete allOFs[ofData.id];
-      else allOFs[ofData.id] = ofData;
-    });
-    collectionsLoaded.ofs = true;
-    checkAllLoaded();
-    forceUpdateView(); 
-  });
-  
-  db.collection(TASK_COLLECTION).onSnapshot(snapshot => {
-    snapshot.docChanges().forEach(change => {
-      const taskData = { id: change.doc.id, ...change.doc.data() };
-      if (change.type === 'removed') delete allTasks[taskData.id];
-      else allTasks[taskData.id] = taskData;
-    });
-    collectionsLoaded.tasks = true;
-    checkAllLoaded();
-    forceUpdateView(); 
-  });
-  
-  db.collection(ROTEIRO_COLLECTION).onSnapshot(snapshot => {
-    allRoteiros = {};
-    snapshot.forEach(doc => {
-      const roteiroData = { id: doc.id, ...doc.data() };
-      allRoteiros[roteiroData.id] = roteiroData;
-    });
-    loadRoteiroDropdowns();
-    renderRoteiros(); 
-    collectionsLoaded.roteiros = true;
-    checkAllLoaded();
-  });
-  
-  db.collection(OCORRENCIA_COLLECTION).onSnapshot(snapshot => {
-    allOcurrencesLog = [];
-    snapshot.forEach(doc => { allOcurrencesLog.push({ id: doc.id, ...doc.data() }); });
-    allOcurrencesLog.sort((a,b) => getDBTimestamp(b.timestamp) - getDBTimestamp(a.timestamp));
-    collectionsLoaded.ocorrencias = true;
-    checkAllLoaded();
-    forceUpdateView();
-  });
+  db.collection(OF_COLLECTION).onSnapshot(snapshot => {
+    snapshot.docChanges().forEach(change => {
+      const ofData = { id: change.doc.id, ...change.doc.data() };
+      if (change.type === 'removed') delete allOFs[ofData.id];
+      else allOFs[ofData.id] = ofData;
+    });
+    collectionsLoaded.ofs = true;
+    checkAllLoaded();
+    forceUpdateView(); 
+  });
+  
+  db.collection(TASK_COLLECTION).onSnapshot(snapshot => {
+    snapshot.docChanges().forEach(change => {
+      const taskData = { id: change.doc.id, ...change.doc.data() };
+      if (change.type === 'removed') delete allTasks[taskData.id];
+      else allTasks[taskData.id] = taskData;
+    });
+    collectionsLoaded.tasks = true;
+    checkAllLoaded();
+    forceUpdateView(); 
+  });
+  
+  db.collection(ROTEIRO_COLLECTION).onSnapshot(snapshot => {
+    allRoteiros = {};
+    snapshot.forEach(doc => {
+      const roteiroData = { id: doc.id, ...doc.data() };
+      allRoteiros[roteiroData.id] = roteiroData;
+    });
+    loadRoteiroDropdowns();
+    renderRoteiros(); 
+    collectionsLoaded.roteiros = true;
+    checkAllLoaded();
+  });
+  
+  db.collection(OCORRENCIA_COLLECTION).onSnapshot(snapshot => {
+    allOcurrencesLog = [];
+    snapshot.forEach(doc => { allOcurrencesLog.push({ id: doc.id, ...doc.data() }); });
+    allOcurrencesLog.sort((a,b) => getDBTimestamp(b.timestamp) - getDBTimestamp(a.timestamp));
+    collectionsLoaded.ocorrencias = true;
+    checkAllLoaded();
+    forceUpdateView();
+  });
 }
 
 /* ============================
-   CRUD
-   ============================ */
+   CRUD
+   ============================ */
+// ####################################################################
+// #                           INÍCIO DAS MUDANÇAS                         #
+// ####################################################################
 async function addRoteiroActivity(){
-  const chicote_name = document.getElementById('roteiro-chicote-name-admin').value.trim().toUpperCase();
-  const setor = document.getElementById('roteiro-setor-admin').value;
-  const activity_name = document.getElementById('roteiro-activity-name-admin').value.trim();
-  const setup_time = parseFloat(document.getElementById('roteiro-setup-time-admin').value);
-  const cycle_time = parseFloat(document.getElementById('roteiro-cycle-time-admin').value);
-  const instruction_text = document.getElementById('roteiro-instruction-text-admin').value.trim();
-  const messageEl = document.getElementById('roteiro-message-admin');
-  
-  messageEl.textContent = '';
-  if (!chicote_name || !activity_name || isNaN(setup_time) || isNaN(cycle_time) || !setor){
-    messageEl.textContent = "Preencha todos os campos obrigatórios e use números para tempo.";
-    return;
-  }
-  if (window.db) {
-    try {
-      const newRoteiro = {
-        chicote_nome: chicote_name,
-        setor: setor,
-        nome_atividade: activity_name,
-        tempo_setup: setup_time,
-        tempo_ciclo: cycle_time,
-        instrucao_trabalho: instruction_text,
-        created_at: firebase.firestore.FieldValue.serverTimestamp()
-      };
-      await db.collection(ROTEIRO_COLLECTION).add(newRoteiro);
-      messageEl.textContent = `Etapa "${activity_name}" adicionada ao roteiro mestre ${chicote_name}.`;
-      messageEl.classList.remove('text-red-500');
-      messageEl.classList.add('text-green-600');
-    } catch(e) {
-      messageEl.textContent = "Erro ao salvar no Firebase: " + e.message;
-      messageEl.classList.add('text-red-500');
-    }
-  } else {
-    const newId = `r${roteiroCounter++}`;
-    allRoteiros[newId] = {
-      id: newId, chicote_nome: chicote_name, setor,
-      nome_atividade: activity_name, tempo_setup: setup_time, tempo_ciclo: cycle_time,
-      instrucao_trabalho: instruction_text
-    };
-    messageEl.textContent = `Etapa "${activity_name}" adicionada (Simulação).`;
-    messageEl.classList.remove('text-red-500');
-    messageEl.classList.add('text-green-600');
-    renderRoteiros();
-    loadRoteiroDropdowns();
-  }
-  document.getElementById('roteiro-activity-name-admin').value = '';
-  document.getElementById('roteiro-setup-time-admin').value = '';
-  document.getElementById('roteiro-cycle-time-admin').value = '';
-  document.getElementById('roteiro-instruction-text-admin').value = '';
+  const chicote_name = document.getElementById('roteiro-chicote-name-admin').value.trim().toUpperCase();
+  const setor = document.getElementById('roteiro-setor-admin').value;
+  const activity_name = document.getElementById('roteiro-activity-name-admin').value.trim();
+  
+  // NOVOS CAMPOS
+  const media_setup = parseFloat(document.getElementById('roteiro-media-setup-admin').value);
+  const desvio_setup = parseFloat(document.getElementById('roteiro-desvio-setup-admin').value);
+  const media_ciclo = parseFloat(document.getElementById('roteiro-media-ciclo-admin').value);
+  const desvio_ciclo = parseFloat(document.getElementById('roteiro-desvio-ciclo-admin').value);
+  
+  const instruction_text = document.getElementById('roteiro-instruction-text-admin').value.trim();
+  const messageEl = document.getElementById('roteiro-message-admin');
+  
+  messageEl.textContent = '';
+  // Validação atualizada
+  if (!chicote_name || !activity_name || !setor ||
+      isNaN(media_setup) || isNaN(desvio_setup) ||
+      isNaN(media_ciclo) || isNaN(desvio_ciclo)) {
+    messageEl.textContent = "Preencha todos os campos. Média e Desvio (Ciclo e Setup) são obrigatórios e devem ser números.";
+    return;
+  }
+  
+  if (window.db) {
+    try {
+      // Novo objeto Roteiro
+      const newRoteiro = {
+        chicote_nome: chicote_name,
+        setor: setor,
+        nome_atividade: activity_name,
+        media_setup_min: media_setup,
+        desvio_setup_min: desvio_setup,
+        media_ciclo_min: media_ciclo,
+        desvio_ciclo_min: desvio_ciclo,
+        instrucao_trabalho: instruction_text,
+        created_at: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      await db.collection(ROTEIRO_COLLECTION).add(newRoteiro);
+      messageEl.textContent = `Etapa "${activity_name}" adicionada ao roteiro mestre ${chicote_name}.`;
+      messageEl.classList.remove('text-red-500');
+      messageEl.classList.add('text-green-600');
+    } catch(e) {
+      messageEl.textContent = "Erro ao salvar no Firebase: " + e.message;
+      messageEl.classList.add('text-red-500');
+  T  }
+  } else {
+    const newId = `r${roteiroCounter++}`;
+    allRoteiros[newId] = {
+      id: newId, chicote_nome: chicote_name, setor,
+      nome_atividade: activity_name,
+      media_setup_min: media_setup, desvio_setup_min: desvio_setup,
+      media_ciclo_min: media_ciclo, desvio_ciclo_min: desvio_ciclo,
+      instrucao_trabalho: instruction_text
+    };
+    messageEl.textContent = `Etapa "${activity_name}" adicionada (Simulação).`;
+    messageEl.classList.remove('text-red-500');
+    messageEl.classList.add('text-green-600');
+    renderRoteiros();
+    loadRoteiroDropdowns();
+  }
+  // Limpa os 4 campos de tempo
+  document.getElementById('roteiro-activity-name-admin').value = '';
+  document.getElementById('roteiro-media-setup-admin').value = '';
+  document.getElementById('roteiro-desvio-setup-admin').value = '';
+  document.getElementById('roteiro-media-ciclo-admin').value = '';
+  document.getElementById('roteiro-desvio-ciclo-admin').value = '';
+  document.getElementById('roteiro-instruction-text-admin').value = '';
 }
+// ####################################################################
+// #                           FIM DAS MUDANÇAS                           #
+// ####################################################################
 
+// ####################################################################
+// #                           INÍCIO DAS MUDANÇAS                         #
+// ####################################################################
 async function createOF(ofIdOverride, quantityOverride, chicoteOverride, priorityOverride, isSimulated = false){
-  const of_id = ofIdOverride || document.getElementById('of-id').value.trim().toUpperCase();
-  const quantity = quantityOverride || parseInt(document.getElementById('of-quantity').value);
-  const chicote_name = chicoteOverride || document.getElementById('of-chicote').value;
-  const priority = priorityOverride || document.getElementById('of-priority').value || 'Media';
-  
-  const messageEl = document.getElementById('of-creation-message');
-  messageEl.textContent = '';
-  messageEl.classList.add('hidden');
+  const of_id = ofIdOverride || document.getElementById('of-id').value.trim().toUpperCase();
+  const quantity = quantityOverride || parseInt(document.getElementById('of-quantity').value);
+  const chicote_name = chicoteOverride || document.getElementById('of-chicote').value;
+  const priority = priorityOverride || document.getElementById('of-priority').value || 'Media';
+  
+  const messageEl = document.getElementById('of-creation-message');
+  messageEl.textContent = '';
+  messageEl.classList.add('hidden');
 
-  if (!of_id || isNaN(quantity) || quantity <= 0 || !chicote_name){
-    messageEl.textContent = "Preencha todos os campos corretamente.";
-    messageEl.classList.remove('hidden');
-    return;
-  }
-  if (Object.values(allOFs).find(of => of.id === of_id)) {
-    messageEl.textContent = `OF "${of_id}" já existe.`;
-    messageEl.classList.remove('hidden');
-    return;
-  }
+  if (!of_id || isNaN(quantity) || quantity <= 0 || !chicote_name){
+    messageEl.textContent = "Preencha todos os campos corretamente.";
+    messageEl.classList.remove('hidden');
+    return;
+  }
+  if (Object.values(allOFs).find(of => of.id === of_id)) {
+    messageEl.textContent = `OF "${of_id}" já existe.`;
+    messageEl.classList.remove('hidden');
+    return;
+  }
 
-  const roteiroEtapas = Object.values(allRoteiros).filter(r => r.chicote_nome === chicote_name);
-  if (roteiroEtapas.length === 0){
-    messageEl.textContent = `Nenhuma etapa encontrada para "${chicote_name}".`;
-    messageEl.classList.remove('hidden');
-    return;
-  }
+  const roteiroEtapas = Object.values(allRoteiros).filter(r => r.chicote_nome === chicote_name);
+  if (roteiroEtapas.length === 0){
+    messageEl.textContent = `Nenhuma etapa encontrada para "${chicote_name}".`;
+    messageEl.classList.remove('hidden');
+    return;
+  }
 
-  const newOF = {
-    id: of_id, chicote: chicote_name, quantidade: quantity,
-    status: 'Pendente',
-    priority: priority, 
-    data_criacao: window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date(),
-    task_count: roteiroEtapas.length,
-    concluded_tasks: 0,
-  };
-  try {
-    if (window.db) { await db.collection(OF_COLLECTION).doc(of_id).set(newOF); }
-    else { allOFs[of_id] = newOF;
-    }
+  // --- INÍCIO DA LÓGICA MONTE CARLO ---
+  const N = quantity;
+  const P_LEVEL = 0.95; // Nível de Confiança (P95)
+  const N_SIMULACOES = 100000; // Número de iterações
+  
+  let totalMediaOF = 0;
+  let totalVarianciaOF = 0;
+  let auditLog = `Auditoria de Cálculo (PCP Monte Carlo)\n`;
+  auditLog += `OF: ${of_id} | Peças: ${N} | Confiança: ${P_LEVEL * 100}%\n`;
+  auditLog += `----------------------------------------\n`;
+  auditLog += `1. Consolidação de Parâmetros por Etapa (em Minutos):\n\n`;
 
-    const batch = window.db ? db.batch() : null;
-    let order = 1;
-    for (const etapa of roteiroEtapas) {
-      const tempo_planejado = etapa.tempo_setup + (etapa.tempo_ciclo * quantity);
-      const newTask = {
-        id_of: of_id, id_roteiro: etapa.id, chicote: chicote_name,
-        nome_atividade: etapa.nome_atividade, setor: etapa.setor,
-        tempo_setup: etapa.tempo_setup, tempo_ciclo: etapa.tempo_ciclo,
-        tempo_planejado: parseFloat(tempo_planejado.toFixed(2)), 
-        instrucao_trabalho: etapa.instrucao_trabalho,
-        quantidade_pecas: quantity,
-        status: 'Em Espera',
-        ordem: order++,
-        priority: priority, 
-    
-        timestamp_inicio: null, timestamp_fim: null,
-        tempo_real_acumulado_ms: 0, 
-        total_pause_time_ms: 0,     
-        pause_start_timestamp: null,
-        search_index: of_id.toLowerCase()+'-'+etapa.nome_atividade.toLowerCase()+'-'+etapa.setor.toLowerCase()
-      };
-      if (window.db) {
-        const newTaskRef = db.collection(TASK_COLLECTION).doc();
-        batch.set(newTaskRef, newTask);
-      } else {
-        const simTaskId = `t${taskCounter++}`;
-        newTask.id = simTaskId;
-        allTasks[simTaskId] = newTask;
-      }
-    }
-    if (batch) await batch.commit();
-    if (!isSimulated) {
-      closeModal('create-of-modal');
-      alert(`OF ${of_id} criada com sucesso!`);
-      if (!window.db) {
-        localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
-        localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
-      }
-    }
-  } catch(e) {
-    messageEl.textContent = "Erro ao criar OF: " + (e.message || e);
-    messageEl.classList.remove('hidden');
-  }
+  const taskParameters = [];
+
+  for (const etapa of roteiroEtapas) {
+    // Garante que os valores existam, tratando dados antigos (default 0)
+    const media_ciclo = etapa.media_ciclo_min || 0;
+    const desvio_ciclo = etapa.desvio_ciclo_min || 0;
+    const media_setup = etapa.media_setup_min || 0;
+    const desvio_setup = etapa.desvio_setup_min || 0;
+
+    // Calcula Média (P50) e Variância para o LOTE desta etapa
+    const media_lote_etapa = (media_ciclo * N) + media_setup;
+    const variancia_lote_etapa = (Math.pow(desvio_ciclo, 2) * N) + Math.pow(desvio_setup, 2);
+  
+    // Acumula os totais da OF
+    totalMediaOF += media_lote_etapa;
+    totalVarianciaOF += variancia_lote_etapa;
+  
+    // Adiciona ao Log de Auditoria
+    auditLog += `Etapa: ${etapa.nome_atividade} (${etapa.setor})\n`;
+    auditLog += `  Média Lote (P50) = (${media_ciclo.toFixed(4)} * ${N}) + ${media_setup.toFixed(2)} = ${media_lote_etapa.toFixed(4)}\n`;
+    auditLog += `  Variância Lote = (${desvio_ciclo.toFixed(4)}² * ${N}) + ${desvio_setup.toFixed(2)}² = ${variancia_lote_etapa.toFixed(4)}\n\n`;
+    
+    // Salva parâmetros para criar a Task depois
+    taskParameters.push({
+      etapa: etapa,
+      tempo_planejado_p50: media_lote_etapa,
+      // Salva os valores de média para exibição (compatibilidade)
+      tempo_setup_compat: media_setup,
+      tempo_ciclo_compat: media_ciclo,
+      // Salva os desvios para uso futuro
+      desvio_setup: desvio_setup,
+      desvio_ciclo: desvio_ciclo
+    });
+  }
+
+  // Consolida e Roda a Simulação Final para a OF
+  const desvioPadraoOF = Math.sqrt(totalVarianciaOF);
+  const tempoConfiavelOF = runSimulation(totalMediaOF, desvioPadraoOF, N_SIMULACOES, P_LEVEL);
+
+  auditLog += `----------------------------------------\n`;
+  auditLog += `2. Parâmetros Totais da OF ${of_id}:\n`;
+  auditLog += `  Média Total (P50) = Σ Médias Lote = ${totalMediaOF.toFixed(4)} min\n`;
+  auditLog += `  Variância Total = Σ Variâncias Lote = ${totalVarianciaOF.toFixed(4)}\n`;
+  auditLog += `  Desvio Padrão Total = sqrt(Variância) = ${desvioPadraoOF.toFixed(4)} min\n\n`;
+  auditLog += `3. Resultado da Simulação (P${P_LEVEL * 100}):\n`;
+  auditLog += `  (Simulado ${N_SIMULACOES}x usando Média=${totalMediaOF.toFixed(4)} e Desvio=${desvioPadraoOF.toFixed(4)})\n`;
+  auditLog += `  Tempo Confiável (P95) = ${tempoConfiavelOF.toFixed(4)} min\n\n`;
+  auditLog += `  Formatado (HH:MM:SS):\n`;
+  auditLog += `  Tempo Esperado (P50) = ${formatarMinutosParaHMS(totalMediaOF)}\n`;
+  auditLog += `  Tempo Confiável (P95) = ${formatarMinutosParaHMS(tempoConfiavelOF)}\n`;
+  // --- FIM DA LÓGICA MONTE CARLO ---
+
+
+  const newOF = {
+    id: of_id, chicote: chicote_name, quantidade: quantity,
+    status: 'Pendente',
+    priority: priority, 
+    data_criacao: window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date(),
+    task_count: roteiroEtapas.length,
+    concluded_tasks: 0,
+    // NOVOS CAMPOS MONTE CARLO
+    tempo_esperado_total_min: parseFloat(totalMediaOF.toFixed(4)),
+    tempo_confiavel_total_min: parseFloat(tempoConfiavelOF.toFixed(4)),
+    calculo_audit_log: auditLog
+  };
+  
+  try {
+    if (window.db) { await db.collection(OF_COLLECTION).doc(of_id).set(newOF); }
+    else { allOFs[of_id] = newOF;
+    }
+
+    const batch = window.db ? db.batch() : null;
+    let order = 1;
+    // Loop usando os parâmetros já calculados
+    for (const params of taskParameters) {
+      const etapa = params.etapa;
+      const newTask = {
+        id_of: of_id, id_roteiro: etapa.id, chicote: chicote_name,
+        nome_atividade: etapa.nome_atividade, setor: etapa.setor,
+        
+        // Salva o P50 (Média) como o tempo planejado da task
+        tempo_planejado: parseFloat(params.tempo_planejado_p50.toFixed(2)),
+        
+        // Salva os valores de média para exibição (compatibilidade)
+        tempo_setup: params.tempo_setup_compat,
+        tempo_ciclo: params.tempo_ciclo_compat,
+        
+        // Salva os desvios para uso futuro
+        desvio_setup_min: params.desvio_setup,
+        desvio_ciclo_min: params.desvio_ciclo,
+        
+        instrucao_trabalho: etapa.instrucao_trabalho,
+        quantidade_pecas: quantity,
+        status: 'Em Espera',
+        ordem: order++,
+        priority: priority, 
+    
+        timestamp_inicio: null, timestamp_fim: null,
+        tempo_real_acumulado_ms: 0, 
+        total_pause_time_ms: 0,     
+        pause_start_timestamp: null,
+        search_index: of_id.toLowerCase()+'-'+etapa.nome_atividade.toLowerCase()+'-'+etapa.setor.toLowerCase()
+      };
+      if (window.db) {
+        const newTaskRef = db.collection(TASK_COLLECTION).doc();
+        batch.set(newTaskRef, newTask);
+      } else {
+        const simTaskId = `t${taskCounter++}`;
+        newTask.id = simTaskId;
+        allTasks[simTaskId] = newTask;
+      }
+    }
+    if (batch) await batch.commit();
+    if (!isSimulated) {
+      closeModal('create-of-modal');
+      alert(`OF ${of_id} criada com sucesso!\nTempo Esperado (P50): ${formatarMinutosParaHMS(totalMediaOF)}\nTempo Confiável (P95): ${formatarMinutosParaHMS(tempoConfiavelOF)}`);
+      if (!window.db) {
+        localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
+        localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
+      }
+    }
+  } catch(e) {
+    messageEl.textContent = "Erro ao criar OF: " + (e.message || e);
+    messageEl.classList.remove('hidden');
+    console.error("Erro em createOF:", e);
+  }
 }
+// ####################################################################
+// #                           FIM DAS MUDANÇAS                           #
+// ####################################################################
+
 
 async function updateTaskStatus(taskId, newStatus, logType = null, justification = null, justificationText = null) {
-  const task = allTasks[taskId];
-  if (!task) return;
+  const task = allTasks[taskId];
+  if (!task) return;
 
-  const updateData = { status: newStatus };
-  const now = window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date();
-  
-  const currentTempoRealMs = calculateTempoRealMs(task); 
+  const updateData = { status: newStatus };
+  const now = window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date();
+  
+  const currentTempoRealMs = calculateTempoRealMs(task); 
 
-  if (newStatus === 'Em Processo') {
-    if (task.status === 'Pausada' && task.pause_start_timestamp) {
-      const pauseStartMs = getDBTimestamp(task.pause_start_timestamp);
-      const currentPauseTimeMs = Date.now() - pauseStartMs;
-      updateData.total_pause_time_ms = (task.total_pause_time_ms || 0) + currentPauseTimeMs;
-      updateData.pause_start_timestamp = null;
-    }
-    if (task.status === 'Em Espera') updateData.timestamp_inicio = now;
-  } 
-  else if (newStatus === 'Pausada') {
-    updateData.tempo_real_acumulado_ms = currentTempoRealMs;
-    updateData.pause_start_timestamp = now;
-    if (logType === 'PAUSA' && (justification || justificationText)) {
-      await createOcorrenciaLog(task, 'PAUSA', justification, justificationText);
-    }
-  } 
-  else if (newStatus === 'Concluído') {
-    const desvio = calculateDesvio(task);
-    updateData.tempo_real_acumulado_ms = currentTempoRealMs;
-    updateData.timestamp_fim = now;
-    updateData.pause_start_timestamp = null;
-    if (desvio < 0 || logType === 'FIM_ATRASO') {
-      await createOcorrenciaLog(task, 'FIM_ATRASO', justification, justificationText);
-    }
+  if (newStatus === 'Em Processo') {
+    if (task.status === 'Pausada' && task.pause_start_timestamp) {
+      const pauseStartMs = getDBTimestamp(task.pause_start_timestamp);
+      const currentPauseTimeMs = Date.now() - pauseStartMs;
+      updateData.total_pause_time_ms = (task.total_pause_time_ms || 0) + currentPauseTimeMs;
+      updateData.pause_start_timestamp = null;
+    }
+    if (task.status === 'Em Espera') updateData.timestamp_inicio = now;
+  } 
+  else if (newStatus === 'Pausada') {
+    updateData.tempo_real_acumulado_ms = currentTempoRealMs;
+    updateData.pause_start_timestamp = now;
+    if (logType === 'PAUSA' && (justification || justificationText)) {
+      await createOcorrenciaLog(task, 'PAUSA', justification, justificationText);
+    }
+  } 
+  else if (newStatus === 'Concluído') {
+    const desvio = calculateDesvio(task);
+    updateData.tempo_real_acumulado_ms = currentTempoRealMs;
+    updateData.timestamp_fim = now;
+    updateData.pause_start_timestamp = null;
+    if (desvio < 0 || logType === 'FIM_ATRASO') {
+      await createOcorrenciaLog(task, 'FIM_ATRASO', justification, justificationText);
+    }
 
-    if (window.db) {
-      const ofRef = db.collection(OF_COLLECTION).doc(task.id_of);
-      const tasksDaOF = Object.values(allTasks).filter(t => t.id_of === task.id_of);
-      const totalConcluidas = tasksDaOF.filter(t => (t.id === taskId) ? true : t.status === 'Concluído').length;
-      const ofConcluida = totalConcluidas >= tasksDaOF.length;
+    if (window.db) {
+      const ofRef = db.collection(OF_COLLECTION).doc(task.id_of);
+      const tasksDaOF = Object.values(allTasks).filter(t => t.id_of === task.id_of);
+      const totalConcluidas = tasksDaOF.filter(t => (t.id === taskId) ? true : t.status === 'Concluído').length;
+      const ofConcluida = totalConcluidas >= tasksDaOF.length;
 
-      const batch = db.batch();
-      batch.update(db.collection(TASK_COLLECTION).doc(taskId), updateData);
-      batch.update(ofRef, {
-        concluded_tasks: firebase.firestore.FieldValue.increment(1),
-        status: ofConcluida ? 'Concluído' : 'Em Andamento'
-      });
-      await batch.commit();
-    } else {
-      const of = allOFs[task.id_of];
-      of.concluded_tasks = (of.concluded_tasks || 0) + 1;
-      Object.assign(task, updateData);
-      const tasksDaOF = Object.values(allTasks).filter(t => t.id_of === task.id_of);
-      const totalConcluidas = tasksDaOF.filter(t => t.status === 'Concluído').length;
-      of.status = (totalConcluidas >= tasksDaOF.length) ? 'Concluído' : 'Em Andamento';
-      localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
-      localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
-    }
-    renderTasks();
-    return;
-  }
+      const batch = db.batch();
+      batch.update(db.collection(TASK_COLLECTION).doc(taskId), updateData);
+      batch.update(ofRef, {
+        concluded_tasks: firebase.firestore.FieldValue.increment(1),
+        status: ofConcluida ? 'Concluído' : 'Em Andamento'
+      });
+      await batch.commit();
+    } else {
+      const of = allOFs[task.id_of];
+      of.concluded_tasks = (of.concluded_tasks || 0) + 1;
+      Object.assign(task, updateData);
+      const tasksDaOF = Object.values(allTasks).filter(t => t.id_of === task.id_of);
+      const totalConcluidas = tasksDaOF.filter(t => t.status === 'Concluído').length;
+      of.status = (totalConcluidas >= tasksDaOF.length) ? 'Concluído' : 'Em Andamento';
+      localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
+      localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
+    }
+    renderTasks();
+    return;
+  }
 
-  if (window.db) {
-    await db.collection(TASK_COLLECTION).doc(taskId).update(updateData);
-  } else {
-    Object.assign(task, updateData);
-    localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
-  }
-  renderTasks();
+  if (window.db) {
+    await db.collection(TASK_COLLECTION).doc(taskId).update(updateData);
+  } else {
+    Object.assign(task, updateData);
+    localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
+  }
+  renderTasks();
 }
 
 
 async function createOcorrenciaLog(task, type, justification, justificationText) {
-  const logData = {
-    ID_TASK: task.id, OF: task.id_of, CHICOTE: task.chicote, ATIVIDADE: task.nome_atividade,
-    OPERADOR: currentUser?.name || currentUser?.sector || '', SECTOR: task.setor,
-    MOTIVO_PRINCIPAL: justification, MOTIVO_DETALLES: justificationText,
-    timestamp: window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date()
-  };
+  const logData = {
+    ID_TASK: task.id, OF: task.id_of, CHICOTE: task.chicote, ATIVIDADE: task.nome_atividade,
+    OPERADOR: currentUser?.name || currentUser?.sector || '', SECTOR: task.setor,
+    MOTIVO_PRINCIPAL: justification, MOTIVO_DETALLES: justificationText,
+    timestamp: window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date()
+  };
 
-  if (type === 'PAUSA') {
-    logData.TIPO = 'PAUSA';
-    logData.TEMPO_PAUSA = 0; 
-    logData.TEMPO_ATRASO = 0;
-    logData.MOTIVO_PAUSA = justification;
-    logData.MOTIVO_ATRASO = null;
-  } else if (type === 'FIM_ATRASO') {
-    const desvio = calculateDesvio(task);
-    logData.TIPO = 'ATRASO';
-    logData.TEMPO_PAUSA = calculateTotalPauseMinutesFinal(task); 
-    logData.TEMPO_ATRASO = parseFloat(Math.abs(desvio).toFixed(2));
-    logData.MOTIVO_PAUSA = null;
-    logData.MOTIVO_ATRASO = justification;
-  }
+  if (type === 'PAUSA') {
+    logData.TIPO = 'PAUSA';
+    logData.TEMPO_PAUSA = 0; 
+    logData.TEMPO_ATRASO = 0;
+    logData.MOTIVO_PAUSA = justification;
+    logData.MOTIVO_ATRASO = null;
+  } else if (type === 'FIM_ATRASO') {
+    const desvio = calculateDesvio(task);
+    logData.TIPO = 'ATRASO';
+    logData.TEMPO_PAUSA = calculateTotalPauseMinutesFinal(task); 
+    logData.TEMPO_ATRASO = parseFloat(Math.abs(desvio).toFixed(2));
+    logData.MOTIVO_PAUSA = null;
+    logData.MOTIVO_ATRASO = justification;
+  }
 
-  if (window.db) await db.collection(OCORRENCIA_COLLECTION).add(logData);
-  else {
-    logData.id = `log${allOcurrencesLog.length + 1}`;
-    allOcurrencesLog.push(logData);
-    localStorage.setItem('sim_ocorrencias', JSON.stringify(allOcurrencesLog));
-  }
+  if (window.db) await db.collection(OCORRENCIA_COLLECTION).add(logData);
+  else {
+    logData.id = `log${allOcurrencesLog.length + 1}`;
+    allOcurrencesLog.push(logData);
+    localStorage.setItem('sim_ocorrencias', JSON.stringify(allOcurrencesLog));
+  }
 }
 
 
 /* ============================
-   AÇÕES
-   ============================ */
+   AÇÕES
+   ============================ */
 function startTask(taskId){ updateTaskStatus(taskId, 'Em Processo'); }
 function finishTask(taskId){ showActionModal(taskId, 'Finalizar', DELAY_REASONS);
 }
 function pauseTask(taskId){ showActionModal(taskId, 'Pausar', PAUSE_REASONS); }
 
 async function deleteRoteiroActivity(roteiroId) {
-  if (!isMaster() || !confirm("Excluir esta etapa de roteiro?")) return;
-  if (window.db) {
-    try { await db.collection(ROTEIRO_COLLECTION).doc(roteiroId).delete(); alert("Etapa excluída.");
-    }
-    catch(e) { alert("Erro ao excluir: " + e.message);
-    }
-  } else {
-    delete allRoteiros[roteiroId];
-    renderRoteiros();
-    loadRoteiroDropdowns();
-  }
+  if (!isMaster() || !confirm("Excluir esta etapa de roteiro?")) return;
+  if (window.db) {
+    try { await db.collection(ROTEIRO_COLLECTION).doc(roteiroId).delete(); alert("Etapa excluída.");
+    }
+    catch(e) { alert("Erro ao excluir: " + e.message);
+    }
+  } else {
+    delete allRoteiros[roteiroId];
+    renderRoteiros();
+    loadRoteiroDropdowns();
+  }
 }
 
 async function deleteOF(ofId) {
-  if (!isMaster() || !ofId) return;
-  if (!confirm(`Excluir OF ${ofId} e TODAS as suas tarefas e logs? Esta ação é IRREVERSÍVEL.`)) return;
-  try {
-    if (window.db) {
-      const batch = db.batch();
-      batch.delete(db.collection(OF_COLLECTION).doc(ofId));
-      const tasksSnapshot = await db.collection(TASK_COLLECTION).where('id_of', '==', ofId).get();
-      tasksSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-      const ocorrenciasSnapshot = await db.collection(OCORRENCIA_COLLECTION).where('OF', '==', ofId).get();
-      ocorrenciasSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-      await batch.commit();
-    } else {
-      delete allOFs[ofId];
-      Object.keys(allTasks).forEach(id => { if (allTasks[id].id_of === ofId) delete allTasks[id]; });
-      allOcurrencesLog = allOcurrencesLog.filter(l => l.OF !== ofId);
-      localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
-      localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
-      localStorage.setItem('sim_ocorrencias', JSON.stringify(allOcurrencesLog));
-    }
-    closeModal('of-details-modal');
-    alert(`OF ${ofId} excluída.`);
-    updateView(userViewSelect.value);
-  } catch(e) {
-    alert("Erro ao excluir OF: " + (e.message || e));
-  }
+  if (!isMaster() || !ofId) return;
+  if (!confirm(`Excluir OF ${ofId} e TODAS as suas tarefas e logs? Esta ação é IRREVERSÍVEL.`)) return;
+  try {
+    if (window.db) {
+      const batch = db.batch();
+      batch.delete(db.collection(OF_COLLECTION).doc(ofId));
+      const tasksSnapshot = await db.collection(TASK_COLLECTION).where('id_of', '==', ofId).get();
+      tasksSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+      const ocorrenciasSnapshot = await db.collection(OCORRENCIA_COLLECTION).where('OF', '==', ofId).get();
+      ocorrenciasSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+    } else {
+      delete allOFs[ofId];
+      Object.keys(allTasks).forEach(id => { if (allTasks[id].id_of === ofId) delete allTasks[id]; });
+      allOcurrencesLog = allOcurrencesLog.filter(l => l.OF !== ofId);
+      localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
+      localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
+      localStorage.setItem('sim_ocorrencias', JSON.stringify(allOcurrencesLog));
+    }
+    closeModal('of-details-modal');
+    alert(`OF ${ofId} excluída.`);
+    updateView(userViewSelect.value);
+  } catch(e) {
+    alert("Erro ao excluir OF: " + (e.message || e));
+  }
 }
 
 /* ============================
-   MODAIS
-   ============================ */
+   MODAIS
+   ============================ */
 function openModal(id){
-  const modal = document.getElementById(id);
-  if(modal) modal.style.display = 'flex';
+  const modal = document.getElementById(id);
+  if(modal) modal.style.display = 'flex';
 }
 function closeModal(id){
-  const modalId = id || 'action-modal';
-  const modal = document.getElementById(modalId);
-  if(modal) {
-    modal.style.display = 'none';
-    if (modalId === 'action-modal') {
-      currentAction = {};
-      const jsSel = document.getElementById('justification-select');
-      const jsTxt = document.getElementById('justification-text');
-      const jsReq = document.getElementById('justification-required-text');
-      if (jsSel) jsSel.value = '';
-      if (jsTxt) jsTxt.value = '';
-      if (jsReq) jsReq.classList.add('hidden');
-    }
-  }
+  const modalId = id || 'action-modal';
+  const modal = document.getElementById(modalId);
+  if(modal) {
+    modal.style.display = 'none';
+    if (modalId === 'action-modal') {
+      currentAction = {};
+      const jsSel = document.getElementById('justification-select');
+      const jsTxt = document.getElementById('justification-text');
+      const jsReq = document.getElementById('justification-required-text');
+      if (jsSel) jsSel.value = '';
+      if (jsTxt) jsTxt.value = '';
+      if (jsReq) jsReq.classList.add('hidden');
+    }
+    // NOVO: Reseta o log de auditoria ao fechar o modal de detalhes
+    if (modalId === 'of-details-modal') {
+      document.getElementById('audit-log-content').classList.add('hidden');
+      document.getElementById('audit-log-toggle').textContent = "[Ver Detalhes do Cálculo]";
+    }
+  }
 }
 function showActionModal(taskId, type, reasons){
-  const task = allTasks[taskId];
-  if (!task) return;
-  currentAction = { taskId, type };
-  const title = document.getElementById('modal-title');
-  const message = document.getElementById('modal-message');
-  const justificationSelect = document.getElementById('justification-select');
-  const justificationRequired = document.getElementById('justification-required-text');
+  const task = allTasks[taskId];
+  if (!task) return;
+  currentAction = { taskId, type };
+  const title = document.getElementById('modal-title');
+  const message = document.getElementById('modal-message');
+  const justificationSelect = document.getElementById('justification-select');
+  const justificationRequired = document.getElementById('justification-required-text');
 
-  title.textContent = `${type} Atividade: ${task.nome_atividade}`;
-  message.textContent = `OF ${task.id_of} - Chicote ${task.chicote}`;
-  justificationSelect.innerHTML = '<option value="">-- Selecione uma opção --</option>';
-  reasons.forEach(reason => {
-    const option = document.createElement('option');
-    option.value = reason;
-    option.textContent = reason;
-    justificationSelect.appendChild(option);
-  });
-  let isRequired = false;
-  if (type === 'Finalizar') {
-    const desvio = calculateDesvio(task);
-    if (desvio < 0) {
-      justificationRequired.textContent = `🚨 Justificativa obrigatória devido ao ATRASO de ${formatMinutes(Math.abs(desvio))}!`;
-      isRequired = true;
-    } else {
-      justificationRequired.textContent = `✅ Concluído dentro/antes do tempo. Nenhuma justificativa necessária.`;
-      isRequired = false;
-    }
-  } else if (type === 'Pausar') {
-    justificationRequired.textContent = `Motivo da pausa é altamente recomendado.`;
-  }
-  justificationRequired.classList.toggle('hidden', !isRequired && type !== 'Pausar');
-  currentAction.isRequired = isRequired;
+  title.textContent = `${type} Atividade: ${task.nome_atividade}`;
+  message.textContent = `OF ${task.id_of} - Chicote ${task.chicote}`;
+  justificationSelect.innerHTML = '<option value="">-- Selecione uma opção --</option>';
+  reasons.forEach(reason => {
+    const option = document.createElement('option');
+    option.value = reason;
+    option.textContent = reason;
+    justificationSelect.appendChild(option);
+  });
+  let isRequired = false;
+  if (type === 'Finalizar') {
+    const desvio = calculateDesvio(task);
+    if (desvio < 0) {
+      // ATUALIZADO: Agora compara com o P50
+      justificationRequired.textContent = `🚨 Justificativa obrigatória devido ao ATRASO de ${formatMinutes(Math.abs(desvio))} (vs. tempo esperado P50)!`;
+      isRequired = true;
+    } else {
+      justificationRequired.textContent = `✅ Concluído dentro/antes do tempo esperado (P50). Nenhuma justificativa necessária.`;
+      isRequired = false;
+    }
+  } else if (type === 'Pausar') {
+    justificationRequired.textContent = `Motivo da pausa é altamente recomendado.`;
+  }
+  justificationRequired.classList.toggle('hidden', !isRequired && type !== 'Pausar');
+  currentAction.isRequired = isRequired;
 
-  openModal('action-modal');
+  openModal('action-modal');
 }
 async function handleConfirmedAction(){
-  const { taskId, type, isRequired } = currentAction;
-  const justificationSelect = document.getElementById('justification-select');
-  const justificationText = document.getElementById('justification-text').value.trim();
-  const justification = justificationSelect.value;
-  const justificationRequired = document.getElementById('justification-required-text');
-  if (isRequired && !justification) {
-    justificationRequired.textContent = "🚨 Você deve selecionar um motivo principal!";
-    justificationRequired.classList.remove('hidden');
-    return;
-  }
-  justificationRequired.classList.add('hidden');
+  const { taskId, type, isRequired } = currentAction;
+  const justificationSelect = document.getElementById('justification-select');
+  const justificationText = document.getElementById('justification-text').value.trim();
+  const justification = justificationSelect.value;
+  const justificationRequired = document.getElementById('justification-required-text');
+  if (isRequired && !justification) {
+    justificationRequired.textContent = "🚨 Você deve selecionar um motivo principal!";
+    justificationRequired.classList.remove('hidden');
+    return;
+  }
+  justificationRequired.classList.add('hidden');
 
-  if (type === 'Finalizar') {
-    await updateTaskStatus(taskId, 'Concluído', null, justification, justificationText);
-    updateView(userViewSelect.value);
-  } else if (type === 'Pausar') {
-    await updateTaskStatus(taskId, 'Pausada', 'PAUSA', justification, justificationText);
-  }
-  closeModal();
+  if (type === 'Finalizar') {
+    await updateTaskStatus(taskId, 'Concluído', null, justification, justificationText);
+    updateView(userViewSelect.value);
+  } else if (type === 'Pausar') {
+    await updateTaskStatus(taskId, 'Pausada', 'PAUSA', justification, justificationText);
+  }
+  closeModal();
 }
 
 function renderInstructionContent(rawContent) {
-    if (!rawContent || rawContent.trim() === '') {
-        return '<p class="text-gray-500 italic">Nenhuma instrução de trabalho cadastrada para esta etapa.</p>';
-    }
-    let htmlContent = rawContent.replace(/\n/g, '<br>');
-    const urlRegex = /(https?:\/\/[^\s<]+)/g;
-    
-    let processedContent = htmlContent.replace(urlRegex, (url) => {
-        return `<a href="${url}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium underline">${url}</a>`;
-    });
-    processedContent = processedContent.replace(/<a [^>]*href="([^"]*)"[^>]*>[\s\S]*<a [^>]*href="([^"]*)"[^>]*>([\s\S]*)<\/a>[\s\S]*<\/a>/gi, 
-        (match, p1, p2, p3) => {
-            if(p1 === p2) return `<a href="${p1}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium underline">${p3}</a>`;
-            return match;
-        }
-    );
-    return processedContent;
+    if (!rawContent || rawContent.trim() === '') {
+        return '<p class="text-gray-500 italic">Nenhuma instrução de trabalho cadastrada para esta etapa.</p>';
+    }
+    let htmlContent = rawContent.replace(/\n/g, '<br>');
+    const urlRegex = /(https?:\/\/[^\s<]+)/g;
+    
+    let processedContent = htmlContent.replace(urlRegex, (url) => {
+        return `<a href="${url}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium underline">${url}</a>`;
+    });
+    processedContent = processedContent.replace(/<a [^>]*href="([^"]*)"[^>]*>[\s\S]*<a [^>]*href="([^"]*)"[^>]*>([\s\S]*)<\/a>[\s\S]*<\/a>/gi, 
+        (match, p1, p2, p3) => {
+            if(p1 === p2) return `<a href="${p1}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium underline">${p3}</a>`;
+            return match;
+        }
+    );
+    return processedContent;
 }
 
 function openInstructionModal(taskId) {
-  const task = allTasks[taskId];
-  if (!task) return;
-  document.getElementById('instruction-modal-header').textContent =
-    `OF ${task.id_of} - Chicote ${task.chicote} - Setor: ${task.setor}`;
-  
-  const contentEl = document.getElementById('instruction-modal-content');
-  contentEl.innerHTML = renderInstructionContent(task.instrucao_trabalho);
-  
-  openModal('instruction-modal');
-  lucide.createIcons();
+  const task = allTasks[taskId];
+  if (!task) return;
+  document.getElementById('instruction-modal-header').textContent =
+    `OF ${task.id_of} - Chicote ${task.chicote} - Setor: ${task.setor}`;
+  
+  const contentEl = document.getElementById('instruction-modal-content');
+  contentEl.innerHTML = renderInstructionContent(task.instrucao_trabalho);
+  
+  openModal('instruction-modal');
+  lucide.createIcons();
 }
 
 function openUserModal() {
-  const modal = document.getElementById('user-modal');
-  if(modal) modal.style.display = 'flex';
-  setTimeout(()=>{
-    const roleSel = document.getElementById('user-role');
-    const pinWrap = document.getElementById('user-pin-wrap');
-    const sectorWrap = document.getElementById('user-sector-wrap');
-    roleSel.onchange = () => {
-      const isM = roleSel.value === 'MASTER';
-      pinWrap.classList.toggle('hidden', !isM);
-      sectorWrap.classList.toggle('hidden', isM);
-    };
-    roleSel.dispatchEvent(new Event('change'));
-  }, 50);
+  const modal = document.getElementById('user-modal');
+  if(modal) modal.style.display = 'flex';
+  setTimeout(()=>{
+    const roleSel = document.getElementById('user-role');
+    const pinWrap = document.getElementById('user-pin-wrap');
+    const sectorWrap = document.getElementById('user-sector-wrap');
+    roleSel.onchange = () => {
+      const isM = roleSel.value === 'MASTER';
+      pinWrap.classList.toggle('hidden', !isM);
+      sectorWrap.classList.toggle('hidden', isM);
+    };
+    roleSel.dispatchEvent(new Event('change'));
+  }, 50);
 }
 function confirmUser(){
-  const role = document.getElementById('user-role').value;
-  const sector = document.getElementById('user-sector').value;
-  if (role === 'MASTER') {
-    const pin = document.getElementById('user-pin').value;
-    if (pin !== MASTER_PIN) { alert("PIN incorreto."); return;
-    }
-    setUser({ role: 'MASTER', name: 'Master' });
-  } else {
-    if (!sector) { alert("Selecione o setor."); return;
-    }
-    setUser({ role: 'OPERADOR', sector, name: 'Operador' });
-  }
-  document.getElementById('user-modal').style.display = 'none';
-  loadingIndicator.classList.add('hidden');
-  setupSectorDropdowns();
-  updateView(isMaster() ? 'PCP' : 'Operador');
-  injectSearchInputs();
+  const role = document.getElementById('user-role').value;
+  const sector = document.getElementById('user-sector').value;
+  if (role === 'MASTER') {
+    const pin = document.getElementById('user-pin').value;
+    if (pin !== MASTER_PIN) { alert("PIN incorreto."); return;
+    }
+    setUser({ role: 'MASTER', name: 'Master' });
+  } else {
+    if (!sector) { alert("Selecione o setor."); return;
+    }
+    setUser({ role: 'OPERADOR', sector, name: 'Operador' });
+  }
+  document.getElementById('user-modal').style.display = 'none';
+  loadingIndicator.classList.add('hidden');
+  setupSectorDropdowns();
+  updateView(isMaster() ? 'PCP' : 'Operador');
+  injectSearchInputs();
 }
 
 /* ============================
-   RENDERIZAÇÃO
-   ============================ */
+   RENDERIZAÇÃO
+   ============================ */
 function setupUIRefresh(){
-  // Timer removido.
+  // Timer removido.
 }
 function injectSearchInputs(){
-  // PCP search
-  const pcpWrap = document.getElementById('pcp-of-search-wrap');
-  if (pcpWrap && !pcpWrap.dataset.ready){
-    pcpWrap.classList.remove('hidden');
-    pcpWrap.dataset.ready = "1";
-    const input = document.getElementById('pcp-of-search');
-    if (input) input.addEventListener('input', (e)=>{ pcpSearchOF = (e.target.value||"").trim().toUpperCase(); renderOFs(); });
-  }
-  // Operator search
-  const opWrap = document.getElementById('operator-of-search-wrap');
-  if (opWrap && !opWrap.dataset.ready){
-    opWrap.classList.remove('hidden');
-    opWrap.dataset.ready = "1";
-    const input = document.getElementById('operator-of-search');
-    if (input) input.addEventListener('input', (e)=>{ operatorSearchOF = (e.target.value||"").trim().toUpperCase(); renderTasks(); });
-  }
-  // Histórico search
-  const histWrap = document.getElementById('historico-search-wrap');
-  if (histWrap && !histWrap.dataset.ready){
-    histWrap.classList.remove('hidden');
-    histWrap.dataset.ready = "1";
-    const input = document.getElementById('historico-of-search');
-    if (input) input.addEventListener('input', (e)=>{ historicoSearchOF = (e.target.value||"").trim().toUpperCase(); renderHistory(); });
-  }
+  // PCP search
+  const pcpWrap = document.getElementById('pcp-of-search-wrap');
+  if (pcpWrap && !pcpWrap.dataset.ready){
+    pcpWrap.classList.remove('hidden');
+    pcpWrap.dataset.ready = "1";
+    const input = document.getElementById('pcp-of-search');
+    if (input) input.addEventListener('input', (e)=>{ pcpSearchOF = (e.target.value||"").trim().toUpperCase(); renderOFs(); });
+  }
+  // Operator search
+  const opWrap = document.getElementById('operator-of-search-wrap');
+  if (opWrap && !opWrap.dataset.ready){
+    opWrap.classList.remove('hidden');
+    opWrap.dataset.ready = "1";
+    const input = document.getElementById('operator-of-search');
+    if (input) input.addEventListener('input', (e)=>{ operatorSearchOF = (e.target.value||"").trim().toUpperCase(); renderTasks(); });
+  }
+  // Histórico search
+  const histWrap = document.getElementById('historico-search-wrap');
+  if (histWrap && !histWrap.dataset.ready){
+    histWrap.classList.remove('hidden');
+    histWrap.dataset.ready = "1";
+    const input = document.getElementById('historico-of-search');
+    if (input) input.addEventListener('input', (e)=>{ historicoSearchOF = (e.target.value||"").trim().toUpperCase(); renderHistory(); });
+  }
 }
 
 function renderKPIs(){
-  const kpisContainer = document.getElementById('kpis-container');
-  if (!kpisContainer) return;
-  
-  const activeOFIds = Object.keys(allOFs).filter(k => allOFs[k]?.status !== 'Concluído');
-  const activeTasks = Object.values(allTasks).filter(t => activeOFIds.includes(t.id_of));
-  
-  const totalOFs = activeOFIds.length;
-  const concludedTasks = activeTasks.filter(t=>t.status==='Concluído').length;
-  const totalTasks = activeTasks.length; 
+  const kpisContainer = document.getElementById('kpis-container');
+  if (!kpisContainer) return;
+  
+  const activeOFIds = Object.keys(allOFs).filter(k => allOFs[k]?.status !== 'Concluído');
+  const activeTasks = Object.values(allTasks).filter(t => activeOFIds.includes(t.id_of));
+  
+  const totalOFs = activeOFIds.length;
+  const concludedTasks = activeTasks.filter(t=>t.status==='Concluído').length;
+  const totalTasks = activeTasks.length; 
 
-  const activeLogs = allOcurrencesLog.filter(l => activeOFIds.includes(l.OF));
-  
-  const logsAtraso = activeLogs.filter(l => l.TIPO === 'ATRASO');
-  const totalPause = activeLogs.reduce((s,l)=> s + (l.TEMPO_PAUSA||0), 0);
-  const totalAtraso = logsAtraso.reduce((s,l)=> s + (l.TEMPO_ATRASO||0), 0);
-  
-  // ============================
-  // KPIs (MUDANÇA DE DESIGN)
-  // ============================
-  const kpiData = [
-    { title:"OFs Ativas", value: totalOFs, icon:"package", color:"bg-blue-600" },
-    { title:"Tarefas Concluídas", value: `${concludedTasks} / ${totalTasks}`, icon:"check-circle", color:"bg-green-600" },
-    { title:"Pausas Totais (min)", value: totalPause.toFixed(1), icon:"pause-circle", color:"bg-yellow-600" },
-    { title:"Atraso Total (min)", value: totalAtraso.toFixed(1), icon:"alert-triangle", color:"bg-red-600" },
-  ];
-  // As cores dos KPIs foram mantidas (azul, verde, amarelo, vermelho)
-  // pois são cores semânticas de status, o que é bom para dashboards.
-  // A sombra foi trocada por uma borda sutil.
-  kpisContainer.innerHTML = kpiData.map(k=>`
-    <div class="${k.color} text-white p-3 sm:p-4 rounded-xl shadow-md flex items-center justify-between">
-      <div>
-        <p class="text-xs sm:text-sm font-medium opacity-80">${k.title}</p>
-        <p class="text-2xl sm:text-3xl font-bold">${k.value}</p>
-      </div>
-      <i data-lucide="${k.icon}" class="w-7 h-7 sm:w-8 sm:h-8 opacity-70"></i>
-    </div>`).join('');
-  lucide.createIcons();
+  const activeLogs = allOcurrencesLog.filter(l => activeOFIds.includes(l.OF));
+  
+  const logsAtraso = activeLogs.filter(l => l.TIPO === 'ATRASO');
+  const totalPause = activeLogs.reduce((s,l)=> s + (l.TEMPO_PAUSA||0), 0);
+  const totalAtraso = logsAtraso.reduce((s,l)=> s + (l.TEMPO_ATRASO||0), 0);
+  
+  // ============================
+  // KPIs
+  // ============================
+  const kpiData = [
+    { title:"OFs Ativas", value: totalOFs, icon:"package", color:"bg-blue-600" },
+    { title:"Tarefas Concluídas", value: `${concludedTasks} / ${totalTasks}`, icon:"check-circle", color:"bg-green-600" },
+    { title:"Pausas Totais (min)", value: totalPause.toFixed(1), icon:"pause-circle", color:"bg-yellow-600" },
+    { title:"Atraso Total (min)", value: totalAtraso.toFixed(1), icon:"alert-triangle", color:"bg-red-600" },
+  ];
+
+  kpisContainer.innerHTML = kpiData.map(k=>`
+    <div class="${k.color} text-white p-3 sm:p-4 rounded-xl shadow-md flex items-center justify-between">
+      <div>
+        <p class="text-xs sm:text-sm font-medium opacity-80">${k.title}</p>
+        <p class="text-2xl sm:text-3xl font-bold">${k.value}</p>
+      </div>
+      <i data-lucide="${k.icon}" class="w-7 h-7 sm:w-8 sm:h-8 opacity-70"></i>
+    </div>`).join('');
+  lucide.createIcons();
 }
 
 function renderWorkloadChart() {
-  const ctxEl = document.getElementById('workload-chart');
-  if (!ctxEl) return;
+  const ctxEl = document.getElementById('workload-chart');
+  if (!ctxEl) return;
 
-  const tasksNaoConcluidas = Object.values(allTasks).filter(t => t.status !== 'Concluído');
-  const cargaPorSetor = {}; 
+  const tasksNaoConcluidas = Object.values(allTasks).filter(t => t.status !== 'Concluído');
+  const cargaPorSetor = {}; 
 
-  SECTORS.forEach(setor => { cargaPorSetor[setor] = 0; });
-  
-  tasksNaoConcluidas.forEach(task => {
-    if (allOFs[task.id_of]?.status !== 'Concluído' && cargaPorSetor.hasOwnProperty(task.setor)) {
-      cargaPorSetor[task.setor] += task.tempo_planejado || 0;
-    }
-  });
-  
-  const labels = Object.keys(cargaPorSetor).filter(setor => cargaPorSetor[setor] > 0);
-  const data = labels.map(setor => cargaPorSetor[setor]);
+  SECTORS.forEach(setor => { cargaPorSetor[setor] = 0; });
+  
+  tasksNaoConcluidas.forEach(task => {
+    if (allOFs[task.id_of]?.status !== 'Concluído' && cargaPorSetor.hasOwnProperty(task.setor)) {
+      // ATUALIZADO: O gráfico agora usa o tempo_planejado (P50)
+      cargaPorSetor[task.setor] += task.tempo_planejado || 0;
+    }
+  });
+  
+  const labels = Object.keys(cargaPorSetor).filter(setor => cargaPorSetor[setor] > 0);
+  const data = labels.map(setor => cargaPorSetor[setor]);
 
-  if (workloadChart) {
-    workloadChart.destroy();
-  }
+  if (workloadChart) {
+    workloadChart.destroy();
+  }
 
-  workloadChart = new Chart(ctxEl, {
-    type: 'bar', 
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Minutos Planejados Restantes',
-        data: data,
-        backgroundColor: 'rgba(37, 99, 235, 0.6)', // Azul (SAP Like)
-        borderColor: 'rgba(37, 99, 235, 1)', 
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      indexAxis: 'y', 
-      scales: {
-        x: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: 'Minutos'
-          }
-        },
-        y: {
-          grid: {
-            display: false
-          }
-        }
-      },
-      plugins: {
-        legend: {
-           display: false 
-        }
-      }
-    }
-  });
+  workloadChart = new Chart(ctxEl, {
+    type: 'bar', 
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Minutos Esperados Restantes (P50)', // ATUALIZADO
+        data: data,
+        backgroundColor: 'rgba(37, 99, 235, 0.6)', // Azul (SAP Like)
+        borderColor: 'rgba(37, 99, 235, 1)', 
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y', 
+      scales: {
+        x: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Minutos'
+          }
+        },
+        y: {
+          grid: {
+            display: false
+          }
+        }
+      },
+      plugins: {
+        legend: {
+           display: false 
+        }
+      }
+    }
+  });
 }
 
 
 function updateView(view){
-  if (!currentUser) {
-    pcpView.classList.add('hidden');
-    operatorView.classList.add('hidden'); 
-    reportView.classList.add('hidden');
-    adminView.classList.add('hidden'); 
-    historicoView.classList.add('hidden');
-    openUserModal();
-    return;
-  }
+  if (!currentUser) {
+    pcpView.classList.add('hidden');
+    operatorView.classList.add('hidden'); 
+    reportView.classList.add('hidden');
+    adminView.classList.add('hidden'); 
+    historicoView.classList.add('hidden');
+    openUserModal();
+    return;
+  }
 
-  if (isOperador() && view !== 'Operador'){ 
-    view = 'Operador';
-  }
-  
-  const adminOption = userViewSelect.querySelector('option[value="Admin"]');
-  const histOption = userViewSelect.querySelector('option[value="Historico"]');
-  
-  if (isMaster()) {
-    if (!adminOption) {
-      userViewSelect.innerHTML += '<option value="Admin">Visão: Administração</option>';
-    }
-    if (!histOption) {
-      const adminOptEl = userViewSelect.querySelector('option[value="Admin"]');
-      const newHistOpt = document.createElement('option');
-      newHistOpt.value = 'Historico';
-      newHistOpt.textContent = 'Visão: Histórico';
-      if (adminOptEl) {
-        userViewSelect.insertBefore(newHistOpt, adminOptEl);
-      } else {
-         userViewSelect.appendChild(newHistOpt);
-      }
-    }
-  } else {
-    if (adminOption) adminOption.remove();
-    if (histOption) histOption.remove();
-  }
+  if (isOperador() && view !== 'Operador'){ 
+    view = 'Operador';
+  }
+  
+  const adminOption = userViewSelect.querySelector('option[value="Admin"]');
+  const histOption = userViewSelect.querySelector('option[value="Historico"]');
+  
+  if (isMaster()) {
+    if (!adminOption) {
+      userViewSelect.innerHTML += '<option value="Admin">Visão: Administração</option>';
+    }
+    if (!histOption) {
+      const adminOptEl = userViewSelect.querySelector('option[value="Admin"]');
+      const newHistOpt = document.createElement('option');
+      newHistOpt.value = 'Historico';
+      newHistOpt.textContent = 'Visão: Histórico';
+      if (adminOptEl) {
+        userViewSelect.insertBefore(newHistOpt, adminOptEl);
+      } else {
+         userViewSelect.appendChild(newHistOpt);
+      }
+    }
+  } else {
+    if (adminOption) adminOption.remove();
+    if (histOption) histOption.remove();
+  }
 
-  const isPCP = view === 'PCP';
-  const isOperadorView = view === 'Operador';
-  const isReport = view === 'Relatorio';
-  const isAdmin = view === 'Admin'; 
-  const isHistorico = view === 'Historico';
+  const isPCP = view === 'PCP';
+  const isOperadorView = view === 'Operador';
+  const isReport = view === 'Relatorio';
+  const isAdmin = view === 'Admin'; 
+  const isHistorico = view === 'Historico';
 
-  pcpView.classList.toggle('hidden', !isPCP);
-  operatorView.classList.toggle('hidden', !isOperadorView);
-  reportView.classList.toggle('hidden', !isReport);
-  adminView.classList.toggle('hidden', !isAdmin); 
-  historicoView.classList.toggle('hidden', !isHistorico);
-  
-  userViewSelect.value = view;
-  userViewSelect.disabled = isOperador(); 
-  
-  btnCreateOF.classList.toggle('hidden', !isMaster());
-  btnProfile.classList.remove('hidden');
+  pcpView.classList.toggle('hidden', !isPCP);
+  operatorView.classList.toggle('hidden', !isOperadorView);
+  reportView.classList.toggle('hidden', !isReport);
+  adminView.classList.toggle('hidden', !isAdmin); 
+  historicoView.classList.toggle('hidden', !isHistorico);
+  
+  userViewSelect.value = view;
+  userViewSelect.disabled = isOperador(); 
+  
+  btnCreateOF.classList.toggle('hidden', !isMaster());
+  btnProfile.classList.remove('hidden');
 
-  const btnExport = document.getElementById('btn-export-report');
-  const btnDelete = document.getElementById('btn-delete-report');
-  if(btnExport) btnExport.classList.toggle('hidden', !isMaster());
-  if(btnDelete) btnDelete.classList.toggle('hidden', !isMaster());
+  const btnExport = document.getElementById('btn-export-report');
+  const btnDelete = document.getElementById('btn-delete-report');
+  if(btnExport) btnExport.classList.toggle('hidden', !isMaster());
+  if(btnDelete) btnDelete.classList.toggle('hidden', !isMaster());
 
-  if (isPCP){ 
-    renderKPIs(); 
-    renderOFs(); 
-    renderWorkloadChart();
-  }
-  else if (isOperadorView){ 
-    renderTasks();
-  }
-  else if (isReport){ 
-    renderReport();
-  }
-  else if (isAdmin) {
-    renderRoteiros();
-  }
-  else if (isHistorico) {
-    renderHistory();
-  }
+  if (isPCP){ 
+    renderKPIs(); 
+    renderOFs(); 
+    renderWorkloadChart();
+  }
+  else if (isOperadorView){ 
+    renderTasks();
+  }
+  else if (isReport){ 
+    renderReport();
+  }
+  else if (isAdmin) {
+    renderRoteiros();
+  }
+  else if (isHistorico) {
+    renderHistory();
+  }
 
-  injectSearchInputs();
-  lucide.createIcons();
+  injectSearchInputs();
+  lucide.createIcons();
 }
 window.updateView = updateView;
 
 function renderReport(){
-  const body = document.getElementById('report-table-body');
-  if (!body) return;
-  
-  const activeOFIds = Object.keys(allOFs).filter(k => allOFs[k]?.status !== 'Concluído');
-  const activeLogs = allOcurrencesLog.filter(log => activeOFIds.includes(log.OF));
+  const body = document.getElementById('report-table-body');
+  if (!body) return;
+  
+  const activeOFIds = Object.keys(allOFs).filter(k => allOFs[k]?.status !== 'Concluído');
+  const activeLogs = allOcurrencesLog.filter(log => activeOFIds.includes(log.OF));
 
-  if (activeLogs.length === 0){
-    body.innerHTML = `<tr><td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">Nenhuma ocorrência registrada em OFs ativas.</td></tr>`;
-    const selectAllCheckbox = document.getElementById('report-select-all');
-    if (selectAllCheckbox) selectAllCheckbox.checked = false;
-    updateDeleteButtonState();
-    return;
-  }
-  
-  const html = activeLogs.map(log=>{
-    const atrasoClass = (log.TEMPO_ATRASO||0) > 0 ? 'highlight-red' : 'text-gray-600';
-    const pausaClass = (log.TEMPO_PAUSA||0) > 0 ? 'text-yellow-700 font-semibold' : 'text-gray-600';
-    
-    return `
-      <tr class="hover:bg-gray-50">
-        <td class="px-2 sm:px-4 py-2 text-center">
-          <input type="checkbox" name="report_checkbox" value="${log.id}" 
-                 onclick="updateDeleteButtonState()"
-                 class="report-item-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-        </td>
-        <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm font-medium text-gray-900">${log.OF}</td>
-        <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm text-gray-600">${log.CHICOTE}</td>
-        <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm text-gray-600">${log.ATIVIDADE}</td>
-        <td class="px-3 sm:px-6 py-2 text-sm text-gray-700">${log.MOTIVO_PAUSA || '-'}</td>
-        <td class="px-3 sm:px-6 py-2 text-sm text-gray-700">${log.MOTIVO_ATRASO || '-'}</td>
-        <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm ${pausaClass}">${(log.TEMPO_PAUSA||0).toFixed(2)}</td>
-        <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm ${atrasoClass}">${(log.TEMPO_ATRASO||0).toFixed(2)}</td>
-      </tr>`;
-  }).join('');
-  body.innerHTML = html;
+  if (activeLogs.length === 0){
+    body.innerHTML = `<tr><td colspan="8" class="px-6 py-4 text-center text-sm text-gray-500">Nenhuma ocorrência registrada em OFs ativas.</td></tr>`;
+    const selectAllCheckbox = document.getElementById('report-select-all');
+    if (selectAllCheckbox) selectAllCheckbox.checked = false;
+    updateDeleteButtonState();
+    return;
+  }
+  
+  const html = activeLogs.map(log=>{
+    const atrasoClass = (log.TEMPO_ATRASO||0) > 0 ? 'highlight-red' : 'text-gray-600';
+    const pausaClass = (log.TEMPO_PAUSA||0) > 0 ? 'text-yellow-700 font-semibold' : 'text-gray-600';
+    
+    return `
+      <tr class="hover:bg-gray-50">
+        <td class="px-2 sm:px-4 py-2 text-center">
+          <input type="checkbox" name="report_checkbox" value="${log.id}" 
+                 onclick="updateDeleteButtonState()"
+                 class="report-item-checkbox rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+        </td>
+        <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm font-medium text-gray-900">${log.OF}</td>
+        <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm text-gray-600">${log.CHICOTE}</td>
+        <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm text-gray-600">${log.ATIVIDADE}</td>
+        <td class="px-3 sm:px-6 py-2 text-sm text-gray-700">${log.MOTIVO_PAUSA || '-'}</td>
+        <td class="px-3 sm:px-6 py-2 text-sm text-gray-700">${log.MOTIVO_ATRASO || '-'}</td>
+        <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm ${pausaClass}">${(log.TEMPO_PAUSA||0).toFixed(2)}</td>
+        <td class="px-3 sm:px-6 py-2 whitespace-nowrap text-sm ${atrasoClass}">${(log.TEMPO_ATRASO||0).toFixed(2)}</td>
+      </tr>`;
+  }).join('');
+  body.innerHTML = html;
 
-  const selectAllCheckbox = document.getElementById('report-select-all');
-  if (selectAllCheckbox) selectAllCheckbox.checked = false;
-  updateDeleteButtonState();
+  const selectAllCheckbox = document.getElementById('report-select-all');
+  if (selectAllCheckbox) selectAllCheckbox.checked = false;
+  updateDeleteButtonState();
 }
 
 function renderOFs(){
-  if (pcpView.classList.contains('hidden')) return;
-  
-  let ofs = Object.values(allOFs).filter(of => of.status !== 'Concluído');
-  if (pcpSearchOF) ofs = ofs.filter(of => (of.id || "").toUpperCase().includes(pcpSearchOF));
-  
-  const ofsHtml = ofs.map(of=>{
-    const tasks = Object.values(allTasks).filter(t=> t.id_of === of.id);
-    const completed = tasks.filter(t => t.status === 'Concluído').length;
-    const nextTask = tasks.find(t=> t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada');
+  if (pcpView.classList.contains('hidden')) return;
+  
+  let ofs = Object.values(allOFs).filter(of => of.status !== 'Concluído');
+  if (pcpSearchOF) ofs = ofs.filter(of => (of.id || "").toUpperCase().includes(pcpSearchOF));
+  
+  const ofsHtml = ofs.map(of=>{
+    const tasks = Object.values(allTasks).filter(t=> t.id_of === of.id);
+    const completed = tasks.filter(t => t.status === 'Concluído').length;
+    const nextTask = tasks.find(t=> t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada');
 
-    let statusColor = 'bg-gray-100 border-gray-300';
-    let progress = 0;
+    let statusColor = 'bg-gray-100 border-gray-300';
+    let progress = 0;
 
-    if (tasks.length > 0){
-      progress = Math.floor((completed / tasks.length) * 100);
-  
-      if (progress === 0) statusColor = 'bg-gray-200 border-gray-400';
-      else if (progress < 100) statusColor = 'bg-blue-100 border-blue-400';
-      
-      if (of.priority === 'Alta') {
-        statusColor = 'bg-red-100 border-red-500';
-      } else {
-         const anyTaskDelayed = tasks.some(t => calculateDesvio(t) < -5);
-         if (anyTaskDelayed) statusColor = 'bg-yellow-100 border-yellow-500';
-      }
-    }
+    if (tasks.length > 0){
+      progress = Math.floor((completed / tasks.length) * 100);
+  
+      if (progress === 0) statusColor = 'bg-gray-200 border-gray-400';
+      else if (progress < 100) statusColor = 'bg-blue-100 border-blue-400';
+      
+      if (of.priority === 'Alta') {
+        statusColor = 'bg-red-100 border-red-500';
+      } else {
+         const anyTaskDelayed = tasks.some(t => calculateDesvio(t) < -5);
+         if (anyTaskDelayed) statusColor = 'bg-yellow-100 border-yellow-500';
+      }
+    }
 
-    // ============================
-    // OF CARD (MUDANÇA DE DESIGN)
-    // ============================
-    return `
-      <div class="${statusColor} p-4 rounded-xl border border-gray-300 ${statusColor.replace('bg-', 'border-')}"
-           onclick="openOFDetails('${of.id}')">
-        <h3 class="text-lg font-bold text-gray-800 mb-1 flex justify-between items-center">
-          ${of.id}
-          ${of.status === 'Concluído' ? '<i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>' : (nextTask ? '<i data-lucide="play-circle" class="w-5 h-5 text-blue-600"></i>' : '<i data-lucide="pause-circle" class="w-5 h-5 text-yellow-600"></i>')}
-        </h3>
-        <p class="text-sm text-gray-600 mb-3">${of.chicote} | Qtd: ${of.quantidade}</p>
+    // ============================
+    // OF CARD
+    // ============================
+    return `
+      <div class="${statusColor} p-4 rounded-xl border border-gray-300 ${statusColor.replace('bg-', 'border-')}"
+           onclick="openOFDetails('${of.id}')">
+        <h3 class="text-lg font-bold text-gray-800 mb-1 flex justify-between items-center">
+          ${of.id}
+          ${of.status === 'Concluído' ? '<i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>' : (nextTask ? '<i data-lucide="play-circle" class="w-5 h-5 text-blue-600"></i>' : '<i data-lucide="pause-circle" class="w-5 h-5 text-yellow-600"></i>')}
+        </h3>
+        <p class="text-sm text-gray-600 mb-3">${of.chicote} | Qtd: ${of.quantidade}</p>
 
-        <div class="flex justify-between items-center mb-1">
-          <span class="text-xs font-semibold text-gray-600">${progress}% Concluído</span>
-          <span class="text-xs font-medium text-gray-500">${completed} / ${tasks.length} etapas</span>
-        </div>
-        <div class="w-full bg-gray-200 rounded-full h-1.5">
-          <div class="h-1.5 rounded-full bg-blue-500" style="width:${progress}%"></div>
-        </div>
-        <p class="text-xs mt-2 text-gray-700 font-medium">Próxima Etapa: ${nextTask ? nextTask.nome_atividade : (of.status === 'Concluído' ? 'Finalizada' : 'N/A')}</p>
-      </div>
-    `;
-  }).join('');
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-xs font-semibold text-gray-600">${progress}% Concluído</span>
+          <span class="text-xs font-medium text-gray-500">${completed} / ${tasks.length} etapas</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-1.5">
+          <div class="h-1.5 rounded-full bg-blue-500" style="width:${progress}%"></div>
+        </div>
+        <p class="text-xs mt-2 text-gray-700 font-medium">Próxima Etapa: ${nextTask ? nextTask.nome_atividade : (of.status === 'Concluído' ? 'Finalizada' : 'N/A')}</p>
+      </div>
+    `;
+  }).join('');
 
-  ofsListContainer.innerHTML = ofsHtml.length > 0 ? ofsHtml : '<div class="col-span-3 p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">Nenhuma OF ativa.</div>';
-  lucide.createIcons();
+  ofsListContainer.innerHTML = ofsHtml.length > 0 ? ofsHtml : '<div class="col-span-3 p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">Nenhuma OF ativa.</div>';
+  lucide.createIcons();
 }
 
 function renderTasks(){
-  if (operatorView.classList.contains('hidden')) return;
+  if (operatorView.classList.contains('hidden')) return;
 
-  const tasks = Object.values(allTasks)
-    .filter(t =>
-      t.setor === currentSectorFilter &&
-      (t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada') &&
-      (!operatorSearchOF || (t.id_of || "").toUpperCase().includes(operatorSearchOF))
-    )
-    .sort((a,b) => {
-      const priorityA = a.priority === 'Alta' ? 1 : (a.priority === 'Media' ? 2 : 3);
-      const priorityB = b.priority === 'Alta' ? 1 : (b.priority === 'Media' ? 2 : 3);
-      if (priorityA !== priorityB) return priorityA - priorityB;
-      if (a.status === 'Em Processo') return -1;
-      if (b.status === 'Em Processo') return 1;
-      return a.ordem - b.ordem;
-    });
-    
-  const tasksHtml = tasks.map(task=>{
-    const tempoReal = calculateTempoRealMinutes(task); 
-    const desvio = calculateDesvio(task);
-    const totalPauseMinutes = calculateTotalPauseMinutes(task);
+  const tasks = Object.values(allTasks)
+    .filter(t =>
+      t.setor === currentSectorFilter &&
+      (t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada') &&
+      (!operatorSearchOF || (t.id_of || "").toUpperCase().includes(operatorSearchOF))
+    )
+    .sort((a,b) => {
+      const priorityA = a.priority === 'Alta' ? 1 : (a.priority === 'Media' ? 2 : 3);
+      const priorityB = b.priority === 'Alta' ? 1 : (b.priority === 'Media' ? 2 : 3);
+      if (priorityA !== priorityB) return priorityA - priorityB;
+      if (a.status === 'Em Processo') return -1;
+      if (b.status === 'Em Processo') return 1;
+      return a.ordem - b.ordem;
+    });
+    
+  const tasksHtml = tasks.map(task=>{
+    const tempoReal = calculateTempoRealMinutes(task); 
+    const desvio = calculateDesvio(task);
+    const totalPauseMinutes = calculateTotalPauseMinutes(task);
 
-    let statusText = task.status;
-    let actions = '';
-    
-    // ============================
-    // TASK BUTTONS (MUDANÇA DE DESIGN)
-    // ============================
-    if (task.status === 'Em Espera'){
-      statusText = 'Aguardando Início';
-      actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">Iniciar</button>`;
-    } else if (task.status === 'Em Processo'){
-      statusText = 'Em Processo';
-      actions = `
-        <button onclick="pauseTask('${task.id}')" class="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600">Pausar</button>
-        <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Concluir</button>`;
-    } else if (task.status === 'Pausada'){
-      statusText = 'Pausada';
-      actions = `
-        <button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">Retomar</button>
-        <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Concluir</button>`;
-    }
+    let statusText = task.status;
+    let actions = '';
+    
+    // ============================
+    // TASK BUTTONS
+    // ============================
+    if (task.status === 'Em Espera'){
+      statusText = 'Aguardando Início';
+      actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">Iniciar</button>`;
+    } else if (task.status === 'Em Processo'){
+      statusText = 'Em Processo';
+      actions = `
+        <button onclick="pauseTask('${task.id}')" class="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600">Pausar</button>
+        <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Concluir</button>`;
+    } else if (task.status === 'Pausada'){
+      statusText = 'Pausada';
+      actions = `
+        <button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">Retomar</button>
+        <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Concluir</button>`;
+    }
 
-    const priorityClass = getPriorityClass(task.priority);
-    
-    // ============================
-    // TASK CARD (MUDANÇA DE DESIGN)
-    // ============================
-    return `
-      <div class="${priorityClass} border border-gray-300 p-3 sm:p-4 rounded-xl">
-        <div class="flex justify-between items-center mb-2">
-          <div>
-            <p class="text-sm font-bold text-gray-800">${task.nome_atividade}</p>
-            <p class="text-xs text-gray-600">OF <span class="font-semibold">${task.id_of}</span> • Setor ${task.setor}</p>
-          </div>
-          <button class="p-2 rounded-lg hover:bg-gray-100" title="Instrução de Trabalho" onclick="openInstructionModal('${task.id}')">
-            <i data-lucide="book" class="w-5 h-5"></i>
-          </button>
-        </div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm">
-          <div><span class="text-gray-500">Setup:</span> <span class="font-semibold">${formatMinutes(task.tempo_setup)}</span></div>
-          <div><span class="text-gray-500">Ciclo (min/pç):</span> <span class="font-semibold">${Number(task.tempo_ciclo).toFixed(2)}</span></div>
-          <div><span class="text-gray-500">Planejado:</span> <span class="font-semibold">${formatMinutes(task.tempo_planejado)}</span></div>
-          <div><span class="text-gray-500">Pausa:</span> <span class="font-semibold">${formatMinutes(totalPauseMinutes)}</span></div>
-        </div>
-        <div class="mt-2 flex justify-between items-center">
-          <span class="text-xs font-semibold ${desvio < 0 ? 'text-red-600' : 'text-gray-700'}">Desvio: ${desvio < 0 ? '-' : ''}${formatMinutes(Math.abs(desvio))}</span>
-          <span class="text-xs font-medium text-gray-600">${statusText}</span>
-        </div>
-        <div class="mt-3 flex gap-2">${actions}</div>
-      </div>
-    `;
-  }).join('');
+    const priorityClass = getPriorityClass(task.priority);
+    
+    // ============================
+    // TASK CARD
+    // ============================
+    return `
+      <div class="${priorityClass} border border-gray-300 p-3 sm:p-4 rounded-xl">
+        <div class="flex justify-between items-center mb-2">
+          <div>
+            <p class="text-sm font-bold text-gray-800">${task.nome_atividade}</p>
+            <p class="text-xs text-gray-600">OF <span class="font-semibold">${task.id_of}</span> • Setor ${task.setor}</p>
+          </div>
+          <button class="p-2 rounded-lg hover:bg-gray-100" title="Instrução de Trabalho" onclick="openInstructionModal('${task.id}')">
+            <i data-lucide="book" class="w-5 h-5"></i>
+          </button>
+        </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm">
+          <div><span class="text-gray-500">Setup:</span> <span class="font-semibold">${formatMinutes(task.tempo_setup)}</span></div>
+          <div><span class="text-gray-500">Ciclo (min/pç):</span> <span class="font-semibold">${Number(task.tempo_ciclo).toFixed(2)}</span></div>
+          <div><span class="text-gray-500">Esperado (P50):</span> <span class="font-semibold">${formatMinutes(task.tempo_planejado)}</span></div>
+          <div><span class="text-gray-500">Pausa:</span> <span class="font-semibold">${formatMinutes(totalPauseMinutes)}</span></div>
+        </div>
+        <div class="mt-2 flex justify-between items-center">
+          <span class="text-xs font-semibold ${desvio < 0 ? 'text-red-600' : 'text-gray-700'}">Desvio (vs P50): ${desvio < 0 ? '-' : ''}${formatMinutes(Math.abs(desvio))}</span>
+          <span class="text-xs font-medium text-gray-600">${statusText}</span>
+        </div>
+        <div class="mt-3 flex gap-2">${actions}</div>
+      </div>
+    `;
+  }).join('');
 
-  tasksListContainer.innerHTML = tasksHtml.length > 0 ? tasksHtml : '<div class="p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">Sem tarefas para este setor/OF.</div>';
-  lucide.createIcons();
+  tasksListContainer.innerHTML = tasksHtml.length > 0 ? tasksHtml : '<div class="p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">Sem tarefas para este setor/OF.</div>';
+  lucide.createIcons();
 }
 
 function renderHistory() {
-    if (historicoView.classList.contains('hidden')) return;
+    if (historicoView.classList.contains('hidden')) return;
 
-    let historyOFs = Object.values(allOFs).filter(of => of.status === 'Concluído');
-    
-    if (historicoSearchOF) historyOFs = historyOFs.filter(of => (of.id || "").toUpperCase().includes(historicoSearchOF));
-    
-    historyOFs.sort((a, b) => {
-        const dateA = getDBTimestamp(a.data_criacao); 
-        const dateB = getDBTimestamp(b.data_criacao);
-        return dateB - dateA;
-    });
+    let historyOFs = Object.values(allOFs).filter(of => of.status === 'Concluído');
+    
+    if (historicoSearchOF) historyOFs = historyOFs.filter(of => (of.id || "").toUpperCase().includes(historicoSearchOF));
+    
+    historyOFs.sort((a, b) => {
+        const dateA = getDBTimestamp(a.data_criacao); 
+        const dateB = getDBTimestamp(b.data_criacao);
+        return dateB - dateA;
+    });
 
-    // ============================
-    // HISTORY CARD (MUDANÇA DE DESIGN)
-    // ============================
-    const historyHtml = historyOFs.map(of => {
-        const tasks = Object.values(allTasks).filter(t => t.id_of === of.id);
-        const totalTempoReal = tasks.reduce((sum, t) => sum + calculateTempoRealMinutes(t), 0);
-        const totalTempoPlanejado = tasks.reduce((sum, t) => sum + (t.tempo_planejado || 0), 0);
-        const desvioTotal = totalTempoPlanejado - totalTempoReal;
+    // ============================
+    // HISTORY CARD
+    // ============================
+    const historyHtml = historyOFs.map(of => {
+        const tasks = Object.values(allTasks).filter(t => t.id_of === of.id);
+        const totalTempoReal = tasks.reduce((sum, t) => sum + calculateTempoRealMinutes(t), 0);
+        
+        // ATUALIZADO: Usa os tempos P50 e P95 salvos na OF
+        const totalTempoEsperado = of.tempo_esperado_total_min || tasks.reduce((sum, t) => sum + (t.tempo_planejado || 0), 0); // Fallback para OFs antigas
+        const totalTempoConfiavel = of.tempo_confiavel_total_min || 0;
+        
+        const desvioVsEsperado = totalTempoEsperado - totalTempoReal;
+        const desvioClass = desvioVsEsperado < 0 ? 'text-red-600' : 'text-green-600';
+        const desvioText = desvioVsEsperado < 0 ? `-${formatMinutes(Math.abs(desvioVsEsperado))}` : `+${formatMinutes(desvioVsEsperado)}`;
 
-        const desvioClass = desvioTotal < 0 ? 'text-red-600' : 'text-green-600';
-        const desvioText = desvioTotal < 0 ? `-${formatMinutes(Math.abs(desvioTotal))}` : `+${formatMinutes(desvioTotal)}`;
+        return `
+            <div class="of-concluida-card p-4 rounded-xl border border-gray-300"
+                 onclick="openOFDetails('${of.id}', true)">
+                <h3 class="text-lg font-bold text-gray-800 mb-1 flex justify-between items-center">
+                    ${of.id}
+                    <i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>
+                </h3>
+                <p class="text-sm text-gray-600 mb-2">${of.chicote} | Qtd: ${of.quantidade}</p>
 
-        return `
-            <div class="of-concluida-card p-4 rounded-xl border border-gray-300"
-                 onclick="openOFDetails('${of.id}', true)">
-                <h3 class="text-lg font-bold text-gray-800 mb-1 flex justify-between items-center">
-                    ${of.id}
-                    <i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>
-                </h3>
-                <p class="text-sm text-gray-600 mb-2">${of.chicote} | Qtd: ${of.quantidade}</p>
+                <div class="space-y-1 text-sm">
+                    <p class="text-gray-700">Criado em: <span class="font-semibold">${formatDate(of.data_criacao)}</span></p>
+                    <p class="text-gray-700">Tempo Real: <span class="font-semibold">${formatMinutes(totalTempoReal)}</span></p>
+                    <p class="text-gray-700">T. Esperado (P50): <span class="font-semibold">${formatMinutes(totalTempoEsperado)}</span></p>
+                    <p class="text-gray-700">T. Confiável (P95): <span class="font-semibold">${totalTempoConfiavel > 0 ? formatMinutes(totalTempoConfiavel) : 'N/A'}</span></p>
+                    <p class="font-bold ${desvioClass}">Desvio (vs P50): ${desvioText}</p>
+                </div>
+            </div>
+        `;
+    }).join('');
 
-                <div class="space-y-1 text-sm">
-                    <p class="text-gray-700">Criado em: <span class="font-semibold">${formatDate(of.data_criacao)}</span></p>
-                    <p class="text-gray-700">Tempo Real: <span class="font-semibold">${formatMinutes(totalTempoReal)}</span></p>
-                    <p class="text-gray-700">Tempo Planejado: <span class="font-semibold">${formatMinutes(totalTempoPlanejado)}</span></p>
-                    <p class="font-bold ${desvioClass}">Desvio Total: ${desvioText}</p>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    const container = document.getElementById('historico-list-container');
-    container.innerHTML = historyHtml.length > 0 ? historyHtml : '<div class="col-span-3 p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">Nenhuma OF concluída no histórico.</div>';
-    lucide.createIcons();
-}
-
-/* ============================
-   DETALHES / EXPORTS
-   ============================ */
-function openOFDetails(ofId, isHistory = false){
-  window.__ofDetailsOpenId = ofId;
-  const of = allOFs[ofId];
-  const tasks = Object.values(allTasks).filter(t=> t.id_of === ofId);
-  const completed = tasks.filter(t => t.status === 'Concluído').length;
-  const progress = tasks.length ? Math.floor((completed / tasks.length) * 100) : 0;
-  
-  const totalTempoReal = tasks.reduce((sum, t) => sum + calculateTempoRealMinutes(t), 0);
-  const totalTempoPlanejado = tasks.reduce((sum, t) => sum + (t.tempo_planejado || 0), 0);
-
-  document.getElementById('of-details-title').textContent = `OF ${ofId} — ${of.chicote}`;
-  document.getElementById('of-details-summary').innerHTML = `
-    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Quantidade</p><p class="font-semibold">${of.quantidade}</p></div>
-    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Etapas</p><p class="font-semibold">${tasks.length}</p></div>
-    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">T. Planejado</p><p class="font-semibold">${formatMinutes(totalTempoPlanejado)}</p></div>
-    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">T. Real</p><p class="font-semibold">${formatMinutes(totalTempoReal)}</p></div>
-  `;
-  document.getElementById('of-details-progress').style.width = `${progress}%`;
-  
-  const content = tasks.sort((a,b)=> a.ordem - b.ordem).map(task=>{
-    const tempoReal = calculateTempoRealMinutes(task); 
-    const desvio = calculateDesvio(task);
-    return `
-      <div class="border rounded-lg p-3">
-        <div class="flex justify-between">
-          <p class="font-semibold">${task.ordem}. ${task.nome_atividade}</p>
-          <span class="text-xs ${task.status==='Concluído'?'text-green-700':'text-gray-600'}">${task.status}</span>
-        </div>
-        <p class="text-xs text-gray-600">Setor: ${task.setor}</p>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs sm:text-sm mt-2">
-          <div><span class="text-gray-500">Setup:</span> <span class="font-semibold">${formatMinutes(task.tempo_setup)}</span></div>
-          <div><span class="text-gray-500">Ciclo:</span> <span class="font-semibold">${Number(task.tempo_ciclo).toFixed(2)}</span></div>
-          <div><span class="text-gray-500">Planejado:</span> <span class="font-semibold">${formatMinutes(task.tempo_planejado)}</span></div>
-          <div><span class="text-gray-500">Real:</span> <span class="font-semibold">${formatMinutes(tempoReal)}</span></div>
-        </div>
-        <p class="mt-1 text-xs ${desvio<0?'text-red-600':'text-gray-700'}">Desvio: ${desvio<0?'-':''}${formatMinutes(Math.abs(desvio))}</p>
-      </div>
-    `;
-  }).join('');
-  document.getElementById('of-details-content').innerHTML = content;
-
-  btnDeleteOF.classList.toggle('hidden', !isMaster());
-  
-  openModal('of-details-modal');
-}
-
-function exportReportCSV(){
-  const rows = [["OF","CHICOTE","ATIVIDADE","MOTIVO_PAUSA","MOTIVO_ATRASO","T. PAUSA (min)","T. ATRASO (min)"]];
-  allOcurrencesLog.forEach(l => {
-    rows.push([l.OF, l.CHICOTE, l.ATIVIDADE, l.MOTIVO_PAUSA||"", l.MOTIVO_ATRASO||"", (l.TEMPO_PAUSA||0).toFixed(2), (l.TEMPO_ATRASO||0).toFixed(2)]);
-  });
-  downloadCSV(rows, `relatorio_ocorrencias_${new Date().toISOString().slice(0,10)}.csv`);
-}
-
-function updateDeleteButtonState() {
-  const btn = document.getElementById('btn-delete-report');
-  if (!btn) return;
-  const anyChecked = document.querySelectorAll('#report-table-body .report-item-checkbox:checked').length > 0;
-  btn.disabled = !anyChecked;
-  if (!anyChecked) {
-    const selectAllCheckbox = document.getElementById('report-select-all');
-    if (selectAllCheckbox) selectAllCheckbox.checked = false;
-  }
-}
-
-function toggleSelectAllOcorrencias(checkbox) {
-  const checkboxes = document.querySelectorAll('#report-table-body .report-item-checkbox');
-  checkboxes.forEach(cb => {
-    cb.checked = checkbox.checked;
-  });
-  updateDeleteButtonState();
-}
-
-async function deleteSelectedOcorrencias() {
-  const selectedIds = Array.from(document.querySelectorAll('#report-table-body .report-item-checkbox:checked')).map(cb => cb.value);
-  if (selectedIds.length === 0) {
-    alert("Nenhuma ocorrência selecionada.");
-    return;
-  }
-  if (!confirm(`Tem certeza que deseja excluir ${selectedIds.length} ocorrência(s)? Esta ação não pode ser desfeita.`)) {
-    return;
-  }
-  const btn = document.getElementById('btn-delete-report');
-  if (btn) btn.disabled = true;
-  
-  try {
-    if (window.db) {
-      const batch = db.batch();
-      selectedIds.forEach(id => {
-        batch.delete(db.collection(OCORRENCIA_COLLECTION).doc(id));
-      });
-      await batch.commit();
-    } else {
-      allOcurrencesLog = allOcurrencesLog.filter(log => !selectedIds.includes(log.id));
-      localStorage.setItem('sim_ocorrencias', JSON.stringify(allOcurrencesLog));
-      renderReport();
-    }
-  } catch (e) {
-    alert("Erro ao excluir ocorrências: " + e.message);
-    if (btn) btn.disabled = false;
-  }
-}
-
-function exportOFTasksCSV(ofId){
-  const tasks = Object.values(allTasks).filter(t => t.id_of === ofId);
-  const rows = [["OF","ATIVIDADE","SETOR","STATUS","SETUP(min)","CICLO(min/pç)","PLANEJADO(min)","REAL(min)","DESVIO(min)"]];
-  tasks.forEach(t => {
-    rows.push([
-      t.id_of, t.nome_atividade, t.setor, t.status,
-      Number(t.tempo_setup).toFixed(2), Number(t.tempo_ciclo).toFixed(2),
-      Number(t.tempo_planejado).toFixed(2), 
-      calculateTempoRealMinutes(t).toFixed(2), 
-      calculateDesvio(t).toFixed(2),
-    ]);
-  });
-  downloadCSV(rows, `of_${ofId}_tasks_${new Date().toISOString().slice(0,10)}.csv`);
-}
-function downloadCSV(rows, filename){
-  const csvContent = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
-  const blob = new Blob(['\uFEFF' + csvContent], {type:'text/csv;charset=utf-8;'});
-  
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-}
-/* ============================
-   ROTEIROS (Renderiza na tela Admin)
-   ============================ */
-function renderRoteiros(){
-  const list = document.getElementById('roteiro-list-admin'); 
-  if (!list) return;
-  
-  const items = Object.values(allRoteiros).sort((a,b)=> (a.chicote_nome||'').localeCompare(b.chicote_nome||'')).map(r=>`
-    <div class="bg-white border rounded-lg p-3 flex justify-between items-start gap-3">
-      <div>
-        <p class="text-sm font-semibold">${r.chicote_nome} — <span class="text-gray-700">${r.setor}</span></p>
-        <p class="text-xs text-gray-600">Atividade: ${r.nome_atividade}</p>
-        <p class="text-xs text-gray-600">Setup: ${Number(r.tempo_setup).toFixed(2)} | Ciclo: ${Number(r.tempo_ciclo).toFixed(2)}</p>
-      </div>
-      <button class="px-2 py-1 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700" onclick="deleteRoteiroActivity('${r.id}')">Excluir</button>
-    </div>
-  `).join('');
-  list.innerHTML = items || '<div class="p-4 text-center text-gray-500 bg-white rounded-lg">Nenhum roteiro cadastrado.</div>';
-}
-
-/* ============================
-   BOOTSTRAP
-   ============================ */
-document.addEventListener('DOMContentLoaded', () => {
-  initializeApp();
-  lucide.createIcons();
-});
-// Exposição global
-window.startTask = startTask;
-window.pauseTask = pauseTask;
-window.finishTask = finishTask;
-window.openOFDetails = openOFDetails;
-window.openInstructionModal = openInstructionModal;
-window.handleConfirmedAction = handleConfirmedAction;
-window.openModal = openModal;
-window.closeModal = closeModal;
-window.createOF = createOF;
-window.addRoteiroActivity = addRoteiroActivity;
-window.deleteRoteiroActivity = deleteRoteiroActivity;
-window.deleteOF = deleteOF;
-window.exportReportCSV = exportReportCSV;
-window.exportOFTasksCSV = exportOFTasksCSV;
-window.openUserModal = openUserModal;
-window.confirmUser = confirmUser;
-window.updateSectorFilter = updateSectorFilter;
-
-window.deleteSelectedOcorrencias = deleteSelectedOcorrencias;
-window.toggleSelectAllOcorrencias = toggleSelectAllOcorrencias;
-window.updateDeleteButtonState = updateDeleteButtonState;
-window.renderHistory = renderHistory;
-</script>
-</body>
-</html>
+    const container = document.getElementById('historico-list-container');
+    container.innerHTML = historyHtml.length >
