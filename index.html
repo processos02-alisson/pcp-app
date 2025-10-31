@@ -16,7 +16,100 @@
   
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
-  <style id="app-styles"></style>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
+    :root {
+      color-scheme: light dark;
+      --app-bg-color: #f3f4f6;
+      --app-bg-image: none;
+      
+      /* Cores de Prioridade (Mantidas) */
+      --cor-perigo: #dc2626; /* Vermelho */
+      --cor-neutra: #3b82f6; /* Azul */
+    }
+    body {
+      font-family: "Inter", sans-serif;
+      background: var(--app-bg-color) fixed no-repeat center/cover;
+      background-image: var(--app-bg-image);
+
+      padding-left: max(env(safe-area-inset-left), 0px);
+      padding-right: max(env(safe-area-inset-right), 0px);
+    }
+    
+    /* CLASSES DE PRIORIDADE VISUAL (Operador) */
+    .priority-high {
+      border-left-width: 6px;
+      border-left-color: var(--cor-perigo);
+      background-color: #fef2f2; /* Fundo Vermelho Claro */
+    }
+    .priority-medium {
+      border-left-width: 6px;
+      border-left-color: var(--cor-neutra);
+      background-color: #eff6ff; /* Fundo Azul Claro */
+    }
+    .priority-low {
+      border-left-width: 6px;
+      border-left-color: #d1d5db; /* Cinza */
+    }
+    
+    /* Cor de fundo para OFs Concluídas no Histórico */
+    .of-concluida-card {
+        background-color: #f0fdf4; /* Verde bem clarinho */
+        border-left-color: #10b981; /* Verde esmeralda */
+    }
+
+    /* Estilo do Modal de IT (Melhoria Visual) */
+    #instruction-modal .modal-panel {
+        border-top: 8px solid #4f46e5; /* Índigo */
+    }
+
+    .modal-fixed { position: fixed; inset: 0; }
+    .modal-panel { max-height: calc(100dvh - 2rem); }
+    .modal-body-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .sticky-footer { position: sticky; bottom: 0; background: white; padding-top: .5rem; }
+    .highlight-red { color: #dc2626; font-weight: 600; }
+    
+    /* ===== INÍCIO DA EDIÇÃO MONTE CARLO (CSS) ===== */
+    /* Estilo para o Log de Auditoria do Master */
+    .audit-log {
+        background-color: #fdfdfd;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 16px;
+        margin-top: 15px;
+        font-family: monospace;
+        font-size: 0.9em;
+        line-height: 1.6;
+        display: none; /* Começa oculto */
+    }
+    .audit-log h4 {
+        margin-top: 0;
+        color: #9D2235;
+        font-family: "Inter", sans-serif;
+        font-size: 1.1em;
+        font-weight: 600;
+    }
+    .audit-log strong, .audit-log pre strong {
+        color: #000;
+        background-color: #fff8e1;
+        padding: 2px 4px;
+        border-radius: 3px;
+    }
+    .audit-log pre {
+        background-color: #f9f9f9;
+        border: 1px dashed #ccc;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+        white-space: pre-wrap;
+    }
+    /* ===== FIM DA EDIÇÃO MONTE CARLO (CSS) ===== */
+
+    @media (max-width: 640px){
+      .modal-panel{ width:100vw!important; max-width:100vw!important; height:100dvh!important; max-height:100dvh!important; border-radius:0!important; margin:0!important; display:flex; flex-direction:column; }
+      .card-tap-big{ padding:1rem; }
+    }
+  </style>
 </head>
 <body class="min-h-screen bg-gray-100 antialiased">
 
@@ -351,103 +444,8 @@
     </div>
   </div>
 
-<script id="app-script"></script>
-</body>
-  @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
-  :root {
-    color-scheme: light dark;
-    --app-bg-color: #f3f4f6;
-    --app-bg-image: none;
-    
-    /* Cores de Prioridade (Mantidas) */
-    --cor-perigo: #dc2626; /* Vermelho */
-    --cor-neutra: #3b82f6; /* Azul */
-  }
-  body {
-    font-family: "Inter", sans-serif;
-    background: var(--app-bg-color) fixed no-repeat center/cover;
-    background-image: var(--app-bg-image);
-
-    padding-left: max(env(safe-area-inset-left), 0px);
-    padding-right: max(env(safe-area-inset-right), 0px);
-  }
-  
-  /* REMOVIDO: .bg-gradient-header não é mais usado */
-
-  /* CLASSES DE PRIORIDADE VISUAL (Operador) */
-  .priority-high {
-    border-left-width: 6px;
-    border-left-color: var(--cor-perigo);
-    background-color: #fef2f2; /* Fundo Vermelho Claro */
-  }
-  .priority-medium {
-    border-left-width: 6px;
-    border-left-color: var(--cor-neutra);
-    background-color: #eff6ff; /* Fundo Azul Claro */
-  }
-  .priority-low {
-    border-left-width: 6px;
-    border-left-color: #d1d5db; /* Cinza */
-  }
-  
-  /* Cor de fundo para OFs Concluídas no Histórico */
-  .of-concluida-card {
-      background-color: #f0fdf4; /* Verde bem clarinho */
-      border-left-color: #10b981; /* Verde esmeralda */
-  }
-
-  /* Estilo do Modal de IT (Melhoria Visual) */
-  #instruction-modal .modal-panel {
-      border-top: 8px solid #4f46e5; /* Índigo */
-  }
-
-  .modal-fixed { position: fixed; inset: 0; }
-  .modal-panel { max-height: calc(100dvh - 2rem); }
-  .modal-body-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .sticky-footer { position: sticky; bottom: 0; background: white; padding-top: .5rem; }
-  .highlight-red { color: #dc2626; font-weight: 600; }
-  
-  /* ===== INÍCIO DA EDIÇÃO MONTE CARLO (CSS) ===== */
-  /* Estilo para o Log de Auditoria do Master */
-  .audit-log {
-      background-color: #fdfdfd;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      padding: 16px;
-      margin-top: 15px;
-      font-family: monospace;
-      font-size: 0.9em;
-      line-height: 1.6;
-      display: none; /* Começa oculto */
-  }
-  .audit-log h4 {
-      margin-top: 0;
-      color: #9D2235;
-      font-family: "Inter", sans-serif;
-      font-size: 1.1em;
-      font-weight: 600;
-  }
-  .audit-log strong, .audit-log pre strong {
-      color: #000;
-      background-color: #fff8e1;
-      padding: 2px 4px;
-      border-radius: 3px;
-  }
-  .audit-log pre {
-      background-color: #f9f9f9;
-      border: 1px dashed #ccc;
-      padding: 10px;
-      border-radius: 4px;
-      overflow-x: auto;
-      white-space: pre-wrap;
-  }
-  /* ===== FIM DA EDIÇÃO MONTE CARLO (CSS) ===== */
-
-  @media (max-width: 640px){
-    .modal-panel{ width:100vw!important; max-width:100vw!important; height:100dvh!important; max-height:100dvh!important; border-radius:0!important; margin:0!important; display:flex; flex-direction:column; }
-    .card-tap-big{ padding:1rem; }
-  }
-  /* ============================
+<script>
+/* ============================
   FIREBASE CONFIG
   ============================ */
 const firebaseConfig = {
@@ -1551,9 +1549,6 @@ function renderKPIs(){
   const totalPause = activeLogs.reduce((s,l)=> s + (l.TEMPO_PAUSA||0), 0);
   const totalAtraso = logsAtraso.reduce((s,l)=> s + (l.TEMPO_ATRASO||0), 0);
   
-  // ============================
-  // KPIs (MUDANÇA DE DESIGN)
-  // ============================
   const kpiData = [
     { title:"OFs Ativas", value: totalOFs, icon:"package", color:"bg-blue-600" },
     { title:"Tarefas Concluídas", value: `${concludedTasks} / ${totalTasks}`, icon:"check-circle", color:"bg-green-600" },
@@ -2182,78 +2177,6 @@ function renderRoteiros(){
   BOOTSTRAP
   ============================ */
 document.addEventListener('DOMContentLoaded', () => {
-  // Injeta o CSS
-  const styleEl = document.getElementById('app-styles');
-  if (styleEl) {
-     styleEl.innerHTML = `
-      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap");
-      :root {
-        color-scheme: light dark;
-        --app-bg-color: #f3f4f6;
-        --app-bg-image: none;
-        --cor-perigo: #dc2626; /* Vermelho */
-        --cor-neutra: #3b82f6; /* Azul */
-      }
-      body {
-        font-family: "Inter", sans-serif;
-        background: var(--app-bg-color) fixed no-repeat center/cover;
-        background-image: var(--app-bg-image);
-        padding-left: max(env(safe-area-inset-left), 0px);
-        padding-right: max(env(safe-area-inset-right), 0px);
-      }
-      .priority-high {
-        border-left-width: 6px;
-        border-left-color: var(--cor-perigo);
-        background-color: #fef2f2;
-      }
-      .priority-medium {
-        border-left-width: 6px;
-        border-left-color: var(--cor-neutra);
-        background-color: #eff6ff;
-      }
-      .priority-low {
-        border-left-width: 6px;
-        border-left-color: #d1d5db;
-      }
-      .of-concluida-card {
-          background-color: #f0fdf4;
-          border-left-color: #10b981;
-      }
-      #instruction-modal .modal-panel {
-          border-top: 8px solid #4f46e5;
-      }
-      .modal-fixed { position: fixed; inset: 0; }
-      .modal-panel { max-height: calc(100dvh - 2rem); }
-      .modal-body-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }
-      .sticky-footer { position: sticky; bottom: 0; background: white; padding-top: .5rem; }
-      .highlight-red { color: #dc2626; font-weight: 600; }
-      
-      .audit-log {
-          background-color: #fdfdfd; border: 1px solid #ddd;
-          border-radius: 8px; padding: 16px; margin-top: 15px;
-          font-family: monospace; font-size: 0.9em; line-height: 1.6;
-          display: none;
-      }
-      .audit-log h4 {
-          margin-top: 0; color: #9D2235;
-          font-family: "Inter", sans-serif;
-          font-size: 1.1em; font-weight: 600;
-      }
-      .audit-log strong, .audit-log pre strong {
-          color: #000; background-color: #fff8e1;
-          padding: 2px 4px; border-radius: 3px;
-      }
-      .audit-log pre {
-          background-color: #f9f9f9; border: 1px dashed #ccc;
-          padding: 10px; border-radius: 4px;
-          overflow-x: auto; white-space: pre-wrap;
-      }
-      @media (max-width: 640px){
-        .modal-panel{ width:100vw!important; max-width:100vw!important; height:100dvh!important; max-height:100dvh!important; border-radius:0!important; margin:0!important; display:flex; flex-direction:column; }
-        .card-tap-big{ padding:1rem; }
-      }
-    `;
-  }
   initializeApp();
   lucide.createIcons();
 });
@@ -2280,4 +2203,6 @@ window.deleteSelectedOcorrencias = deleteSelectedOcorrencias;
 window.toggleSelectAllOcorrencias = toggleSelectAllOcorrencias;
 window.updateDeleteButtonState = updateDeleteButtonState;
 window.renderHistory = renderHistory;
+</script>
+</body>
 </html>
