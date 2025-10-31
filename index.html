@@ -165,13 +165,12 @@
 
       <div id="workload-chart-container" class="bg-white p-4 sm:p-6 rounded-xl border border-gray-300 mb-4">
           <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
-              <i data-lucide="gauge" class="w-5 h-5 mr-2 text-indigo-600"></i> Carga de Trabalho por Setor (Minutos - P95)
+              <i data-lucide="gauge" class="w-5 h-5 mr-2 text-indigo-600"></i> Carga de Trabalho por Setor (Minutos Confiáveis - P95)
           </h3>
           <div class="h-64 sm:h-80 relative">
             <canvas id="workload-chart"></canvas>
           </div>
       </div>
-
       <div id="ofs-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6"></div>
     </div>
 
@@ -1158,8 +1157,8 @@ async function createOF(ofIdOverride, quantityOverride, chicoteOverride, priorit
         tempo_planejado_p50_min: parseFloat(taskP50_Min.toFixed(2)),
         tempo_planejado_p95_min: parseFloat(taskP95_Min.toFixed(2)),
         
-        // Campo legado (tempo_planejado) recebe o P50 para o gráfico
-        tempo_planejado: parseFloat(taskP50_Min.toFixed(2)), 
+        // Campo legado (tempo_planejado) recebe o P50 para o gráfico (Removido na mudança P95)
+        tempo_planejado: parseFloat(taskP50_Min.toFixed(2)), // Mantido para consistência, mas o gráfico P95 o ignora
 
         timestamp_inicio: null, timestamp_fim: null,
         tempo_real_acumulado_ms: 0, 
@@ -1565,7 +1564,9 @@ function renderKPIs(){
     </div>`).join('');
   lucide.createIcons();
 }
- function renderWorkloadChart() {
+
+// ===== MUDANÇA SOLICITADA: P50 para P95 =====
+function renderWorkloadChart() {
   const ctxEl = document.getElementById('workload-chart');
   if (!ctxEl) return;
 
@@ -1573,16 +1574,15 @@ function renderKPIs(){
   const cargaPorSetor = {}; 
 
   SECTORS.forEach(setor => { cargaPorSetor[setor] = 0; });
-
+  
   tasksNaoConcluidas.forEach(task => {
     if (allOFs[task.id_of]?.status !== 'Concluído' && cargaPorSetor.hasOwnProperty(task.setor)) {
-
-      // ===== MUDANÇA SOLICITADA: P50 para P95 =====
+      
       // A linha abaixo foi alterada de p50_min para p95_min
       cargaPorSetor[task.setor] += task.tempo_planejado_p95_min || 0;
     }
   });
-
+  
   const labels = Object.keys(cargaPorSetor).filter(setor => cargaPorSetor[setor] > 0);
   const data = labels.map(setor => cargaPorSetor[setor]);
 
@@ -1629,45 +1629,7 @@ function renderKPIs(){
     }
   });
 }
-
-  workloadChart = new Chart(ctxEl, {
-    type: 'bar', 
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Minutos Esperados (P50)', // Label atualizado
-        data: data,
-        backgroundColor: 'rgba(37, 99, 235, 0.6)', 
-        borderColor: 'rgba(37, 99, 235, 1)', 
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      indexAxis: 'y', 
-      scales: {
-        x: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: 'Minutos'
-          }
-        },
-        y: {
-          grid: {
-            display: false
-          }
-        }
-      },
-      plugins: {
-        legend: {
-           display: false 
-        }
-      }
-    }
-  });
-}
+// ===== FIM DA MUDANÇA =====
 
 
 function updateView(view){
@@ -2246,4 +2208,3 @@ window.renderHistory = renderHistory;
 </script>
 </body>
 </html>
-
