@@ -104,14 +104,32 @@
         white-space: pre-wrap;
     }
     /* ===== FIM DA EDIÇÃO MONTE CARLO (CSS) ===== */
+    
+    /* ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (CSS) ===== */
+    .task-progress-bar-container {
+      width: 100%;
+      background-color: #e5e7eb;
+      border-radius: 9999px;
+      height: 6px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .task-progress-bar-ok {
+      background-color: #22c55e; /* Verde */
+      height: 100%;
+    }
+    .task-progress-bar-nok {
+      background-color: #ef4444; /* Vermelho */
+      height: 100%;
+    }
+    /* ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (CSS) ===== */
 
     @media (max-width: 640px){
       .modal-panel{ width:100vw!important; max-width:100vw!important; height:100dvh!important; max-height:100dvh!important; border-radius:0!important; margin:0!important; display:flex; flex-direction:column; }
       .card-tap-big{ padding:1rem; }
     }
   </style>
-</head>
-<body class="min-h-screen bg-gray-100 antialiased">
+  <body class="min-h-screen bg-gray-100 antialiased">
 
   <header class="bg-gray-800 shadow-md p-3 sm:p-4 sticky top-0 z-10">
     <div class="max-w-7xl mx-auto flex justify-between items-center gap-2">
@@ -173,7 +191,6 @@
       </div>
       <div id="ofs-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6"></div>
     </div>
-
     <div id="operator-view" class="space-y-4 sm:space-y-6 hidden">
       <div class="bg-white p-3 sm:p-4 rounded-xl border border-gray-300 mb-4 sm:mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
         <h2 class="text-lg sm:text-xl font-bold text-gray-800 flex items-center">
@@ -275,6 +292,10 @@
               </div>
               <input type="text" id="roteiro-activity-name-admin" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Nome da Atividade (Ex: Pré Conexão)">
               
+              <div class="flex items-center space-x-2">
+                <input id="roteiro-is-setup-admin" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                <label for="roteiro-is-setup-admin" class="text-sm font-medium text-gray-900">Esta é uma tarefa de Setup / Preparação</label>
+              </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Parâmetros de Tempo (em MINUTOS):</label>
                 <div class="grid grid-cols-2 gap-3">
@@ -285,6 +306,7 @@
                 </div>
                 <p class="text-xs text-gray-500 mt-1">Use ponto (.) para decimais. Ex: 0.5 para 30 segundos.</p>
               </div>
+              
               <div>
                 <label for="roteiro-instruction-text-admin" class="block text-sm font-medium text-gray-700 mb-1">Instrução de Trabalho (HTML, links de imagem/YouTube):</label>
                 <textarea id="roteiro-instruction-text-admin" rows="4" class="w-full border border-gray-300 rounded-lg p-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ex: <b>1. Preparação:</b> ... https://link.para/imagem.jpg"></textarea>
@@ -318,7 +340,7 @@
             </select>
             <label for="justification-text" class="block text-sm font-medium text-gray-700">Detalhes Adicionais (Opcional):</label>
             <textarea id="justification-text" rows="2" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder=""></textarea>
-            <p id="justification-required-text" class="text-sm text-red-500 hidden font-semibold">🚨 Campo obrigatório devido ao desvio de tempo!</p>
+            <p id="justification-required-text" class="text-sm text-red-500 hidden font-semibold">🚨 Campo obrigatório!</p>
           </div>
         </div>
       </div>
@@ -328,7 +350,51 @@
       </div>
     </div>
   </div>
-
+  
+  <div id="report-production-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal('report-production-modal')">
+    <div class="bg-white rounded-xl shadow-2xl p-4 sm:p-6 w-full max-w-lg modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
+      <h3 id="report-modal-title" class="text-lg sm:text-xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2">Reportar Produção</h3>
+      <div class="modal-body-scroll">
+        <p id="report-modal-message" class="text-gray-600 mb-3 sm:mb-4"></p>
+        
+        <div class="space-y-4">
+          <div>
+            <label for="report-qty-ok" class="block text-sm font-medium text-gray-700">Peças Boas (OK) *desta sessão*:</label>
+            <input type="number" id="report-qty-ok" min="0" value="0" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-indigo-500 focus:border-indigo-500">
+          </div>
+          <div>
+            <label for="report-qty-nok" class="block text-sm font-medium text-gray-700">Peças com Defeito (NOK) *desta sessão*:</label>
+            <input type="number" id="report-qty-nok" min="0" value="0" class="w-full border border-gray-300 rounded-lg p-2 mt-1 focus:ring-red-500 focus:border-red-500">
+          </div>
+          
+          <fieldset>
+            <legend class="block text-sm font-medium text-gray-700">Próximo Status:</legend>
+            <div class="mt-2 space-y-2">
+              <div class="flex items-center">
+                <input id="report-status-pause" name="report-status" type="radio" value="Pausada" checked class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                <label for="report-status-pause" class="ml-3 block text-sm font-medium text-gray-700">Pausar (Ex: Fim de Turno, Parcial)</label>
+              </div>
+              <div class="flex items-center">
+                <input id="report-status-finish" name="report-status" type="radio" value="Concluído" class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                <label for="report-status-finish" class="ml-3 block text-sm font-medium text-gray-700">Finalizar Tarefa (Esta etapa acabou)</label>
+              </div>
+            </div>
+          </fieldset>
+          
+          <div id="report-modal-error" class="text-sm text-red-500 hidden"></div>
+        </div>
+        
+      </div>
+      <div class="mt-4 sm:mt-6 flex justify-end gap-2 sm:gap-3 sticky-footer">
+        <button onclick="closeModal('report-production-modal')" class="px-3 sm:px-4 py-2 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition">Cancelar</button>
+        <button id="modal-report-confirm-button" class="px-3 sm:px-4 py-2 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition" onclick="handleReportProduction()">
+          <i data-lucide="save" class="w-5 h-5 inline-block mr-1"></i>
+          Salvar Reporte
+        </button>
+      </div>
+    </div>
+  </div>
+  
   <div id="instruction-modal" class="modal-fixed bg-gray-900 bg-opacity-75 z-50 items-center justify-center hidden" onclick="closeModal('instruction-modal')">
     <div class="bg-white rounded-xl shadow-2xl p-5 sm:p-8 w-full max-w-2xl modal-panel mx-0 sm:mx-4" onclick="event.stopPropagation()">
       <h3 class="text-xl sm:text-2xl font-bold text-gray-800 mb-3 sm:mb-4 border-b pb-2 flex items-center">
@@ -380,7 +446,7 @@
                 <option value="0.85">85%</option>
              </select>
           </div>
-          </div>
+        </div>
         
         <div id="of-creation-message" class="text-sm text-red-500 hidden"></div>
       </div>
@@ -442,8 +508,7 @@
       </div>
     </div>
   </div>
-
-<script>
+    <script>
 /* ============================
   FIREBASE CONFIG
   ============================ */
@@ -487,14 +552,28 @@ const SECTORS = [
   'Corte','Corte de Revestimentos','Pré-Montagem','Preparação','Pré Conexão',
   'Conexão','Pré Grampeação','Grampeação','Acabamento','Embalagem','Montagem','Cabo de Bateria 1','Cabo de Bateria 2'
 ];
+// ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (Motivos Pausa) =====
 const PAUSE_REASONS = [
-  "Falta de material na bancada","Manutenção/Ajuste de máquina","Instrução de trabalho confusa/ausente",
-  "Necessidade de assistência técnica","Troca de turno/intervalo programado","Outro (Detalhar abaixo)"
+  "Fim de Turno / Salvar Parcial", // <-- Mantido para Setup
+  "Falta de material na bancada",
+  "Manutenção/Ajuste de máquina",
+  "Instrução de trabalho confusa/ausente",
+  "Necessidade de assistência técnica",
+  "Troca de turno/intervalo programado",
+  "Retrabalho / Ajuste de Qualidade", // <-- Adicionado
+  "Almoço / Pausa Programada", // <-- Adicionado
+  "Outro (Detalhar abaixo)"
 ];
 const DELAY_REASONS = [
-  "Complexidade inesperada da peça","Problema de qualidade na etapa anterior","Falta de treinamento/experiência",
-  "Tempo padrão calculado incorretamente","Quebra/defeito de ferramenta","Outro (Detalhar abaixo)"
+  "Complexidade inesperada da peça",
+  "Problema de qualidade na etapa anterior",
+  "Falta de treinamento/experiência",
+  "Tempo padrão calculado incorretamente",
+  "Quebra/defeito de ferramenta",
+  "Outro (Detalhar abaixo)"
 ];
+// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL =====
+
 let allOFs = {};
 let allTasks = {};
 let allRoteiros = {};
@@ -518,30 +597,25 @@ let roteiroCounter = 7;
 // Roteiros padrão atualizados para o novo formato de 4 parâmetros
 // Todos os tempos estão em MINUTOS
 const DEFAULT_ROTEIROS = {
-  "r1": { id:"r1", chicote_nome:"CHICOTE-001", setor:"Corte", nome_atividade:"Corte dos Fios",
-    media_setup_min: 5.0, desvio_setup_min: 1.0, // 5min ± 1min
-    media_ciclo_min: 0.2, desvio_ciclo_min: 0.05, // 12s ± 3s
-    instrucao_trabalho:"<b>1. Preparação:</b> Verifique a faca...<br><b>2. Medição:</b> Corte 50 peças de 150mm.<br><b>3. Conferência:</b> Visual."
+  "r1": { id:"r1", chicote_nome:"CHICOTE-001", setor:"Corte", nome_atividade:"Setup Corte", is_setup_task: true,
+    media_setup_min: 5.0, desvio_setup_min: 1.0, 
+    media_ciclo_min: 0, desvio_ciclo_min: 0, 
+    instrucao_trabalho:"<b>1. Preparação:</b> Verifique a faca..."
   },
-  "r2": { id:"r2", chicote_nome:"CHICOTE-001", setor:"Pré-Montagem", nome_atividade:"Crimpagem de Terminais",
-    media_setup_min: 8.0, desvio_setup_min: 2.0,
+  "r2": { id:"r2", chicote_nome:"CHICOTE-001", setor:"Corte", nome_atividade:"Corte dos Fios", is_setup_task: false,
+    media_setup_min: 0, desvio_setup_min: 0, 
+    media_ciclo_min: 0.2, desvio_ciclo_min: 0.05, // 12s ± 3s
+    instrucao_trabalho:"<b>1. Medição:</b> Corte 50 peças de 150mm.<br><b>2. Conferência:</b> Visual."
+  },
+  "r3": { id:"r3", chicote_nome:"CHICOTE-001", setor:"Pré-Montagem", nome_atividade:"Crimpagem de Terminais", is_setup_task: false,
+    media_setup_min: 8.0, desvio_setup_min: 2.0, // Setup da Crimpagem (incluso na tarefa)
     media_ciclo_min: 0.5, desvio_ciclo_min: 0.1,
     instrucao_trabalho:"<b>Fio Preto:</b> ...<br><b>Fio Vermelho:</b> ...<br><b>Teste:</b> > 10Kgf."
   },
-  "r3": { id:"r3", chicote_nome:"CHICOTE-001", setor:"Montagem Final", nome_atividade:"Montagem de Conectores",
-    media_setup_min: 15.0, desvio_setup_min: 3.0,
-    media_ciclo_min: 1.0, desvio_ciclo_min: 0.2,
-    instrucao_trabalho:"Conectar posições 35 e 33. Proibido forçar."
-  },
-  "r4": { id:"r4", chicote_nome:"CHICOTE-B", setor:"Corte", nome_atividade:"Corte Reforçado",
+  "r4": { id:"r4", chicote_nome:"CHICOTE-B", setor:"Corte", nome_atividade:"Corte Reforçado", is_setup_task: false,
     media_setup_min: 10.0, desvio_setup_min: 1.5,
     media_ciclo_min: 0.3, desvio_ciclo_min: 0.05,
     instrucao_trabalho:"Instrução básica B."
-  },
-  "r5": { id:"r5", chicote_nome:"CHICOTE-B", setor:"Montagem Final", nome_atividade:"Montagem Simples",
-    media_setup_min: 5.0, desvio_setup_min: 1.0,
-    media_ciclo_min: 0.8, desvio_ciclo_min: 0.2,
-    instrucao_trabalho:"Conectar 4 vias."
   },
 };
 /* ============================
@@ -573,7 +647,6 @@ function formatDate(d) {
     return date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 }
 
-// ===== INÍCIO DA EDIÇÃO MONTE CARLO (Helpers) =====
 function formatSecondsToHMS(totalSegundos) {
     const horas = Math.floor(totalSegundos / 3600);
     const restoHoras = totalSegundos % 3600;
@@ -584,7 +657,6 @@ function formatSecondsToHMS(totalSegundos) {
     const sFormat = segundos.toFixed(0).padStart(2, '0');
     return `${hFormat}:${mFormat}:${sFormat}`;
 }
-// ===== FIM DA EDIÇÃO MONTE CARLO (Helpers) =====
 
 
 function setUser(u){
@@ -632,7 +704,6 @@ function listenTheme(){
 }
 function applyTheme(s){
   const r = document.documentElement.style;
-  // Default é o Fundo Cinza Padrão
   const defaultColor = '#f3f4f6'; 
   if (!s || s.mode === 'color'){
     r.setProperty('--app-bg-color', s?.color || defaultColor);
@@ -646,8 +717,6 @@ function applyTheme(s){
 /* ============================
   FUNÇÕES DE SIMULAÇÃO MONTE CARLO
   ============================ */
-// Estas funções são o "motor" da nova lógica de cálculo
-
 let __mc_z1 = null;
 let __mc_useLast = false;
 function gaussianRandom() {
@@ -672,25 +741,23 @@ function rodarSimulacao(media, desvio, nSimulacoes, percentil) {
     return resultadosSimulacao[indice];
 }
 
-/**
- * Classe para calcular tempos de OF usando Monte Carlo
- * Todos os cálculos internos são em SEGUNDOS.
- */
 class MonteCarloCalculator {
     constructor() {
         this.etapas = [];
-        this.numeroSimulacoes = 50000; // Reduzido para performance rápida no app
+        this.numeroSimulacoes = 50000;
         this.auditLog = "";
     }
 
     addEtapa(etapa) {
-        // Converte os minutos do DB para segundos para o cálculo
         const etapaSeg = {
             nome: etapa.nome_atividade,
             mediaCicloSeg: (etapa.media_ciclo_min || 0) * 60,
             desvioCicloSeg: (etapa.desvio_ciclo_min || 0) * 60,
             mediaSetupSeg: (etapa.media_setup_min || 0) * 60,
             desvioSetupSeg: (etapa.desvio_setup_min || 0) * 60,
+            // ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (Lógica Setup) =====
+            is_setup_task: etapa.is_setup_task || false 
+            // ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL =====
         };
         this.etapas.push(etapaSeg);
     }
@@ -708,27 +775,31 @@ class MonteCarloCalculator {
         this.auditLog = `<h3>1. Consolidação por Etapa (Lote de ${quantidade})</h3>`;
 
         for (const etapa of this.etapas) {
-            const mediaEtapaLoteSeg = (etapa.mediaCicloSeg * quantidade) + etapa.mediaSetupSeg;
             
-            const varianciaCicloSeg = Math.pow(etapa.desvioCicloSeg, 2) * quantidade;
+            // ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (Lógica Setup) =====
+            // Se for tarefa de setup, a quantidade é ignorada no cálculo do ciclo (é 0)
+            const mediaCicloEtapa = etapa.is_setup_task ? 0 : (etapa.mediaCicloSeg * quantidade);
+            const varianciaCicloEtapa = etapa.is_setup_task ? 0 : (Math.pow(etapa.desvioCicloSeg, 2) * quantidade);
+            // ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL =====
+
+            const mediaEtapaLoteSeg = mediaCicloEtapa + etapa.mediaSetupSeg;
             const varianciaSetupSeg = Math.pow(etapa.desvioSetupSeg, 2);
-            const varianciaEtapaLoteSeg = varianciaCicloSeg + varianciaSetupSeg;
+            const varianciaEtapaLoteSeg = varianciaCicloEtapa + varianciaSetupSeg;
             
             totalMediaOF_Seg += mediaEtapaLoteSeg;
             totalVarianciaOF_Seg += varianciaEtapaLoteSeg;
             
             this.auditLog += `
-                <pre><strong>Etapa: ${etapa.nome}</strong>
-Media = (${etapa.mediaCicloSeg.toFixed(1)}s * ${quantidade}) + ${etapa.mediaSetupSeg.toFixed(1)}s = <strong>${mediaEtapaLoteSeg.toFixed(2)}s</strong>
-Var.  = (${etapa.desvioCicloSeg.toFixed(1)}s² * ${quantidade}) + ${etapa.desvioSetupSeg.toFixed(1)}s² = <strong>${varianciaEtapaLoteSeg.toFixed(2)}</strong></pre>
+                <pre><strong>Etapa: ${etapa.nome}</strong> ${etapa.is_setup_task ? '(SETUP)' : ''}
+Media = (${etapa.mediaCicloSeg.toFixed(1)}s * ${etapa.is_setup_task ? 0 : quantidade}) + ${etapa.mediaSetupSeg.toFixed(1)}s = <strong>${mediaEtapaLoteSeg.toFixed(2)}s</strong>
+Var.  = (${etapa.desvioCicloSeg.toFixed(1)}s² * ${etapa.is_setup_task ? 0 : quantidade}) + ${etapa.desvioSetupSeg.toFixed(1)}s² = <strong>${varianciaEtapaLoteSeg.toFixed(2)}</strong></pre>
             `;
         }
 
         const totalDesvioOF_Seg = Math.sqrt(totalVarianciaOF_Seg);
         
         if (isNaN(totalDesvioOF_Seg) || totalDesvioOF_Seg === 0) {
-            // Se não há variabilidade, P50 = P95
-            this.auditLog += "<h3>2. Parâmetros Totais</h3><p>Nenhuma variabilidade detectada (Desvio Padrão = 0). Tempo confiável é igual ao tempo médio.</p>";
+            this.auditLog += "<h3>2. Parâmetros Totais</h3><p>Nenhuma variabilidade detectada (Desvio Padrão = 0).</p>";
             return {
                 totalMediaSeg: totalMediaOF_Seg,
                 totalConfiavelSeg: totalMediaOF_Seg,
@@ -757,8 +828,6 @@ Var.  = (${etapa.desvioCicloSeg.toFixed(1)}s² * ${quantidade}) + ${etapa.desvio
         };
     }
 }
-// ===== FIM DAS FUNÇÕES MONTE CARLO =====
-
 
 /* ============================
   CÁLCULOS DE TEMPO
@@ -766,16 +835,19 @@ Var.  = (${etapa.desvioCicloSeg.toFixed(1)}s² * ${quantidade}) + ${etapa.desvio
   
 // Função para obter o valor acumulado em milissegundos
 function calculateTempoRealMs(task){
-  if (task.status === 'Concluído' || task.status === 'Bloqueada' || task.status === 'Em Espera') {
+  if (task.status === 'Concluído' || task.status === 'Em Espera' || 
+      task.status === 'Pausada' || task.status === 'Setup Pausado' || task.status === 'Produção Pausada') { // <-- NOVOS STATUS
     return task.tempo_real_acumulado_ms || 0;
   }
   
   const now = Date.now();
   let tempoAcumulado = task.tempo_real_acumulado_ms || 0; 
-  let ultimaAtividade = getDBTimestamp(task.timestamp_inicio);
+  let ultimaAtividade = getDBTimestamp(task.timestamp_inicio); // timestamp_inicio é o "play" mais recente
 
   if (!ultimaAtividade) return tempoAcumulado;
-  if (task.status === 'Em Processo'){
+  
+  // <-- NOVOS STATUS
+  if (task.status === 'Em Processo' || task.status === 'Em Setup' || task.status === 'Em Produção'){
     tempoAcumulado += (now - ultimaAtividade);
   }
   
@@ -790,19 +862,21 @@ function calculateTempoRealMinutes(task){
   return msToMinutes(calculateTempoRealMs(task));
 }
 
-// ===== MUDANÇA MONTE CARLO (Desvio) =====
 // O desvio agora é calculado contra o tempo CONFIÁVEL (P95), que é a nova "meta".
 function calculateDesvio(task){
   const realMinutes = calculateTempoRealMinutes(task); 
-  // Usa o P95 como a "meta" a ser batida. O P50 é apenas a expectativa.
   const planned = task.tempo_planejado_p95_min || task.tempo_planejado_p50_min || 0;
+  
+  // Para tarefas de produção não concluídas, o desvio é (Planejado - Pace Realizado)
+  // Mas por enquanto, vamos manter o cálculo simples vs P95
   
   return parseFloat((planned - realMinutes).toFixed(2));
 }
 
 function calculateTotalPauseMinutes(task){
   let totalMs = task.total_pause_time_ms || 0;
-  if (task.status === 'Pausada' && task.pause_start_timestamp){
+  // <-- NOVOS STATUS
+  if ((task.status === 'Pausada' || task.status === 'Setup Pausado' || task.status === 'Produção Pausada') && task.pause_start_timestamp){
     totalMs += (Date.now() - getDBTimestamp(task.pause_start_timestamp));
   }
   return msToMinutes(totalMs);
@@ -886,10 +960,10 @@ async function initializeApp(){
   } else {
     // SIMULAÇÃO
     allRoteiros = { ...DEFAULT_ROTEIROS };
-    if (!localStorage.getItem('sim_data_initialized_mc')) { // Nova flag para MC
+    if (!localStorage.getItem('sim_data_initialized_v4')) { // Nova flag para V4
       await createOF('OF-001', 10, 'CHICOTE-001', 'Media', 0.95, true);
       await createOF('OF-002', 20, 'CHICOTE-B', 'Alta', 0.95, true);
-      localStorage.setItem('sim_data_initialized_mc', 'true');
+      localStorage.setItem('sim_data_initialized_v4', 'true');
     } else {
       allOFs = JSON.parse(localStorage.getItem('sim_ofs') || '{}');
       allTasks = JSON.parse(localStorage.getItem('sim_tasks') || '{}');
@@ -992,6 +1066,7 @@ function setupFirebaseListeners() {
 /* ============================
   CRUD
   ============================ */
+// ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (CRUD Roteiro) =====
 async function addRoteiroActivity(){
   const chicote_name = document.getElementById('roteiro-chicote-name-admin').value.trim().toUpperCase();
   const setor = document.getElementById('roteiro-setor-admin').value;
@@ -999,32 +1074,40 @@ async function addRoteiroActivity(){
   const instruction_text = document.getElementById('roteiro-instruction-text-admin').value.trim();
   const messageEl = document.getElementById('roteiro-message-admin');
   
-  // ===== INÍCIO DA EDIÇÃO MONTE CARLO (CRUD Roteiro) =====
-  const media_ciclo_min = parseFloat(document.getElementById('roteiro-media-ciclo-min').value);
-  const desvio_ciclo_min = parseFloat(document.getElementById('roteiro-desvio-ciclo-min').value);
-  const media_setup_min = parseFloat(document.getElementById('roteiro-media-setup-min').value);
-  const desvio_setup_min = parseFloat(document.getElementById('roteiro-desvio-setup-min').value);
+  const is_setup_task = document.getElementById('roteiro-is-setup-admin').checked; // <-- NOVO
+  
+  const media_ciclo_min = parseFloat(document.getElementById('roteiro-media-ciclo-min').value) || 0;
+  const desvio_ciclo_min = parseFloat(document.getElementById('roteiro-desvio-ciclo-min').value) || 0;
+  const media_setup_min = parseFloat(document.getElementById('roteiro-media-setup-min').value) || 0;
+  const desvio_setup_min = parseFloat(document.getElementById('roteiro-desvio-setup-min').value) || 0;
   
   messageEl.textContent = '';
-  if (!chicote_name || !activity_name || !setor ||
-      isNaN(media_ciclo_min) || isNaN(desvio_ciclo_min) ||
-      isNaN(media_setup_min) || isNaN(desvio_setup_min)) {
-    messageEl.textContent = "Preencha todos os campos. Os 4 campos de tempo são obrigatórios e devem ser números.";
+  if (!chicote_name || !activity_name || !setor) {
+    messageEl.textContent = "Preencha Nome do Chicote, Setor e Nome da Atividade.";
     return;
   }
   
+  if (is_setup_task && (media_setup_min <= 0)) {
+     messageEl.textContent = "Tarefas de Setup devem ter Média de Setup > 0.";
+     return;
+  }
+  if (!is_setup_task && (media_ciclo_min <= 0)) {
+     messageEl.textContent = "Tarefas de Produção devem ter Média de Ciclo > 0.";
+     return;
+  }
+
   const newRoteiro = {
     chicote_nome: chicote_name,
     setor: setor,
     nome_atividade: activity_name,
-    media_ciclo_min: media_ciclo_min,
-    desvio_ciclo_min: desvio_ciclo_min,
-    media_setup_min: media_setup_min,
-    desvio_setup_min: desvio_setup_min,
+    is_setup_task: is_setup_task, // <-- NOVO
+    media_ciclo_min: is_setup_task ? 0 : media_ciclo_min, // <-- Lógica
+    desvio_ciclo_min: is_setup_task ? 0 : desvio_ciclo_min, // <-- Lógica
+    media_setup_min: media_setup_min, // Setup pode existir em ambas
+    desvio_setup_min: desvio_setup_min, // Setup pode existir em ambas
     instrucao_trabalho: instruction_text,
     created_at: window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date()
   };
-  // ===== FIM DA EDIÇÃO MONTE CARLO (CRUD Roteiro) =====
 
   if (window.db) {
     try {
@@ -1052,10 +1135,11 @@ async function addRoteiroActivity(){
   document.getElementById('roteiro-desvio-ciclo-min').value = '';
   document.getElementById('roteiro-media-setup-min').value = '';
   document.getElementById('roteiro-desvio-setup-min').value = '';
+  document.getElementById('roteiro-is-setup-admin').checked = false;
 }
+// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (CRUD Roteiro) =====
 
-// ===== INÍCIO DA EDIÇÃO MONTE CARLO (createOF) =====
-// Esta é a função principal da integração
+// ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (createOF) =====
 async function createOF(ofIdOverride, quantityOverride, chicoteOverride, priorityOverride, percentilOverride, isSimulated = false){
   const of_id = ofIdOverride || document.getElementById('of-id').value.trim().toUpperCase();
   const quantity = quantityOverride || parseInt(document.getElementById('of-quantity').value);
@@ -1085,24 +1169,10 @@ async function createOF(ofIdOverride, quantityOverride, chicoteOverride, priorit
     return;
   }
 
-  // Validação dos Roteiros (Verifica se têm os 4 parâmetros)
-  for (const etapa of roteiroEtapas) {
-    if (typeof etapa.media_ciclo_min !== 'number' || typeof etapa.desvio_ciclo_min !== 'number' ||
-        typeof etapa.media_setup_min !== 'number' || typeof etapa.desvio_setup_min !== 'number') {
-       messageEl.textContent = `Erro: A etapa "${etapa.nome_atividade}" do roteiro "${chicote_name}" não possui os 4 parâmetros de tempo (Média/Desvio) cadastrados. Atualize no painel Admin.`;
-       messageEl.classList.remove('hidden');
-       return;
-    }
-  }
-
   // ---- Início da Simulação ----
   const calculator = new MonteCarloCalculator();
   roteiroEtapas.forEach(etapa => calculator.addEtapa(etapa));
-  
-  // Roda a simulação para a OF INTEIRA
   const simResult = calculator.runSimulation(quantity, percentil);
-  
-  // Converte de Segundos para Minutos para salvar no DB
   const totalP50_Min = simResult.totalMediaSeg / 60;
   const totalP95_Min = simResult.totalConfiavelSeg / 60;
   // ---- Fim da Simulação ----
@@ -1114,11 +1184,14 @@ async function createOF(ofIdOverride, quantityOverride, chicoteOverride, priorit
     data_criacao: window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date(),
     task_count: roteiroEtapas.length,
     concluded_tasks: 0,
-    // Novos campos Monte Carlo
     tempo_planejado_p50_min: parseFloat(totalP50_Min.toFixed(2)),
     tempo_planejado_p95_min: parseFloat(totalP95_Min.toFixed(2)),
     percentil_confianca: percentil,
-    audit_log_html: simResult.auditLog // Salva o log de auditoria
+    audit_log_html: simResult.auditLog,
+    
+    // Novos campos de progresso parcial
+    pecas_concluidas_ok: 0,
+    pecas_concluidas_nok: 0
   };
   
   try {
@@ -1128,12 +1201,12 @@ async function createOF(ofIdOverride, quantityOverride, chicoteOverride, priorit
     const batch = window.db ? db.batch() : null;
     let order = 1;
     
-    // Roda simulações individuais para CADA TAREFA
     for (const etapa of roteiroEtapas) {
       
       const taskCalc = new MonteCarloCalculator();
       taskCalc.addEtapa(etapa);
-      const taskSim = taskCalc.runSimulation(quantity, percentil);
+      // Roda a simulação individual da tarefa (usa 'quantity' para produção, ignora para setup)
+      const taskSim = taskCalc.runSimulation(etapa.is_setup_task ? 1 : quantity, percentil);
       
       const taskP50_Min = taskSim.totalMediaSeg / 60;
       const taskP95_Min = taskSim.totalConfiavelSeg / 60;
@@ -1143,27 +1216,28 @@ async function createOF(ofIdOverride, quantityOverride, chicoteOverride, priorit
         nome_atividade: etapa.nome_atividade, setor: etapa.setor,
         instrucao_trabalho: etapa.instrucao_trabalho,
         quantidade_pecas: quantity,
+        is_setup_task: etapa.is_setup_task || false, // <-- NOVO
         status: 'Em Espera',
         ordem: order++,
         priority: priority, 
         
-        // Parâmetros de tempo (minutos) salvos para referência
         media_ciclo_min: etapa.media_ciclo_min,
         desvio_ciclo_min: etapa.desvio_ciclo_min,
         media_setup_min: etapa.media_setup_min,
         desvio_setup_min: etapa.desvio_setup_min,
         
-        // Tempos planejados (P50 e P95)
         tempo_planejado_p50_min: parseFloat(taskP50_Min.toFixed(2)),
         tempo_planejado_p95_min: parseFloat(taskP95_Min.toFixed(2)),
         
-        // Campo legado (tempo_planejado) recebe o P50 para o gráfico (Removido na mudança P95)
-        tempo_planejado: parseFloat(taskP50_Min.toFixed(2)), // Mantido para consistência, mas o gráfico P95 o ignora
-
         timestamp_inicio: null, timestamp_fim: null,
         tempo_real_acumulado_ms: 0, 
         total_pause_time_ms: 0,      
         pause_start_timestamp: null,
+        
+        // Novos campos de produção parcial
+        pecas_concluidas_ok: 0,
+        pecas_concluidas_nok: 0,
+        
         search_index: of_id.toLowerCase()+'-'+etapa.nome_atividade.toLowerCase()+'-'+etapa.setor.toLowerCase()
       };
       
@@ -1193,9 +1267,11 @@ async function createOF(ofIdOverride, quantityOverride, chicoteOverride, priorit
     messageEl.classList.remove('hidden');
   }
 }
-// ===== FIM DA EDIÇÃO MONTE CARLO (createOF) =====
+// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (createOF) =====
 
 
+// ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (updateTaskStatus) =====
+// Esta função agora lida com os novos status (Setup, Produção) e delega o reporte
 async function updateTaskStatus(taskId, newStatus, logType = null, justification = null, justificationText = null) {
   const task = allTasks[taskId];
   if (!task) return;
@@ -1203,59 +1279,48 @@ async function updateTaskStatus(taskId, newStatus, logType = null, justification
   const updateData = { status: newStatus };
   const now = window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date();
   
+  // Calcula o tempo real acumulado ATÉ ESTE PONTO
   const currentTempoRealMs = calculateTempoRealMs(task); 
 
-  if (newStatus === 'Em Processo') {
-    if (task.status === 'Pausada' && task.pause_start_timestamp) {
+  // --- Lógica de INÍCIO / RETOMADA ---
+  if (newStatus === 'Em Setup' || newStatus === 'Em Produção' || newStatus === 'Em Processo') {
+    // Se estava Pausada, calcula o tempo de pausa
+    if ((task.status === 'Pausada' || task.status === 'Setup Pausado' || task.status === 'Produção Pausada') && task.pause_start_timestamp) {
       const pauseStartMs = getDBTimestamp(task.pause_start_timestamp);
       const currentPauseTimeMs = Date.now() - pauseStartMs;
       updateData.total_pause_time_ms = (task.total_pause_time_ms || 0) + currentPauseTimeMs;
       updateData.pause_start_timestamp = null;
     }
-    if (task.status === 'Em Espera') updateData.timestamp_inicio = now;
+    // Define o timestamp_inicio como "agora", que é usado para o próximo cálculo de tempo real
+    updateData.timestamp_inicio = now; 
   } 
-  else if (newStatus === 'Pausada') {
-    updateData.tempo_real_acumulado_ms = currentTempoRealMs;
-    updateData.pause_start_timestamp = now;
+  
+  // --- Lógica de PAUSA ---
+  else if (newStatus === 'Pausada' || newStatus === 'Setup Pausado' || newStatus === 'Produção Pausada') {
+    updateData.tempo_real_acumulado_ms = currentTempoRealMs; // Salva o tempo acumulado
+    updateData.pause_start_timestamp = now; // Inicia o cronômetro da pausa
     if (logType === 'PAUSA' && (justification || justificationText)) {
       await createOcorrenciaLog(task, 'PAUSA', justification, justificationText);
     }
   } 
-  else if (newStatus === 'Concluído') {
+  
+  // --- Lógica de CONCLUSÃO (Apenas para tarefas de SETUP) ---
+  else if (newStatus === 'Concluído' && task.is_setup_task) {
     const desvio = calculateDesvio(task);
     updateData.tempo_real_acumulado_ms = currentTempoRealMs;
     updateData.timestamp_fim = now;
-    updateData.pause_start_timestamp = null;
+    updateData.pause_start_timestamp = null; // Garante que não está pausada
+    
+    // Se houve atraso, registra a ocorrência
     if (desvio < 0 || logType === 'FIM_ATRASO') {
       await createOcorrenciaLog(task, 'FIM_ATRASO', justification, justificationText);
     }
-
-    if (window.db) {
-      const ofRef = db.collection(OF_COLLECTION).doc(task.id_of);
-      const tasksDaOF = Object.values(allTasks).filter(t => t.id_of === task.id_of);
-      const totalConcluidas = tasksDaOF.filter(t => (t.id === taskId) ? true : t.status === 'Concluído').length;
-      const ofConcluida = totalConcluidas >= tasksDaOF.length;
-
-      const batch = db.batch();
-      batch.update(db.collection(TASK_COLLECTION).doc(taskId), updateData);
-      batch.update(ofRef, {
-        concluded_tasks: firebase.firestore.FieldValue.increment(1),
-        status: ofConcluida ? 'Concluído' : 'Em Andamento'
-      });
-      await batch.commit();
-    } else {
-      const of = allOFs[task.id_of];
-      of.concluded_tasks = (of.concluded_tasks || 0) + 1;
-      Object.assign(task, updateData);
-      const tasksDaOF = Object.values(allTasks).filter(t => t.id_of === task.id_of);
-      const totalConcluidas = tasksDaOF.filter(t => t.status === 'Concluído').length;
-      of.status = (totalConcluidas >= tasksDaOF.length) ? 'Concluído' : 'Em Andamento';
-      localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
-      localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
-    }
-    renderTasks();
-    return;
+    
+    // Atualiza o contador da OF
+    await updateOFProgress(task.id_of, task.id, 0, 0); 
   }
+
+  // A lógica de conclusão de tarefas de PRODUÇÃO é tratada em handleReportProduction()
 
   if (window.db) {
     await db.collection(TASK_COLLECTION).doc(taskId).update(updateData);
@@ -1265,6 +1330,101 @@ async function updateTaskStatus(taskId, newStatus, logType = null, justification
   }
   renderTasks();
 }
+
+// NOVA FUNÇÃO: Lida com o reporte de produção OK/NOK
+async function handleReportProduction() {
+  const { taskId, newStatus } = currentAction;
+  const task = allTasks[taskId];
+  if (!task) return;
+  
+  const qtyOK = parseInt(document.getElementById('report-qty-ok').value) || 0;
+  const qtyNOK = parseInt(document.getElementById('report-qty-nok').value) || 0;
+  
+  const errorEl = document.getElementById('report-modal-error');
+  errorEl.classList.add('hidden');
+  
+  if (qtyOK < 0 || qtyNOK < 0) {
+    errorEl.textContent = "Valores não podem ser negativos.";
+    errorEl.classList.remove('hidden');
+    return;
+  }
+  
+  const now = window.db ? firebase.firestore.FieldValue.serverTimestamp() : new Date();
+  const currentTempoRealMs = calculateTempoRealMs(task);
+  
+  const updateData = {
+    status: newStatus,
+    tempo_real_acumulado_ms: currentTempoRealMs,
+    pecas_concluidas_ok: (task.pecas_concluidas_ok || 0) + qtyOK,
+    pecas_concluidas_nok: (task.pecas_concluidas_nok || 0) + qtyNOK,
+    pause_start_timestamp: null, // Garante que não está pausada
+  };
+
+  if (newStatus === 'Pausada') {
+    // Se pausou, salva o tempo acumulado e inicia o cronômetro da pausa
+    updateData.pause_start_timestamp = now;
+  } else if (newStatus === 'Concluído') {
+    // Se concluiu, salva o tempo final
+    updateData.timestamp_fim = now;
+    
+    // Atualiza o progresso da OF (tarefa e peças)
+    await updateOFProgress(task.id_of, task.id, qtyOK, qtyNOK);
+  } else {
+    // Apenas salvou parcial, atualiza só as peças da OF
+    await updateOFProgress(task.id_of, null, qtyOK, qtyNOK);
+  }
+  
+  if (window.db) {
+    await db.collection(TASK_COLLECTION).doc(taskId).update(updateData);
+  } else {
+    Object.assign(task, updateData);
+    localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
+  }
+  
+  closeModal('report-production-modal');
+  renderTasks();
+}
+
+// NOVA FUNÇÃO: Atualiza o progresso da OF (centralizado)
+async function updateOFProgress(ofId, concludedTaskId, addedOk, addedNok) {
+    const ofRef = window.db ? db.collection(OF_COLLECTION).doc(ofId) : null;
+    const updateData = {
+      pecas_concluidas_ok: (window.db ? firebase.firestore.FieldValue.increment(addedOk) : (allOFs[ofId].pecas_concluidas_ok || 0) + addedOk),
+      pecas_concluidas_nok: (window.db ? firebase.firestore.FieldValue.increment(addedNok) : (allOFs[ofId].pecas_concluidas_nok || 0) + addedNok)
+    };
+
+    let isOfConcluida = false;
+    
+    if (concludedTaskId) {
+      // Tarefa foi concluída
+      updateData.concluded_tasks = (window.db ? firebase.firestore.FieldValue.increment(1) : (allOFs[ofId].concluded_tasks || 0) + 1);
+      
+      const tasksDaOF = Object.values(allTasks).filter(t => t.id_of === ofId);
+      const totalConcluidas = tasksDaOF.filter(t => (t.id === concludedTaskId) ? true : t.status === 'Concluído').length;
+      isOfConcluida = totalConcluidas >= tasksDaOF.length;
+      
+      if (isOfConcluida) {
+        updateData.status = 'Concluído';
+      } else if (allOFs[ofId].status === 'Pendente') {
+         updateData.status = 'Em Andamento';
+      }
+    }
+    
+    if (window.db) {
+      await ofRef.update(updateData);
+    } else {
+       const of = allOFs[ofId];
+       of.pecas_concluidas_ok = (of.pecas_concluidas_ok || 0) + addedOk;
+       of.pecas_concluidas_nok = (of.pecas_concluidas_nok || 0) + addedNok;
+       if (concludedTaskId) {
+         of.concluded_tasks = (of.concluded_tasks || 0) + 1;
+         if (isOfConcluida) of.status = 'Concluído';
+         else if (of.status === 'Pendente') of.status = 'Em Andamento';
+       }
+       localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
+    }
+}
+// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (updateTaskStatus) =====
 
 
 async function createOcorrenciaLog(task, type, justification, justificationText) {
@@ -1302,10 +1462,32 @@ async function createOcorrenciaLog(task, type, justification, justificationText)
 /* ============================
   AÇÕES
   ============================ */
-function startTask(taskId){ updateTaskStatus(taskId, 'Em Processo'); }
-function finishTask(taskId){ showActionModal(taskId, 'Finalizar', DELAY_REASONS);
+// ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (Ações) =====
+function startTask(taskId){
+  const task = allTasks[taskId];
+  if (!task) return;
+  
+  // Decide se é Início de Setup ou Início de Produção
+  const newStatus = task.is_setup_task ? 'Em Setup' : 'Em Produção';
+  updateTaskStatus(taskId, newStatus); 
 }
-function pauseTask(taskId){ showActionModal(taskId, 'Pausar', PAUSE_REASONS); }
+
+function finishTask(taskId){ 
+  // Esta função agora só é chamada por tarefas de SETUP
+  showActionModal(taskId, 'Finalizar', DELAY_REASONS, false); // false = não é pausa
+}
+
+function pauseTask(taskId){ 
+  // Esta função agora é chamada por Setup (Pausar Setup) e Produção (Pausar Produção)
+  showActionModal(taskId, 'Pausar', PAUSE_REASONS, true); // true = é pausa
+}
+
+function reportProduction(taskId) {
+  // Esta função SÓ é chamada por tarefas de PRODUÇÃO
+  showReportModal(taskId);
+}
+// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (Ações) =====
+
 
 async function deleteRoteiroActivity(roteiroId) {
   if (!isMaster() || !confirm("Excluir esta etapa de roteiro?")) return;
@@ -1361,21 +1543,40 @@ function closeModal(id){
   const modal = document.getElementById(modalId);
   if(modal) {
     modal.style.display = 'none';
+    
+    // Limpa os modais ao fechar
     if (modalId === 'action-modal') {
       currentAction = {};
-      const jsSel = document.getElementById('justification-select');
-      const jsTxt = document.getElementById('justification-text');
-      const jsReq = document.getElementById('justification-required-text');
-      if (jsSel) jsSel.value = '';
-      if (jsTxt) jsTxt.value = '';
-      if (jsReq) jsReq.classList.add('hidden');
+      document.getElementById('justification-select').value = '';
+      document.getElementById('justification-text').value = '';
+      document.getElementById('justification-required-text').classList.add('hidden');
+    }
+    if (modalId === 'report-production-modal') {
+      currentAction = {};
+      document.getElementById('report-qty-ok').value = '0';
+      document.getElementById('report-qty-nok').value = '0';
+      document.getElementById('report-status-pause').checked = true;
+      document.getElementById('report-modal-error').classList.add('hidden');
     }
   }
 }
-function showActionModal(taskId, type, reasons){
+
+// ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (Modais) =====
+// Modal 1: Justificativas (Pausa ou Atraso de Setup)
+function showActionModal(taskId, type, reasons, isPauseAction){
   const task = allTasks[taskId];
   if (!task) return;
-  currentAction = { taskId, type };
+  
+  // Define o novo status com base na ação e tipo de tarefa
+  let newStatus = '';
+  if (isPauseAction) {
+    newStatus = task.is_setup_task ? 'Setup Pausado' : 'Produção Pausada';
+  } else {
+    newStatus = 'Concluído'; // Ação de Finalizar (só para setup)
+  }
+  
+  currentAction = { taskId, type, newStatus, isPauseAction };
+  
   const title = document.getElementById('modal-title');
   const message = document.getElementById('modal-message');
   const justificationSelect = document.getElementById('justification-select');
@@ -1390,31 +1591,62 @@ function showActionModal(taskId, type, reasons){
     option.textContent = reason;
     justificationSelect.appendChild(option);
   });
+  
   let isRequired = false;
-  if (type === 'Finalizar') {
+  
+  if (isPauseAction) {
+    // Ação de Pausar (Setup ou Produção)
+    justificationRequired.textContent = `🚨 O motivo da pausa é obrigatório.`;
+    isRequired = true;
+  } else {
+    // Ação de Finalizar (Setup)
     const desvio = calculateDesvio(task);
     if (desvio < 0) {
-      // ===== MUDANÇA MONTE CARLO (Mensagem de Atraso) =====
       justificationRequired.textContent = `🚨 Justificativa obrigatória! Atraso de ${formatMinutes(Math.abs(desvio))} (Meta P95: ${formatMinutes(task.tempo_planejado_p95_min)})`;
       isRequired = true;
     } else {
-      justificationRequired.textContent = `✅ Concluído dentro da meta P95. Nenhuma justificativa necessária.`;
+      justificationRequired.textContent = `✅ Concluído dentro da meta P95.`;
       isRequired = false;
     }
-  } else if (type === 'Pausar') {
-    justificationRequired.textContent = `Motivo da pausa é altamente recomendado.`;
   }
-  justificationRequired.classList.toggle('hidden', !isRequired && type !== 'Pausar');
+  
+  justificationRequired.classList.toggle('hidden', !isRequired);
   currentAction.isRequired = isRequired;
 
   openModal('action-modal');
 }
+
+// Modal 2: Reporte de Produção (OK/NOK)
+function showReportModal(taskId) {
+    const task = allTasks[taskId];
+    if (!task) return;
+
+    // Define os status que serão usados no handleReportProduction
+    currentAction = { 
+        taskId: taskId, 
+        newStatus: document.querySelector('input[name="report-status"]:checked')?.value || 'Pausada' 
+    };
+    
+    document.getElementById('report-modal-title').textContent = `Reportar: ${task.nome_atividade}`;
+    document.getElementById('report-modal-message').textContent = `OF ${task.id_of} - Peças Totais: ${task.quantidade_pecas}`;
+
+    // Adiciona listener para atualizar o newStatus
+    const radios = document.querySelectorAll('input[name="report-status"]');
+    radios.forEach(radio => radio.onchange = (e) => {
+        currentAction.newStatus = e.target.value;
+    });
+
+    openModal('report-production-modal');
+}
+
+// Função de confirmação do Modal 1 (Pausa / Fim de Setup)
 async function handleConfirmedAction(){
-  const { taskId, type, isRequired } = currentAction;
+  const { taskId, type, newStatus, isPauseAction, isRequired } = currentAction;
   const justificationSelect = document.getElementById('justification-select');
   const justificationText = document.getElementById('justification-text').value.trim();
   const justification = justificationSelect.value;
   const justificationRequired = document.getElementById('justification-required-text');
+  
   if (isRequired && !justification) {
     justificationRequired.textContent = "🚨 Você deve selecionar um motivo principal!";
     justificationRequired.classList.remove('hidden');
@@ -1422,14 +1654,14 @@ async function handleConfirmedAction(){
   }
   justificationRequired.classList.add('hidden');
 
-  if (type === 'Finalizar') {
-    await updateTaskStatus(taskId, 'Concluído', null, justification, justificationText);
-    updateView(userViewSelect.value);
-  } else if (type === 'Pausar') {
-    await updateTaskStatus(taskId, 'Pausada', 'PAUSA', justification, justificationText);
-  }
+  const logType = isPauseAction ? 'PAUSA' : (calculateDesvio(allTasks[taskId]) < 0 ? 'FIM_ATRASO' : null);
+  
+  await updateTaskStatus(taskId, newStatus, logType, justification, justificationText);
+  
   closeModal();
 }
+// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (Modais) =====
+
 
 function renderInstructionContent(rawContent) {
     if (!rawContent || rawContent.trim() === '') {
@@ -1535,14 +1767,14 @@ function renderKPIs(){
   const kpisContainer = document.getElementById('kpis-container');
   if (!kpisContainer) return;
   
-  const activeOFIds = Object.keys(allOFs).filter(k => allOFs[k]?.status !== 'Concluído');
-  const activeTasks = Object.values(allTasks).filter(t => activeOFIds.includes(t.id_of));
+  const activeOFs = Object.values(allOFs).filter(of => of.status !== 'Concluído');
   
-  const totalOFs = activeOFIds.length;
-  const concludedTasks = activeTasks.filter(t=>t.status==='Concluído').length;
-  const totalTasks = activeTasks.length; 
-
-  const activeLogs = allOcurrencesLog.filter(l => activeOFIds.includes(l.OF));
+  const totalOFs = activeOFs.length;
+  // Progresso por peças
+  const totalPecasOK = activeOFs.reduce((sum, of) => sum + (of.pecas_concluidas_ok || 0), 0);
+  const totalPecasPrevistas = activeOFs.reduce((sum, of) => sum + (of.quantidade || 0), 0);
+  
+  const activeLogs = allOcurrencesLog.filter(l => activeOFs.map(of=>of.id).includes(l.OF));
   
   const logsAtraso = activeLogs.filter(l => l.TIPO === 'ATRASO');
   const totalPause = activeLogs.reduce((s,l)=> s + (l.TEMPO_PAUSA||0), 0);
@@ -1550,7 +1782,7 @@ function renderKPIs(){
   
   const kpiData = [
     { title:"OFs Ativas", value: totalOFs, icon:"package", color:"bg-blue-600" },
-    { title:"Tarefas Concluídas", value: `${concludedTasks} / ${totalTasks}`, icon:"check-circle", color:"bg-green-600" },
+    { title:"Peças Concluídas (OK)", value: `${totalPecasOK} / ${totalPecasPrevistas}`, icon:"check-circle", color:"bg-green-600" },
     { title:"Pausas Totais (min)", value: totalPause.toFixed(1), icon:"pause-circle", color:"bg-yellow-600" },
     { title:"Atraso Total (min)", value: totalAtraso.toFixed(1), icon:"alert-triangle", color:"bg-red-600" },
   ];
@@ -1565,7 +1797,7 @@ function renderKPIs(){
   lucide.createIcons();
 }
 
-// ===== MUDANÇA SOLICITADA: P50 para P95 =====
+// ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (Gráfico PCP) =====
 function renderWorkloadChart() {
   const ctxEl = document.getElementById('workload-chart');
   if (!ctxEl) return;
@@ -1578,8 +1810,32 @@ function renderWorkloadChart() {
   tasksNaoConcluidas.forEach(task => {
     if (allOFs[task.id_of]?.status !== 'Concluído' && cargaPorSetor.hasOwnProperty(task.setor)) {
       
-      // A linha abaixo foi alterada de p50_min para p95_min
-      cargaPorSetor[task.setor] += task.tempo_planejado_p95_min || 0;
+      let cargaPendenteMin = 0;
+      const tempoGastoMin = calculateTempoRealMinutes(task);
+      const pecasOK = task.pecas_concluidas_ok || 0;
+      const pecasNOK = task.pecas_concluidas_nok || 0;
+      const pecasProcessadas = pecasOK + pecasNOK;
+      const pecasTotais = task.quantidade_pecas || 1; // Evita divisão por zero
+      const pecasRestantes = Math.max(0, pecasTotais - pecasOK);
+      const p95Planejado = task.tempo_planejado_p95_min || 0;
+      const p95PacePlanejado = p95Planejado / pecasTotais;
+
+      if (task.is_setup_task) {
+        // Lógica para Tarefa de Setup
+        cargaPendenteMin = Math.max(0, p95Planejado - tempoGastoMin);
+        
+      } else if (pecasProcessadas > 0) {
+        // Lógica para Produção com Pace Real
+        const paceRealMin = tempoGastoMin / pecasProcessadas;
+        cargaPendenteMin = pecasRestantes * paceRealMin;
+        
+      } else {
+        // Lógica para Produção sem peças (Cenário B)
+        const cargaEstimadaRestante = pecasRestantes * p95PacePlanejado;
+        cargaPendenteMin = cargaEstimadaRestante + tempoGastoMin; 
+      }
+      
+      cargaPorSetor[task.setor] += cargaPendenteMin;
     }
   });
   
@@ -1595,8 +1851,7 @@ function renderWorkloadChart() {
     data: {
       labels: labels,
       datasets: [{
-        // O label do tooltip também foi alterado
-        label: 'Minutos Confiáveis (P95)', 
+        label: 'Carga Pendente Real (P95/Pace)', 
         data: data,
         backgroundColor: 'rgba(37, 99, 235, 0.6)', 
         borderColor: 'rgba(37, 99, 235, 1)', 
@@ -1607,29 +1862,14 @@ function renderWorkloadChart() {
       responsive: true,
       maintainAspectRatio: false,
       indexAxis: 'y', 
-      scales: {
-        x: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: 'Minutos'
-          }
-        },
-        y: {
-          grid: {
-            display: false
-          }
-        }
+      scales: { x: { beginAtZero: true, title: { display: true, text: 'Minutos' } },
+        y: { grid: { display: false } }
       },
-      plugins: {
-        legend: {
-           display: false 
-        }
-      }
+      plugins: { legend: { display: false } }
     }
   });
 }
-// ===== FIM DA MUDANÇA =====
+// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (Gráfico PCP) =====
 
 
 function updateView(view){
@@ -1758,7 +1998,7 @@ function renderReport(){
   updateDeleteButtonState();
 }
 
-// ===== INÍCIO DA EDIÇÃO MONTE CARLO (renderOFs) =====
+// ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (renderOFs) =====
 function renderOFs(){
   if (pcpView.classList.contains('hidden')) return;
   
@@ -1767,30 +2007,29 @@ function renderOFs(){
   
   const ofsHtml = ofs.map(of=>{
     const tasks = Object.values(allTasks).filter(t=> t.id_of === of.id);
-    const completed = tasks.filter(t => t.status === 'Concluído').length;
-    const nextTask = tasks.find(t=> t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada');
+    const completedTasks = tasks.filter(t => t.status === 'Concluído').length;
+    const nextTask = tasks.find(t=> t.status !== 'Concluído' && t.status !== 'Bloqueada');
 
     let statusColor = 'bg-gray-100 border-gray-300';
-    let progress = 0;
+    
+    // Calcula o progresso com base nas peças OK
+    const pecasOK = of.pecas_concluidas_ok || 0;
+    const pecasTotais = of.quantidade || 1;
+    const progress = Math.floor((pecasOK / pecasTotais) * 100);
 
-    if (tasks.length > 0){
-      progress = Math.floor((completed / tasks.length) * 100);
-  
-      if (progress === 0) statusColor = 'bg-gray-200 border-gray-400';
-      else if (progress < 100) statusColor = 'bg-blue-100 border-blue-400';
-      
-      if (of.priority === 'Alta') {
-        statusColor = 'bg-red-100 border-red-500';
-      } else {
-         // Verifica se o tempo real total está estourando o P95
-         const totalTempoReal = tasks.reduce((sum, t) => sum + calculateTempoRealMinutes(t), 0);
-         if (totalTempoReal > (of.tempo_planejado_p95_min || 0)) {
-            statusColor = 'bg-yellow-100 border-yellow-500';
-         }
-      }
+    if (progress === 0 && of.status === 'Pendente') statusColor = 'bg-gray-200 border-gray-400';
+    else if (progress < 100) statusColor = 'bg-blue-100 border-blue-400';
+    
+    if (of.priority === 'Alta') {
+      statusColor = 'bg-red-100 border-red-500';
+    } else {
+       // A lógica de atraso (amarelo) agora é mais complexa (baseada no pace)
+       // Vamos simplificar: se houver peças NOK, fica amarelo
+       if ((of.pecas_concluidas_nok || 0) > 0) {
+          statusColor = 'bg-yellow-100 border-yellow-500';
+       }
     }
     
-    // Tempos da OF
     const p50_min = of.tempo_planejado_p50_min || 0;
     const p95_min = of.tempo_planejado_p95_min || 0;
     const pLabel = (of.percentil_confianca || 0.95) * 100;
@@ -1806,18 +2045,18 @@ function renderOFs(){
         
         <div class="grid grid-cols-2 gap-2 text-xs mb-2">
            <div class="bg-white/50 p-2 rounded">
-              <span class="text-gray-500">Tempo Esperado (P50)</span>
+              <span class="text-gray-500">Esperado (P50)</span>
               <span class="font-bold text-gray-800 block">${formatMinutes(p50_min)}</span>
            </div>
            <div class="bg-white/50 p-2 rounded">
-              <span class="text-gray-500">Tempo Confiável (P${pLabel})</span>
+              <span class="text-gray-500">Confiável (P${pLabel})</span>
               <span class="font-bold text-blue-700 block">${formatMinutes(p95_min)}</span>
            </div>
         </div>
 
         <div class="flex justify-between items-center mb-1">
-          <span class="text-xs font-semibold text-gray-600">${progress}% Concluído</span>
-          <span class="text-xs font-medium text-gray-500">${completed} / ${tasks.length} etapas</span>
+          <span class="text-xs font-semibold text-gray-600">${progress}% Concluído (Peças OK)</span>
+          <span class="text-xs font-medium text-gray-500">${completedTasks} / ${tasks.length} etapas</span>
         </div>
         <div class="w-full bg-gray-200 rounded-full h-1.5">
           <div class="h-1.5 rounded-full bg-blue-500" style="width:${progress}%"></div>
@@ -1830,24 +2069,25 @@ function renderOFs(){
   ofsListContainer.innerHTML = ofsHtml.length > 0 ? ofsHtml : '<div class="col-span-3 p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">Nenhuma OF ativa.</div>';
   lucide.createIcons();
 }
-// ===== FIM DA EDIÇÃO MONTE CARLO (renderOFs) =====
+// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (renderOFs) =====
 
-// ===== INÍCIO DA EDIÇÃO MONTE CARLO (renderTasks) =====
+// ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (renderTasks) =====
 function renderTasks(){
   if (operatorView.classList.contains('hidden')) return;
 
   const tasks = Object.values(allTasks)
     .filter(t =>
       t.setor === currentSectorFilter &&
-      (t.status === 'Em Espera' || t.status === 'Em Processo' || t.status === 'Pausada') &&
+      (t.status !== 'Concluído' && t.status !== 'Bloqueada') && // <-- Lógica de Status
       (!operatorSearchOF || (t.id_of || "").toUpperCase().includes(operatorSearchOF))
     )
     .sort((a,b) => {
       const priorityA = a.priority === 'Alta' ? 1 : (a.priority === 'Media' ? 2 : 3);
       const priorityB = b.priority === 'Alta' ? 1 : (b.priority === 'Media' ? 2 : 3);
       if (priorityA !== priorityB) return priorityA - priorityB;
-      if (a.status === 'Em Processo') return -1;
-      if (b.status === 'Em Processo') return 1;
+      // Prioriza tarefas ativas (Setup ou Produção)
+      if (t.status === 'Em Setup' || t.status === 'Em Produção') return -1;
+      if (t.status === 'Em Setup' || t.status === 'Em Produção') return 1;
       return a.ordem - b.ordem;
     });
     
@@ -1859,32 +2099,95 @@ function renderTasks(){
     let statusText = task.status;
     let actions = '';
     
-    if (task.status === 'Em Espera'){
-      statusText = 'Aguardando Início';
-      actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">Iniciar</button>`;
-    } else if (task.status === 'Em Processo'){
-      statusText = 'Em Processo';
-      actions = `
-        <button onclick="pauseTask('${task.id}')" class="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600">Pausar</button>
-        <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Concluir</button>`;
-    } else if (task.status === 'Pausada'){
-      statusText = 'Pausada';
-      actions = `
-        <button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">Retomar</button>
-        <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">Concluir</button>`;
+    // Define os botões com base no Status e Tipo de Tarefa
+    switch(task.status) {
+        case 'Em Espera':
+            statusText = 'Aguardando Início';
+            actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">
+                         <i data-lucide="play" class="w-4 h-4 inline-block mr-1"></i>
+                         ${task.is_setup_task ? 'Iniciar Setup' : 'Iniciar Produção'}
+                       </button>`;
+            break;
+        
+        case 'Em Setup':
+            statusText = 'Em Setup';
+            actions = `<button onclick="pauseTask('${task.id}')" class="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600">
+                         <i data-lucide="pause" class="w-4 h-4 inline-block mr-1"></i>Pausar
+                       </button>
+                       <button onclick="finishTask('${task.id}')" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
+                         <i data-lucide="check" class="w-4 h-4 inline-block mr-1"></i>Concluir Setup
+                       </button>`;
+            break;
+            
+        case 'Em Produção':
+            statusText = 'Em Produção';
+            actions = `<button onclick="pauseTask('${task.id}')" class="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600">
+                         <i data-lucide="pause" class="w-4 h-4 inline-block mr-1"></i>Pausar
+                       </button>
+                       <button onclick="reportProduction('${task.id}')" class="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">
+                         <i data-lucide="save" class="w-4 h-4 inline-block mr-1"></i>Reportar
+                       </button>`;
+            break;
+            
+        case 'Setup Pausado':
+            statusText = 'Setup Pausado';
+            actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">
+                         <i data-lucide="play" class="w-4 h-4 inline-block mr-1"></i>Retomar Setup
+                       </button>`;
+            break;
+            
+        case 'Produção Pausada':
+            statusText = 'Produção Pausada';
+            actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">
+                         <i data-lucide="play" class="w-4 h-4 inline-block mr-1"></i>Retomar Produção
+                       </button>`;
+            break;
+            
+        // Status 'Pausada' legado, tratado como 'Produção Pausada'
+        case 'Pausada':
+            statusText = 'Pausada';
+            actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">
+                         <i data-lucide="play" class="w-4 h-4 inline-block mr-1"></i>${task.is_setup_task ? 'Retomar Setup' : 'Retomar Produção'}
+                       </button>`;
+            break;
     }
 
+
     const priorityClass = getPriorityClass(task.priority);
-    
-    // Tempos da Tarefa
     const p50_min = task.tempo_planejado_p50_min || 0;
     const p95_min = task.tempo_planejado_p95_min || 0;
+    
+    // Barra de Progresso Parcial (só para tarefas de produção)
+    let progressBar = '';
+    if (!task.is_setup_task) {
+        const pecasOK = task.pecas_concluidas_ok || 0;
+        const pecasNOK = task.pecas_concluidas_nok || 0;
+        const pecasTotais = task.quantidade_pecas || 1;
+        const percOK = (pecasOK / pecasTotais) * 100;
+        const percNOK = (pecasNOK / pecasTotais) * 100;
+        
+        progressBar = `
+          <div class="mt-2">
+            <p class="text-xs text-gray-600">Progresso: 
+                <span class="font-semibold text-green-600">${pecasOK} OK</span> | 
+                <span class="font-semibold text-red-600">${pecasNOK} NOK</span>
+                (${Math.floor(percOK + percNOK)}%)
+            </p>
+            <div class="task-progress-bar-container">
+              <div class="flex h-full">
+                <div class="task-progress-bar-ok" style="width:${percOK}%"></div>
+                <div class="task-progress-bar-nok" style="width:${percNOK}%"></div>
+              </div>
+            </div>
+          </div>
+        `;
+    }
 
     return `
       <div class="${priorityClass} border border-gray-300 p-3 sm:p-4 rounded-xl">
         <div class="flex justify-between items-center mb-2">
           <div>
-            <p class="text-sm font-bold text-gray-800">${task.nome_atividade}</p>
+            <p class="text-sm font-bold text-gray-800">${task.nome_atividade} ${task.is_setup_task ? '(SETUP)' : ''}</p>
             <p class="text-xs text-gray-600">OF <span class="font-semibold">${task.id_of}</span> • Qtd: ${task.quantidade_pecas}</p>
           </div>
           <button class="p-2 rounded-lg hover:bg-gray-100" title="Instrução de Trabalho" onclick="openInstructionModal('${task.id}')">
@@ -1907,6 +2210,8 @@ function renderTasks(){
           <div><span class="text-gray-500">Pausa:</span> <span class="font-semibold">${formatMinutes(totalPauseMinutes)}</span></div>
         </div>
         
+        ${progressBar}
+        
         <div class="mt-2 flex justify-between items-center">
           <span class="text-xs font-semibold ${desvio < 0 ? 'text-red-600' : 'text-gray-700'}">Desvio (vs Meta P95): ${desvio < 0 ? '-' : ''}${formatMinutes(Math.abs(desvio))}</span>
           <span class="text-xs font-medium text-gray-600">${statusText}</span>
@@ -1919,9 +2224,9 @@ function renderTasks(){
   tasksListContainer.innerHTML = tasksHtml.length > 0 ? tasksHtml : '<div class="p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">Sem tarefas para este setor/OF.</div>';
   lucide.createIcons();
 }
-// ===== FIM DA EDIÇÃO MONTE CARLO (renderTasks) =====
+// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (renderTasks) =====
 
-// ===== INÍCIO DA EDIÇÃO MONTE CARLO (renderHistory) =====
+// ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (renderHistory) =====
 function renderHistory() {
     if (historicoView.classList.contains('hidden')) return;
 
@@ -1939,15 +2244,15 @@ function renderHistory() {
         const tasks = Object.values(allTasks).filter(t => t.id_of === of.id);
         const totalTempoReal = tasks.reduce((sum, t) => sum + calculateTempoRealMinutes(t), 0);
         
-        // Tempos da OF
         const p50_min = of.tempo_planejado_p50_min || 0;
         const p95_min = of.tempo_planejado_p95_min || 0;
-        
-        // Desvio calculado contra o P95 (Meta)
         const desvioTotal = p95_min - totalTempoReal;
 
         const desvioClass = desvioTotal < 0 ? 'text-red-600' : 'text-green-600';
         const desvioText = desvioTotal < 0 ? `-${formatMinutes(Math.abs(desvioTotal))}` : `+${formatMinutes(desvioTotal)}`;
+        
+        const pecasOK = of.pecas_concluidas_ok || 0;
+        const pecasNOK = of.pecas_concluidas_nok || 0;
 
         return `
             <div class="of-concluida-card p-4 rounded-xl border border-gray-300"
@@ -1957,11 +2262,14 @@ function renderHistory() {
                     <i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>
                 </h3>
                 <p class="text-sm text-gray-600 mb-2">${of.chicote} | Qtd: ${of.quantidade}</p>
+                <p class="text-sm font-semibold mb-2">
+                   <span class="text-green-600">Peças OK: ${pecasOK}</span> | 
+                   <span class="text-red-600">Peças NOK: ${pecasNOK}</span>
+                </p>
 
                 <div class="space-y-1 text-sm">
                     <p class="text-gray-700">Criado em: <span class="font-semibold">${formatDate(of.data_criacao)}</span></p>
                     <p class="text-gray-700">Tempo Real: <span class="font-semibold">${formatMinutes(totalTempoReal)}</span></p>
-                    <p class="text-gray-700">Tempo Esperado (P50): <span class="font-semibold">${formatMinutes(p50_min)}</span></p>
                     <p class="text-gray-700">Meta Confiável (P95): <span class="font-semibold">${formatMinutes(p95_min)}</span></p>
                     <p class="font-bold ${desvioClass}">Desvio Total (vs Meta P95): ${desvioText}</p>
                 </div>
@@ -1973,44 +2281,53 @@ function renderHistory() {
     container.innerHTML = historyHtml.length > 0 ? historyHtml : '<div class="col-span-3 p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">Nenhuma OF concluída no histórico.</div>';
     lucide.createIcons();
 }
-// ===== FIM DA EDIÇÃO MONTE CARLO (renderHistory) =====
+// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (renderHistory) =====
 
 
 /* ============================
   DETALHES / EXPORTS
   ============================ */
-// ===== INÍCIO DA EDIÇÃO MONTE CARLO (openOFDetails) =====
+// ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (openOFDetails) =====
 function openOFDetails(ofId, isHistory = false){
   window.__ofDetailsOpenId = ofId;
   const of = allOFs[ofId];
   const tasks = Object.values(allTasks).filter(t=> t.id_of === ofId);
-  const completed = tasks.filter(t => t.status === 'Concluído').length;
-  const progress = tasks.length ? Math.floor((completed / tasks.length) * 100) : 0;
   
-  const totalTempoReal = tasks.reduce((sum, t) => sum + calculateTempoRealMinutes(t), 0);
+  const pecasOK = of.pecas_concluidas_ok || 0;
+  const pecasNOK = of.pecas_concluidas_nok || 0;
+  const pecasTotais = of.quantidade || 1;
+  const progress = Math.floor((pecasOK / pecasTotais) * 100);
   
-  // Tempos da OF
   const p50_min = of.tempo_planejado_p50_min || 0;
   const p95_min = of.tempo_planejado_p95_min || 0;
   const pLabel = (of.percentil_confianca || 0.95) * 100;
 
   document.getElementById('of-details-title').textContent = `OF ${ofId} — ${of.chicote}`;
   document.getElementById('of-details-summary').innerHTML = `
-    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Quantidade</p><p class="font-semibold">${of.quantidade}</p></div>
-    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Etapas</p><p class="font-semibold">${tasks.length}</p></div>
-    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Esperado (P50)</p><p class="font-semibold">${formatMinutes(p50_min)}</p></div>
-    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Confiável (P${pLabel})</p><p class="font-bold text-blue-700">${formatMinutes(p95_min)}</p></div>
+    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Qtd Prevista</p><p class="font-semibold">${of.quantidade}</p></div>
+    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Peças OK</p><p class="font-bold text-green-600">${pecasOK}</p></div>
+    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Peças NOK</p><p class="font-bold text-red-600">${pecasNOK}</p></div>
+    <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">Meta (P${pLabel})</p><p class="font-bold text-blue-700">${formatMinutes(p95_min)}</p></div>
   `;
   document.getElementById('of-details-progress').style.width = `${progress}%`;
   
   const content = tasks.sort((a,b)=> a.ordem - b.ordem).map(task=>{
     const tempoReal = calculateTempoRealMinutes(task); 
-    // Desvio da tarefa (Real vs P95 da tarefa)
     const desvio = (task.tempo_planejado_p95_min || 0) - tempoReal;
+    
+    let partialInfo = '';
+    if (!task.is_setup_task) {
+        partialInfo = `
+          <div class="grid grid-cols-2 sm:grid-cols-2 gap-2 text-xs sm:text-sm mt-2">
+            <div><span class="text-gray-500">Peças OK:</span> <span class="font-semibold text-green-600">${task.pecas_concluidas_ok || 0}</span></div>
+            <div><span class="text-gray-500">Peças NOK:</span> <span class="font-semibold text-red-600">${task.pecas_concluidas_nok || 0}</span></div>
+          </div>`;
+    }
+    
     return `
       <div class="border rounded-lg p-3">
         <div class="flex justify-between">
-          <p class="font-semibold">${task.ordem}. ${task.nome_atividade}</p>
+          <p class="font-semibold">${task.ordem}. ${task.nome_atividade} ${task.is_setup_task ? '(SETUP)' : ''}</p>
           <span class="text-xs ${task.status==='Concluído'?'text-green-700':'text-gray-600'}">${task.status}</span>
         </div>
         <p class="text-xs text-gray-600">Setor: ${task.setor}</p>
@@ -2020,6 +2337,7 @@ function openOFDetails(ofId, isHistory = false){
           <div><span class="text-gray-500">Real:</span> <span class="font-semibold">${formatMinutes(tempoReal)}</span></div>
           <div><span class="text-gray-500">Pausa:</span> <span class="font-semibold">${formatMinutes(calculateTotalPauseMinutesFinal(task))}</span></div>
         </div>
+        ${partialInfo}
         <p class="mt-1 text-xs ${desvio<0?'text-red-600':'text-gray-700'}">Desvio (vs Meta P95): ${desvio<0?'-':''}${formatMinutes(Math.abs(desvio))}</p>
       </div>
     `;
@@ -2039,12 +2357,12 @@ function openOFDetails(ofId, isHistory = false){
   }
   
   document.getElementById('of-details-content').innerHTML = content + auditLogHtml;
-  // ===== FIM DA EDIÇÃO MONTE CARLO (openOFDetails) =====
 
   btnDeleteOF.classList.toggle('hidden', !isMaster());
   
   openModal('of-details-modal');
 }
+// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (openOFDetails) =====
 
 // Helper para o toggle do log de auditoria
 function toggleAuditLog() {
@@ -2053,7 +2371,7 @@ function toggleAuditLog() {
         logDiv.style.display = logDiv.style.display === 'none' ? 'block' : 'none';
     }
 }
-window.toggleAuditLog = toggleAuditLog; // Expor globalmente
+window.toggleAuditLog = toggleAuditLog;
 
 function exportReportCSV(){
   const rows = [["OF","CHICOTE","ATIVIDADE","MOTIVO_PAUSA","MOTIVO_ATRASO","T. PAUSA (min)","T. ATRASO (min)"]];
@@ -2112,11 +2430,12 @@ async function deleteSelectedOcorrencias() {
   }
 }
 
-// ===== INÍCIO DA EDIÇÃO MONTE CARLO (exportOFTasksCSV) =====
+// ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (exportOFTasksCSV) =====
 function exportOFTasksCSV(ofId){
   const tasks = Object.values(allTasks).filter(t => t.id_of === ofId);
   const rows = [
-    ["OF","ATIVIDADE","SETOR","STATUS",
+    ["OF","ATIVIDADE","SETOR","STATUS", "TIPO_TAREFA",
+     "PECAS_OK", "PECAS_NOK",
      "ESPERADO_P50(min)", "CONFIÁVEL_P95(min)",
      "REAL(min)","DESVIO(vs_P95)(min)",
      "MEDIA_CICLO(min)", "DESVIO_CICLO(min)", "MEDIA_SETUP(min)", "DESVIO_SETUP(min)"
@@ -2124,7 +2443,8 @@ function exportOFTasksCSV(ofId){
   ];
   tasks.forEach(t => {
     rows.push([
-      t.id_of, t.nome_atividade, t.setor, t.status,
+      t.id_of, t.nome_atividade, t.setor, t.status, (t.is_setup_task ? "SETUP" : "PRODUCAO"),
+      t.pecas_concluidas_ok || 0, t.pecas_concluidas_nok || 0,
       Number(t.tempo_planejado_p50_min).toFixed(2), 
       Number(t.tempo_planejado_p95_min).toFixed(2), 
       calculateTempoRealMinutes(t).toFixed(2), 
@@ -2137,7 +2457,7 @@ function exportOFTasksCSV(ofId){
   });
   downloadCSV(rows, `of_${ofId}_tasks_${new Date().toISOString().slice(0,10)}.csv`);
 }
-// ===== FIM DA EDIÇÃO MONTE CARLO (exportOFTasksCSV) =====
+// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (exportOFTasksCSV) =====
 
 function downloadCSV(rows, filename){
   const csvContent = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
@@ -2150,7 +2470,7 @@ function downloadCSV(rows, filename){
 /* ============================
   ROTEIROS (Renderiza na tela Admin)
   ============================ */
-// ===== INÍCIO DA EDIÇÃO MONTE CARLO (renderRoteiros) =====
+// ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (renderRoteiros) =====
 function renderRoteiros(){
   const list = document.getElementById('roteiro-list-admin'); 
   if (!list) return;
@@ -2160,7 +2480,8 @@ function renderRoteiros(){
       <div>
         <p class="text-sm font-semibold">${r.chicote_nome} — <span class="text-gray-700">${r.setor}</span></p>
         <p class="text-xs text-gray-600">Atividade: ${r.nome_atividade}</p>
-        <p class="text-xs text-gray-600">
+        ${r.is_setup_task ? '<span class="text-xs font-semibold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">TAREFA DE SETUP</span>' : ''}
+        <p class="text-xs text-gray-600 mt-1">
           Ciclo: ${formatMinutes(r.media_ciclo_min)} (± ${formatMinutes(r.desvio_ciclo_min)})
         </p>
          <p class="text-xs text-gray-600">
@@ -2172,7 +2493,7 @@ function renderRoteiros(){
   `).join('');
   list.innerHTML = items || '<div class="p-4 text-center text-gray-500 bg-white rounded-lg">Nenhum roteiro cadastrado.</div>';
 }
-// ===== FIM DA EDIÇÃO MONTE CARLO (renderRoteiros) =====
+// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (renderRoteiros) =====
 
 
 /* ============================
@@ -2186,9 +2507,11 @@ document.addEventListener('DOMContentLoaded', () => {
 window.startTask = startTask;
 window.pauseTask = pauseTask;
 window.finishTask = finishTask;
+window.reportProduction = reportProduction; // <-- NOVO
+window.handleConfirmedAction = handleConfirmedAction;
+window.handleReportProduction = handleReportProduction; // <-- NOVO
 window.openOFDetails = openOFDetails;
 window.openInstructionModal = openInstructionModal;
-window.handleConfirmedAction = handleConfirmedAction;
 window.openModal = openModal;
 window.closeModal = closeModal;
 window.createOF = createOF;
@@ -2208,3 +2531,4 @@ window.renderHistory = renderHistory;
 </script>
 </body>
 </html>
+</head>
