@@ -1930,33 +1930,6 @@ function renderWorkloadChart() {
   });
 }
 // ===== FIM DA NOVA VERSÃO =====
-
-  workloadChart = new Chart(ctxEl, {
-    type: 'bar', 
-    data: {
-      labels: labels,
-      datasets: [{
-        label: 'Carga Pendente Real (P95/Pace)', 
-        data: data,
-        backgroundColor: 'rgba(37, 99, 235, 0.6)', 
-        borderColor: 'rgba(37, 99, 235, 1)', 
-        borderWidth: 1
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      indexAxis: 'y', 
-      scales: { x: { beginAtZero: true, title: { display: true, text: 'Minutos' } },
-        y: { grid: { display: false } }
-      },
-      plugins: { legend: { display: false } }
-    }
-  });
-}
-// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (Gráfico PCP) =====
-
-
 function updateView(view){
   if (!currentUser) {
     pcpView.classList.add('hidden');
@@ -2617,4 +2590,5 @@ window.renderHistory = renderHistory;
 </body>
 </html>
 </head>
+
 
