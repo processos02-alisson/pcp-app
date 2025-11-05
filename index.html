@@ -1798,6 +1798,7 @@ function renderKPIs(){
 }
 
 // ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (Gráfico PCP) =====
+// ===== NOVA VERSÃO (Gráfico Sobreposto) =====
 function renderWorkloadChart() {
   const ctxEl = document.getElementById('workload-chart');
   if (!ctxEl) return;
@@ -1805,7 +1806,12 @@ function renderWorkloadChart() {
   const tasksNaoConcluidas = Object.values(allTasks).filter(t => t.status !== 'Concluído');
   const cargaPorSetor = {}; 
 
-  SECTORS.forEach(setor => { cargaPorSetor[setor] = 0; });
+  SECTORS.forEach(setor => { 
+    cargaPorSetor[setor] = {
+        planoP95: 0,
+        projecaoReal: 0
+    }; 
+  });
   
   tasksNaoConcluidas.forEach(task => {
     if (allOFs[task.id_of]?.status !== 'Concluído' && cargaPorSetor.hasOwnProperty(task.setor)) {
@@ -1815,36 +1821,115 @@ function renderWorkloadChart() {
       const pecasOK = task.pecas_concluidas_ok || 0;
       const pecasNOK = task.pecas_concluidas_nok || 0;
       const pecasProcessadas = pecasOK + pecasNOK;
-      const pecasTotais = task.quantidade_pecas || 1; // Evita divisão por zero
+      const pecasTotais = task.quantidade_pecas || 1; 
       const pecasRestantes = Math.max(0, pecasTotais - pecasOK);
       const p95Planejado = task.tempo_planejado_p95_min || 0;
-      const p95PacePlanejado = p95Planejado / pecasTotais;
+      const p95PacePlanejado = (pecasTotais > 0) ? (p95Planejado / pecasTotais) : 0;
 
       if (task.is_setup_task) {
         // Lógica para Tarefa de Setup
         cargaPendenteMin = Math.max(0, p95Planejado - tempoGastoMin);
-        
       } else if (pecasProcessadas > 0) {
         // Lógica para Produção com Pace Real
         const paceRealMin = tempoGastoMin / pecasProcessadas;
         cargaPendenteMin = pecasRestantes * paceRealMin;
-        
       } else {
         // Lógica para Produção sem peças (Cenário B)
         const cargaEstimadaRestante = pecasRestantes * p95PacePlanejado;
         cargaPendenteMin = cargaEstimadaRestante + tempoGastoMin; 
       }
       
-      cargaPorSetor[task.setor] += cargaPendenteMin;
+      // Acumula os dois valores
+      cargaPorSetor[task.setor].planoP95 += p95Planejado;
+      cargaPorSetor[task.setor].projecaoReal += cargaPendenteMin;
     }
   });
   
-  const labels = Object.keys(cargaPorSetor).filter(setor => cargaPorSetor[setor] > 0);
-  const data = labels.map(setor => cargaPorSetor[setor]);
+  const labels = Object.keys(cargaPorSetor).filter(setor => cargaPorSetor[setor].planoP95 > 0 || cargaPorSetor[setor].projecaoReal > 0);
+  const dataPlanoP95 = labels.map(setor => cargaPorSetor[setor].planoP95.toFixed(2));
+  const dataProjecaoReal = labels.map(setor => cargaPorSetor[setor].projecaoReal.toFixed(2));
+  
+  // Define a cor da projeção (Vermelho se estourar, Azul se OK)
+  const backgroundColorsProjecao = [];
+  const borderColorsProjecao = [];
+  
+  labels.forEach(setor => {
+      const plano = cargaPorSetor[setor].planoP95;
+      const real = cargaPorSetor[setor].projecaoReal;
+      if (real > plano) {
+          backgroundColorsProjecao.push('rgba(239, 68, 68, 0.7)'); // Vermelho
+          borderColorsProjecao.push('rgba(239, 68, 68, 1)');
+      } else {
+          backgroundColorsProjecao.push('rgba(59, 130, 246, 0.7)'); // Azul
+          borderColorsProjecao.push('rgba(59, 130, 246, 1)');
+      }
+  });
 
   if (workloadChart) {
     workloadChart.destroy();
   }
+
+  workloadChart = new Chart(ctxEl, {
+    type: 'bar', 
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Plano P95 (Meta)',
+          data: dataPlanoP95,
+          backgroundColor: 'rgba(229, 231, 235, 1)', // Cinza
+          borderColor: 'rgba(209, 213, 219, 1)',
+          borderWidth: 1,
+          order: 1 // Barra do fundo
+        },
+        {
+          label: 'Projeção Real (Pace)',
+          data: dataProjecaoReal,
+          backgroundColor: backgroundColorsProjecao, // Cores dinâmicas
+          borderColor: borderColorsProjecao,
+          borderWidth: 1,
+          order: 2, // Barra da frente
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y', // Gráfico de barras horizontal
+      scales: { 
+        x: { 
+            beginAtZero: true, 
+            title: { display: true, text: 'Minutos' } 
+        },
+        y: { 
+            grid: { display: false },
+            stacked: false // Garante que as barras não se empilhem
+        }
+      },
+      plugins: { 
+        legend: { 
+            display: true, 
+            position: 'top' 
+        },
+        tooltip: {
+            callbacks: {
+                label: function(context) {
+                    let label = context.dataset.label || '';
+                    if (label) {
+                        label += ': ';
+                    }
+                    if (context.parsed.x !== null) {
+                        label += context.parsed.x.toFixed(2) + ' min';
+                    }
+                    return label;
+                }
+            }
+        }
+      }
+    }
+  });
+}
+// ===== FIM DA NOVA VERSÃO =====
 
   workloadChart = new Chart(ctxEl, {
     type: 'bar', 
@@ -2532,3 +2617,4 @@ window.renderHistory = renderHistory;
 </body>
 </html>
 </head>
+
