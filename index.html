@@ -2135,7 +2135,7 @@ function renderTasks(){
 
   const tasks = Object.values(allTasks)
     .filter(t =>
-      t.setor === currentSectorFilter &&
+      (t.setor || '').trim().toLowerCase() === (currentSectorFilter || '').trim().toLowerCase() &&
       (t.status !== 'Concluído' && t.status !== 'Bloqueada') && // <-- Lógica de Status
       (!operatorSearchOF || (t.id_of || "").toUpperCase().includes(operatorSearchOF))
     )
@@ -2144,8 +2144,8 @@ function renderTasks(){
       const priorityB = b.priority === 'Alta' ? 1 : (b.priority === 'Media' ? 2 : 3);
       if (priorityA !== priorityB) return priorityA - priorityB;
       // Prioriza tarefas ativas (Setup ou Produção)
-      if (t.status === 'Em Setup' || t.status === 'Em Produção') return -1;
-      if (t.status === 'Em Setup' || t.status === 'Em Produção') return 1;
+      if (a.status === 'Em Setup' || a.status === 'Em Produção') return -1;
+      if (b.status === 'Em Setup' || b.status === 'Em Produção') return 1;
       return a.ordem - b.ordem;
     });
     
@@ -2590,4 +2590,5 @@ window.renderHistory = renderHistory;
 </body>
 </html>
 </head>
+
 
