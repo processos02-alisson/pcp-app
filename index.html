@@ -2129,12 +2129,11 @@ function renderOFs(){
 }
 // ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (renderOFs) =====
 
-// ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (renderTasks) =====
-// ===== INÍCIO DA CORREÇÃO (renderTasks com Tempo Restante) =====
+// ===== INÍCIO DA CORREÇÃO DEFINITIVA (renderTasks) =====
 function renderTasks(){
   if (operatorView.classList.contains('hidden')) return;
 
-  // 1. CORREÇÃO DE USABILIDADE DO MASTER
+  // [NOVA VERIFICAÇÃO PARA O MASTER] Se for Master e nenhum setor foi selecionado
   if (!currentSectorFilter && isMaster()) {
     tasksListContainer.innerHTML = `
       <div class="p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">
@@ -2148,7 +2147,7 @@ function renderTasks(){
   
   const tasks = Object.values(allTasks)
     .filter(t => {
-      // 2. CORREÇÃO DO FILTRO (O ERRO DE 'GRAMPEAÇÃO')
+      // FILTRO ROBUSTO (Grampeação fix)
       const setorTarefa = (t.setor || '').trim().toLowerCase();
       const filtroSetor = (currentSectorFilter || '').trim().toLowerCase();
       
@@ -2157,12 +2156,18 @@ function renderTasks(){
              (!operatorSearchOF || (t.id_of || "").toUpperCase().includes(operatorSearchOF));
     })
     .sort((a,b) => {
-      // 3. CORREÇÃO DE ORDENAÇÃO
+      // ORDENAÇÃO CORRIGIDA
       const priorityA = a.priority === 'Alta' ? 1 : (a.priority === 'Media' ? 2 : 3);
       const priorityB = b.priority === 'Alta' ? 1 : (b.priority === 'Media' ? 2 : 3);
       if (priorityA !== priorityB) return priorityA - priorityB;
-      if (a.status === 'Em Setup' || a.status === 'Em Produção') return -1;
-      if (b.status === 'Em Setup' || b.status === 'Em Produção') return 1;
+      
+      // Prioriza tarefas ativas (Em Setup ou Em Produção)
+      const aIsActive = a.status === 'Em Setup' || a.status === 'Em Produção';
+      const bIsActive = b.status === 'Em Setup' || b.status === 'Em Produção';
+
+      if (aIsActive && !bIsActive) return -1;
+      if (!aIsActive && bIsActive) return 1;
+      
       return a.ordem - b.ordem;
     });
     
@@ -2179,7 +2184,6 @@ function renderTasks(){
     
     // Define os botões com base no Status e Tipo de Tarefa
     switch(task.status) {
-        // ... (o switch case continua idêntico ao que você já tem)
         case 'Em Espera':
             statusText = 'Aguardando Início';
             actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">
@@ -2232,39 +2236,32 @@ function renderTasks(){
 
     const priorityClass = getPriorityClass(task.priority);
 
-    // --- INÍCIO DA NOVA LÓGICA (Tempo Restante) ---
-    // Pega os tempos P50 e P95 *originais* totais
+    // --- LÓGICA DE TEMPO RESTANTE ---
     const p50_total_original = task.tempo_planejado_p50_min || 0;
     const p95_total_original = task.tempo_planejado_p95_min || 0;
     
-    // Pega os valores que serão exibidos no card
     let p50_exibido = p50_total_original;
     let p95_exibido = p95_total_original;
 
     const pecasOK = task.pecas_concluidas_ok || 0;
     const pecasTotais = task.quantidade_pecas || 1;
     
-    // Se for tarefa de PRODUÇÃO e já tiver peças feitas (mas não todas)
     if (!task.is_setup_task && pecasOK > 0 && pecasOK < pecasTotais) {
         const pecasRestantes = Math.max(0, pecasTotais - pecasOK);
 
-        // 1. Calcula o P50 restante (isolando o setup)
-        const setup_p50 = task.media_setup_min || 0; [cite: 216]
+        const setup_p50 = task.media_setup_min || 0;
         const p50_ciclo_total = p50_total_original - setup_p50;
         const p50_por_peca = (p50_ciclo_total > 0 && pecasTotais > 0) ? (p50_ciclo_total / pecasTotais) : 0;
         
-        // O tempo restante é apenas o ciclo (setup já foi)
         p50_exibido = p50_por_peca * pecasRestantes;
 
-        // 2. Calcula o P95 restante (Aproximação, isolando o setup P50)
-        //    (Não temos o P95 do setup, então usamos a média do setup como aproximação)
         const setup_p95_aprox = setup_p50;
         const p95_ciclo_total = p95_total_original - setup_p95_aprox;
         const p95_por_peca = (p95_ciclo_total > 0 && pecasTotais > 0) ? (p95_ciclo_total / pecasTotais) : 0;
         
         p95_exibido = p95_por_peca * pecasRestantes;
     }
-    // --- FIM DA NOVA LÓGICA ---
+    // --- FIM DA LÓGICA DE TEMPO RESTANTE ---
     
     // Barra de Progresso Parcial (só para tarefas de produção)
     let progressBar = '';
@@ -2331,7 +2328,7 @@ function renderTasks(){
   tasksListContainer.innerHTML = tasksHtml.length > 0 ? tasksHtml : '<div class="p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">Sem tarefas para este setor/OF.</div>';
   lucide.createIcons();
 }
-// ===== FIM DA CORREÇÃO (renderTasks com Tempo Restante) =====
+// ===== FIM DA CORREÇÃO DEFINITIVA (renderTasks) =====
 function renderHistory() {
     if (historicoView.classList.contains('hidden')) return;
 
@@ -2637,6 +2634,7 @@ window.renderHistory = renderHistory;
 </body>
 </html>
 </head>
+
 
 
 
