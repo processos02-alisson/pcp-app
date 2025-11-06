@@ -2130,20 +2130,37 @@ function renderOFs(){
 // ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (renderOFs) =====
 
 // ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (renderTasks) =====
+// ===== INÍCIO DA CORREÇÃO (renderTasks com Tempo Restante) =====
 function renderTasks(){
   if (operatorView.classList.contains('hidden')) return;
 
+  // 1. CORREÇÃO DE USABILIDADE DO MASTER
+  if (!currentSectorFilter && isMaster()) {
+    tasksListContainer.innerHTML = `
+      <div class="p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">
+        <i data-lucide="info" class="w-8 h-8 mx-auto mb-2 text-blue-500"></i>
+        <p class="font-semibold">Visão de Master</p>
+        <p class="text-sm">Por favor, selecione um setor no filtro acima para ver as tarefas.</p>
+      </div>`;
+    lucide.createIcons();
+    return;
+  }
+  
   const tasks = Object.values(allTasks)
-    .filter(t =>
-      (t.setor || '').trim().toLowerCase() === (currentSectorFilter || '').trim().toLowerCase() &&
-      (t.status !== 'Concluído' && t.status !== 'Bloqueada') && // <-- Lógica de Status
-      (!operatorSearchOF || (t.id_of || "").toUpperCase().includes(operatorSearchOF))
-    )
+    .filter(t => {
+      // 2. CORREÇÃO DO FILTRO (O ERRO DE 'GRAMPEAÇÃO')
+      const setorTarefa = (t.setor || '').trim().toLowerCase();
+      const filtroSetor = (currentSectorFilter || '').trim().toLowerCase();
+      
+      return setorTarefa === filtroSetor &&
+             (t.status !== 'Concluído' && t.status !== 'Bloqueada') && 
+             (!operatorSearchOF || (t.id_of || "").toUpperCase().includes(operatorSearchOF));
+    })
     .sort((a,b) => {
+      // 3. CORREÇÃO DE ORDENAÇÃO
       const priorityA = a.priority === 'Alta' ? 1 : (a.priority === 'Media' ? 2 : 3);
       const priorityB = b.priority === 'Alta' ? 1 : (b.priority === 'Media' ? 2 : 3);
       if (priorityA !== priorityB) return priorityA - priorityB;
-      // Prioriza tarefas ativas (Setup ou Produção)
       if (a.status === 'Em Setup' || a.status === 'Em Produção') return -1;
       if (b.status === 'Em Setup' || b.status === 'Em Produção') return 1;
       return a.ordem - b.ordem;
@@ -2151,7 +2168,10 @@ function renderTasks(){
     
   const tasksHtml = tasks.map(task=>{
     const tempoReal = calculateTempoRealMinutes(task); 
+    
+    // O desvio é SEMPRE contra a meta ORIGINAL total
     const desvio = calculateDesvio(task);
+    
     const totalPauseMinutes = calculateTotalPauseMinutes(task);
 
     let statusText = task.status;
@@ -2159,6 +2179,7 @@ function renderTasks(){
     
     // Define os botões com base no Status e Tipo de Tarefa
     switch(task.status) {
+        // ... (o switch case continua idêntico ao que você já tem)
         case 'Em Espera':
             statusText = 'Aguardando Início';
             actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">
@@ -2201,7 +2222,6 @@ function renderTasks(){
                        </button>`;
             break;
             
-        // Status 'Pausada' legado, tratado como 'Produção Pausada'
         case 'Pausada':
             statusText = 'Pausada';
             actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">
@@ -2210,17 +2230,46 @@ function renderTasks(){
             break;
     }
 
-
     const priorityClass = getPriorityClass(task.priority);
-    const p50_min = task.tempo_planejado_p50_min || 0;
-    const p95_min = task.tempo_planejado_p95_min || 0;
+
+    // --- INÍCIO DA NOVA LÓGICA (Tempo Restante) ---
+    // Pega os tempos P50 e P95 *originais* totais
+    const p50_total_original = task.tempo_planejado_p50_min || 0;
+    const p95_total_original = task.tempo_planejado_p95_min || 0;
+    
+    // Pega os valores que serão exibidos no card
+    let p50_exibido = p50_total_original;
+    let p95_exibido = p95_total_original;
+
+    const pecasOK = task.pecas_concluidas_ok || 0;
+    const pecasTotais = task.quantidade_pecas || 1;
+    
+    // Se for tarefa de PRODUÇÃO e já tiver peças feitas (mas não todas)
+    if (!task.is_setup_task && pecasOK > 0 && pecasOK < pecasTotais) {
+        const pecasRestantes = Math.max(0, pecasTotais - pecasOK);
+
+        // 1. Calcula o P50 restante (isolando o setup)
+        const setup_p50 = task.media_setup_min || 0; [cite: 216]
+        const p50_ciclo_total = p50_total_original - setup_p50;
+        const p50_por_peca = (p50_ciclo_total > 0 && pecasTotais > 0) ? (p50_ciclo_total / pecasTotais) : 0;
+        
+        // O tempo restante é apenas o ciclo (setup já foi)
+        p50_exibido = p50_por_peca * pecasRestantes;
+
+        // 2. Calcula o P95 restante (Aproximação, isolando o setup P50)
+        //    (Não temos o P95 do setup, então usamos a média do setup como aproximação)
+        const setup_p95_aprox = setup_p50;
+        const p95_ciclo_total = p95_total_original - setup_p95_aprox;
+        const p95_por_peca = (p95_ciclo_total > 0 && pecasTotais > 0) ? (p95_ciclo_total / pecasTotais) : 0;
+        
+        p95_exibido = p95_por_peca * pecasRestantes;
+    }
+    // --- FIM DA NOVA LÓGICA ---
     
     // Barra de Progresso Parcial (só para tarefas de produção)
     let progressBar = '';
     if (!task.is_setup_task) {
-        const pecasOK = task.pecas_concluidas_ok || 0;
         const pecasNOK = task.pecas_concluidas_nok || 0;
-        const pecasTotais = task.quantidade_pecas || 1;
         const percOK = (pecasOK / pecasTotais) * 100;
         const percNOK = (pecasNOK / pecasTotais) * 100;
         
@@ -2256,11 +2305,11 @@ function renderTasks(){
         <div class="grid grid-cols-2 gap-2 text-xs sm:text-sm mb-2">
           <div class="bg-white/50 p-2 rounded">
              <span class="text-gray-500">Tempo Esperado (P50)</span>
-             <span class="font-semibold text-gray-800 block">${formatMinutes(p50_min)}</span>
+             <span class="font-semibold text-gray-800 block">${formatMinutes(p50_exibido)}</span>
           </div>
           <div class="bg-white/50 p-2 rounded border border-blue-300">
              <span class="text-gray-500">Meta Confiável (P95)</span>
-             <span class="font-bold text-blue-700 block">${formatMinutes(p95_min)}</span>
+             <span class="font-bold text-blue-700 block">${formatMinutes(p95_exibido)}</span>
           </div>
         </div>
 
@@ -2282,9 +2331,7 @@ function renderTasks(){
   tasksListContainer.innerHTML = tasksHtml.length > 0 ? tasksHtml : '<div class="p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">Sem tarefas para este setor/OF.</div>';
   lucide.createIcons();
 }
-// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (renderTasks) =====
-
-// ===== INÍCIO DA EDIÇÃO PRODUÇÃO PARCIAL (renderHistory) =====
+// ===== FIM DA CORREÇÃO (renderTasks com Tempo Restante) =====
 function renderHistory() {
     if (historicoView.classList.contains('hidden')) return;
 
@@ -2590,5 +2637,6 @@ window.renderHistory = renderHistory;
 </body>
 </html>
 </head>
+
 
 
