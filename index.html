@@ -347,7 +347,7 @@
                     
                     <div>
                         <label for="roteiro-instruction-text-admin" class="block text-sm font-medium text-gray-700 mb-1">Instrução de Trabalho:</label>
-                        <textarea id="roteiro-instruction-text-admin" rows="2" class="w-full border border-gray-300 rounded-lg p-2" placeholder="Instruções e links aqui."></textarea>
+                        <textarea id="roteiro-instruction-text-admin" rows="4" class="w-full border border-gray-300 rounded-lg p-2" placeholder="Instruções. Use URLs diretas (terminadas em .jpg, .png, etc.) ou links do YouTube para inserir mídia."></textarea>
                     </div>
                     
                     <button onclick="addEtapaToDraft()" class="p-2 w-full bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
@@ -1747,8 +1747,10 @@ async function deleteRoteiroActivity(roteiroId) {
     }
   } else {
     delete allRoteiros[roteiroId];
+    // CORREÇÃO CRÍTICA: Salvar no localStorage após a exclusão de uma atividade de roteiro.
+    localStorage.setItem('sim_roteiros', JSON.stringify(allRoteiros));
     renderRoteiros();
-    loadRoteiroDropdowns();
+    loadRoteiroDropdowns(); // Recarrega o dropdown de criação de OF com a lista atualizada
   }
 }
 
@@ -1901,21 +1903,42 @@ async function handleConfirmedAction(){
   closeModal();
 }
 
+// NOVA FUNÇÃO: renderInstructionContent (COM SUPORTE A MÍDIA)
 function renderInstructionContent(rawContent) {
     if (!rawContent || rawContent.trim() === '') {
         return '<p class="text-gray-500 italic">Nenhuma instrução de trabalho cadastrada para esta etapa.</p>';
     }
-    let htmlContent = rawContent.replace(/\n/g, '<br>');
-    const urlRegex = /(https?:\/\/[^\s<]+)/g;
-    let processedContent = htmlContent.replace(urlRegex, (url) => {
+    
+    let processedContent = rawContent.replace(/\n/g, '<br>');
+    
+    // 1. Detecta e insere IMAGENS (URLs terminadas em .jpg, .png, etc.)
+    // Adiciona um estilo inline para responsividade e visual
+    const imgRegex = /(https?:\/\/[^\s<]+?\.(?:jpe?g|png|gif|webp|svg|bmp))(\s|<br>|$)/gi;
+    processedContent = processedContent.replace(imgRegex, (match, url) => {
+        return `<img src="${url}" alt="Instrução Visual" style="max-width: 100%; height: auto; border-radius: 8px; margin-top: 10px; margin-bottom: 10px; display: block;" loading="lazy">`;
+    });
+
+    // 2. Detecta e insere VÍDEOS do YouTube
+    // Padrões: youtube.com/watch?v=ID ou youtu.be/ID
+    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/g;
+    processedContent = processedContent.replace(youtubeRegex, (match, videoId) => {
+        // Retorna o iframe de embed do YouTube (responsive com aspect ratio 16:9)
+        return `
+            <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; background: #000; margin-top: 10px; margin-bottom: 10px; border-radius: 8px;">
+                <iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 8px;"></iframe>
+            </div>`;
+    });
+    
+    // 3. Detecta e insere LINKS genéricos que não são mídia
+    const genericUrlRegex = /(https?:\/\/[^\s<]+)/g;
+    processedContent = processedContent.replace(genericUrlRegex, (url) => {
+        // Evita linkar URLs que já foram transformadas (o regex anterior as removeu da string, mas por segurança)
+        if (url.includes('<img') || url.includes('<iframe')) {
+            return url;
+        }
         return `<a href="${url}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium underline">${url}</a>`;
     });
-    processedContent = processedContent.replace(/<a [^>]*href="([^"]*)"[^>]*>[\s\S]*<a [^>]*href="([^"]*)"[^>]*>([\s\S]*)<\/a>[\s\S]*<\/a>/gi, 
-        (match, p1, p2, p3) => {
-            if(p1 === p2) return `<a href="${p1}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium underline">${p3}</a>`;
-            return match;
-        }
-    );
+    
     return processedContent;
 }
 
@@ -1926,6 +1949,7 @@ function openInstructionModal(taskId) {
     `OF ${task.id_of} - Chicote ${task.chicote} - Setor: ${task.setor}`;
   
   const contentEl = document.getElementById('instruction-modal-content');
+  // Usa a função de renderização atualizada
   contentEl.innerHTML = renderInstructionContent(task.instrucao_trabalho);
   openModal('instruction-modal');
   lucide.createIcons();
@@ -2860,7 +2884,7 @@ async function deleteSelectedOcorrencias() {
 function exportOFTasksCSV(ofId){
   const tasks = Object.values(allTasks).filter(t => t.id_of === ofId);
   const rows = [
-    ["OF","ATIVIDADE","SETOR","STATUS", "TIPO_TAREFA",
+    ["OF","CHICOTE","ATIVIDADE","SETOR","STATUS", "TIPO_TAREFA",
      "PECAS_OK", "PECAS_NOK",
      "ESPERADO_P50(min)", "CONFIÁVEL_P95(min)",
      "REAL(min)","DESVIO(vs_P95)(min)", "FADIGA(%)",
@@ -2934,16 +2958,15 @@ function renderRoteiros(){
       
       // Encontra a maior revisão
       const maxRevision = roteirosBase.reduce((max, r) => Math.max(max, r.revisao_number || 0), 0);
-      const latestRoteiros = roteirosBase.filter(r => (r.revisao_number || 0) === maxRevision);
+      let latestRoteiros = roteirosBase.filter(r => (r.revisao_number || 0) === maxRevision);
       
       // Contingência para dados legados (sem revisao_number)
-      if (latestRoteiros.length === 0 && maxRevision === 0) {
-          latestRoteiros.push(...roteirosBase.filter(r => !r.revisao_number));
-      } else if (latestRoteiros.length === 0) {
-          // Se maxRevision for > 0 mas não encontrou, algo está errado, mas usamos a REV mais alta encontrada
-          latestRoteiros.push(...roteirosBase.filter(r => (r.revisao_number || 0) === maxRevision));
+      if (latestRoteiros.length === 0) {
+          latestRoteiros = roteirosBase.filter(r => !r.revisao_number && maxRevision === 0);
       }
       
+      if (latestRoteiros.length === 0) return; // Se ainda estiver vazio, pula
+
       const latestChicoteName = latestRoteiros[0]?.chicote_nome || idBase;
 
       // 2.1. Agrupamento por Setor DENTRO do Chicote
@@ -2962,7 +2985,7 @@ function renderRoteiros(){
       sortedSectors.forEach(setor => {
           const setorRoteiros = groupedBySector[setor];
           
-          setorRoteiros.sort((a, b) => (a.ordem || 0) - (b.ord.em || 0));
+          setorRoteiros.sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
 
           setoresHtml += `
               <div class="mt-4 first:mt-0">
@@ -3056,4 +3079,5 @@ window.renderHistory = renderHistory;
 </script>
 </body>
 </html>
+
 
