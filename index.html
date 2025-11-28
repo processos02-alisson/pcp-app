@@ -1914,6 +1914,9 @@ async function handleConfirmedAction(){
 // ================================================================
 // FUNÇÃO INTELIGENTE V5 (VERSÃO BLINDADA - CORREÇÃO DE CLIQUE E IMAGEM)
 // ================================================================
+// ================================================================
+// FUNÇÃO INTELIGENTE V6 (LINK THUMBNAIL + CORREÇÃO CLIQUE)
+// ================================================================
 function renderInstructionContent(text) {
     if (!text || text.trim() === '') {
         return '<p class="text-gray-500 italic">Nenhuma instrução de trabalho cadastrada.</p>';
@@ -1935,27 +1938,28 @@ function renderInstructionContent(text) {
         </div>`;
     });
 
-    // 2. GOOGLE DRIVE (Lógica Robusta V5)
+    // 2. GOOGLE DRIVE (V6 - TÉCNICA THUMBNAIL)
     const driveRegex = /https?:\/\/(?:drive|docs)\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([a-zA-Z0-9_-]+)(?:[^\s<]*)/g;
 
     processed = processed.replace(driveRegex, (fullUrl, fileId) => {
         
         const cleanUrl = fullUrl.replace(/<br>$/, '');
         
-        // Tags de Controle
+        // Tags de Controle (#)
         const isForceImg = cleanUrl.includes('#img');
         const isForcePdf = cleanUrl.includes('#pdf');
         const isForceVid = cleanUrl.includes('#vid');
 
-        // LINKS (Método Oficial Estável)
-        const imgSource = `https://drive.google.com/uc?export=view&id=${fileId}`; 
+        // URL "MÁGICA" (Thumbnail Gigante w1000) - Carrega muito mais rápido e não bloqueia
+        const imgSource = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`; 
+        
         const openLink = `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
 
-        // ESTILO DO BOTÃO (Com correção de z-index e pointer-events)
+        // TEMPLATE DO BOTÃO
         const renderButton = (type) => `
-            <div style="position: relative; z-index: 50; margin-top: 10px; margin-bottom: 10px;">
+            <div style="position: relative; z-index: 50; margin: 10px 0;">
                 <a href="${openLink}" target="_blank" onclick="event.stopPropagation();"
-                   class="w-full p-4 bg-${type==='video'?'purple':'blue'}-50 hover:bg-${type==='video'?'purple':'blue'}-100 border border-${type==='video'?'purple':'blue'}-200 rounded-lg flex items-center gap-3 transition group text-decoration-none cursor-pointer shadow-sm hover:shadow-md">
+                   class="w-full p-4 bg-${type==='video'?'purple':'blue'}-50 hover:bg-${type==='video'?'purple':'blue'}-100 border border-${type==='video'?'purple':'blue'}-200 rounded-lg flex items-center gap-3 transition group text-decoration-none cursor-pointer shadow-sm">
                     <div class="bg-${type==='video'?'purple':'blue'}-600 text-white p-2 rounded-full group-hover:scale-110 transition shrink-0">
                          <i data-lucide="${type==='video'?'play-circle':'file-text'}" class="w-6 h-6"></i>
                     </div>
@@ -1969,11 +1973,10 @@ function renderInstructionContent(text) {
                 </a>
             </div>`;
 
-        // LÓGICA DE EXIBIÇÃO
         if (isForcePdf) return renderButton('pdf');
         if (isForceVid) return renderButton('video');
 
-        // Padrão ou #img
+        // Bloco Imagem com Fallback
         return `
         <div class="my-3" style="position: relative;">
             <img src="${imgSource}" 
@@ -2003,14 +2006,14 @@ function renderInstructionContent(text) {
         `;
     });
 
-    // 3. Links Genéricos de Imagem
+    // 3. Imagens Normais
     const imgRegex = /(https?:\/\/[^\s<]+?\.(?:jpe?g|png|gif|webp|svg|bmp))(\s|<br>|$)/gi;
     processed = processed.replace(imgRegex, (match, url) => {
         if (url.includes('google.com') || url.includes('youtube')) return match;
         return `<img src="${url}" class="rounded-lg shadow-md max-w-full h-auto my-2" loading="lazy">`;
     });
 
-    // 4. Links de Texto (Linkify)
+    // 4. Links Texto
     const genericUrlRegex = /(https?:\/\/[^\s<]+)/g;
     processed = processed.replace(genericUrlRegex, (url) => {
         if (url.includes('<img') || url.includes('<iframe') || url.includes('class="w-full') || url.includes('onclick=')) return url;
@@ -3174,4 +3177,5 @@ window.renderHistory = renderHistory;
 </script>
 </body>
 </html>
+
 
