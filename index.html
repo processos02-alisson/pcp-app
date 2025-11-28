@@ -1903,43 +1903,113 @@ async function handleConfirmedAction(){
   closeModal();
 }
 
-// NOVA FUNÇÃO: renderInstructionContent (COM SUPORTE A MÍDIA)
-function renderInstructionContent(rawContent) {
-    if (!rawContent || rawContent.trim() === '') {
+// ================================================================
+// NOVA FUNÇÃO INTELIGENTE (V4 - COM HASHTAGS #img, #pdf, #vid)
+// ================================================================
+function renderInstructionContent(text) {
+    if (!text || text.trim() === '') {
         return '<p class="text-gray-500 italic">Nenhuma instrução de trabalho cadastrada para esta etapa.</p>';
     }
     
-    let processedContent = rawContent.replace(/\n/g, '<br>');
-    
-    // 1. Detecta e insere IMAGENS (URLs terminadas em .jpg, .png, etc.)
-    // Adiciona um estilo inline para responsividade e visual
-    const imgRegex = /(https?:\/\/[^\s<]+?\.(?:jpe?g|png|gif|webp|svg|bmp))(\s|<br>|$)/gi;
-    processedContent = processedContent.replace(imgRegex, (match, url) => {
-        return `<img src="${url}" alt="Instrução Visual" style="max-width: 100%; height: auto; border-radius: 8px; margin-top: 10px; margin-bottom: 10px; display: block;" loading="lazy">`;
+    let processed = text.replace(/\n/g, '<br>');
+
+    // 1. YOUTUBE
+    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[^\s]*)?/g;
+    processed = processed.replace(youtubeRegex, (match, videoId) => {
+        return `
+        <div class="my-4 rounded-xl overflow-hidden shadow-lg border border-gray-200 bg-black">
+            <div style="position: relative; padding-bottom: 56.25%; height: 0;">
+                <iframe src="https://www.youtube.com/embed/${videoId}" 
+                    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" 
+                    frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen>
+                </iframe>
+            </div>
+        </div>`;
     });
 
-    // 2. Detecta e insere VÍDEOS do YouTube
-    // Padrões: youtube.com/watch?v=ID ou youtu.be/ID
-    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/g;
-    processedContent = processedContent.replace(youtubeRegex, (match, videoId) => {
-        // Retorna o iframe de embed do YouTube (responsive com aspect ratio 16:9)
+    // 2. GOOGLE DRIVE (Lógica V4 com Tags)
+    const driveRegex = /https?:\/\/(?:drive|docs)\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([a-zA-Z0-9_-]+)(?:[^\s<]*)/g;
+
+    processed = processed.replace(driveRegex, (fullUrl, fileId) => {
+        
+        // Remove quebras de linha que possam vir no match
+        const cleanUrl = fullUrl.replace(/<br>$/, '');
+
+        // Lógica de Decisão baseada na TAG
+        const isForceImg = cleanUrl.includes('#img');
+        const isForcePdf = cleanUrl.includes('#pdf');
+        const isForceVid = cleanUrl.includes('#vid');
+
+        // Definição dos Links
+        // V2 (lh3) para forçar imagem, V3 (export) para padrão
+        const imgSource = isForceImg 
+            ? `https://lh3.googleusercontent.com/d/${fileId}` 
+            : `https://drive.google.com/uc?export=view&id=${fileId}`;  
+
+        const openLink = `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
+
+        // TEMPLATE DE BOTÃO
+        const renderButton = (type) => `
+            <a href="${openLink}" target="_blank" 
+               class="my-3 w-full p-4 bg-${type==='video'?'purple':'blue'}-50 hover:bg-${type==='video'?'purple':'blue'}-100 border border-${type==='video'?'purple':'blue'}-200 rounded-lg flex items-center gap-3 transition group text-decoration-none cursor-pointer">
+                <div class="bg-${type==='video'?'purple':'blue'}-600 text-white p-2 rounded-full group-hover:scale-110 transition shrink-0">
+                     <i data-lucide="${type==='video'?'play-circle':'file-text'}" class="w-6 h-6"></i>
+                </div>
+                <div class="text-left overflow-hidden">
+                    <p class="font-bold text-${type==='video'?'purple':'blue'}-900 text-sm truncate">${type==='video'?'Assistir Vídeo Externo':'Abrir Documento Anexado'}</p>
+                    <p class="text-xs text-${type==='video'?'purple':'blue'}-600 truncate">Clique para acessar via Google Drive</p>
+                </div>
+                <div class="ml-auto text-${type==='video'?'purple':'blue'}-400 shrink-0">
+                    <i data-lucide="external-link" class="w-5 h-5"></i>
+                </div>
+            </a>`;
+
+        // RETORNA A RENDERIZAÇÃO CORRETA
+        if (isForcePdf) return renderButton('pdf');
+        if (isForceVid) return renderButton('video');
+
         return `
-            <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; background: #000; margin-top: 10px; margin-bottom: 10px; border-radius: 8px;">
-                <iframe src="https://www.youtube.com/embed/${videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 8px;"></iframe>
-            </div>`;
+        <div class="my-3">
+            <img src="${imgSource}" 
+                 class="rounded-lg shadow-md max-w-full h-auto mx-auto border border-gray-200" 
+                 loading="lazy"
+                 style="display: block;"
+                 alt="Anexo"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" 
+            />
+            <a href="${openLink}" target="_blank" 
+               class="w-full p-4 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg items-center gap-3 transition group cursor-pointer text-decoration-none"
+               style="display: none;">
+                <div class="bg-blue-600 text-white p-2 rounded-full group-hover:scale-110 transition shrink-0">
+                     <i data-lucide="file-text" class="w-6 h-6"></i>
+                </div>
+                <div class="text-left overflow-hidden">
+                    <p class="font-bold text-blue-900 text-sm truncate">Abrir Arquivo</p>
+                    <p class="text-xs text-blue-600 truncate">Clique para visualizar</p>
+                </div>
+                <div class="ml-auto text-blue-400 shrink-0">
+                    <i data-lucide="external-link" class="w-5 h-5"></i>
+                </div>
+            </a>
+        </div>
+        `;
     });
-    
-    // 3. Detecta e insere LINKS genéricos que não são mídia
+
+    // 3. Links de Imagem Direta (Genéricos)
+    const imgRegex = /(https?:\/\/[^\s<]+?\.(?:jpe?g|png|gif|webp|svg|bmp))(\s|<br>|$)/gi;
+    processed = processed.replace(imgRegex, (match, url) => {
+        if (url.includes('google.com') || url.includes('youtube')) return match;
+        return `<img src="${url}" class="rounded-lg shadow-md max-w-full h-auto my-2" loading="lazy">`;
+    });
+
+    // 4. Links Genéricos
     const genericUrlRegex = /(https?:\/\/[^\s<]+)/g;
-    processedContent = processedContent.replace(genericUrlRegex, (url) => {
-        // Evita linkar URLs que já foram transformadas (o regex anterior as removeu da string, mas por segurança)
-        if (url.includes('<img') || url.includes('<iframe')) {
-            return url;
-        }
-        return `<a href="${url}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium underline">${url}</a>`;
+    processed = processed.replace(genericUrlRegex, (url) => {
+        if (url.includes('<img') || url.includes('<iframe') || url.includes('class="w-full')) return url;
+        return `<a href="${url}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium underline break-all">${url}</a>`;
     });
     
-    return processedContent;
+    return processed;
 }
 
 function openInstructionModal(taskId) {
@@ -1949,7 +2019,6 @@ function openInstructionModal(taskId) {
     `OF ${task.id_of} - Chicote ${task.chicote} - Setor: ${task.setor}`;
   
   const contentEl = document.getElementById('instruction-modal-content');
-  // Usa a função de renderização atualizada
   contentEl.innerHTML = renderInstructionContent(task.instrucao_trabalho);
   openModal('instruction-modal');
   lucide.createIcons();
@@ -2880,7 +2949,7 @@ async function deleteSelectedOcorrencias() {
   }
 }
 
-// exportOFTasksCSV
+// exportOFTasksCSV - COM CORREÇÃO DE PAUSAS
 function exportOFTasksCSV(ofId){
   const tasks = Object.values(allTasks).filter(t => t.id_of === ofId);
   const rows = [
@@ -2888,10 +2957,26 @@ function exportOFTasksCSV(ofId){
      "PECAS_OK", "PECAS_NOK",
      "ESPERADO_P50(min)", "CONFIÁVEL_P95(min)",
      "REAL(min)","DESVIO(vs_P95)(min)", "FADIGA(%)",
+     "TEMPO_PAUSA_TOTAL(min)", "MOTIVOS_PAUSA", // NOVAS COLUNAS
      "MEDIA_CICLO(min)", "DESVIO_CICLO(min)", "MEDIA_SETUP(min)", "DESVIO_SETUP(min)"
     ]
   ];
+  
   tasks.forEach(t => {
+    // Busca todos os logs de pausa para esta tarefa específica
+    const logsPausa = allOcurrencesLog.filter(l => 
+        l.OF === t.id_of && 
+        l.ATIVIDADE === t.nome_atividade && 
+        l.TIPO === 'PAUSA'
+    );
+
+    // Soma o tempo de pausa (dos logs) - ou usa o da tarefa se preferir
+    // Vamos usar a soma dos logs para bater com os motivos listados
+    const tempoPausaLogs = logsPausa.reduce((acc, l) => acc + (l.TEMPO_PAUSA || 0), 0);
+    
+    // Concatena os motivos
+    const motivosPausa = logsPausa.map(l => l.MOTIVO_PAUSA).filter(Boolean).join('; ');
+
     rows.push([
       t.id_of, t.nome_atividade, t.setor, t.status, (t.is_setup_task ? "SETUP" : "PRODUCAO"),
       t.pecas_concluidas_ok || 0, t.pecas_concluidas_nok || 0,
@@ -2900,12 +2985,15 @@ function exportOFTasksCSV(ofId){
       calculateTempoRealMinutes(t).toFixed(2), 
       calculateDesvio(t).toFixed(2),
       (t.fator_fadiga_perc || 0),
+      tempoPausaLogs.toFixed(2),  // NOVA COLUNA
+      motivosPausa,               // NOVA COLUNA
       (t.media_ciclo_min || 0).toFixed(4),
       (t.desvio_ciclo_min || 0).toFixed(4),
       (t.media_setup_min || 0).toFixed(2),
       (t.desvio_setup_min || 0).toFixed(2)
     ]);
   });
+  
   downloadCSV(rows, `of_${ofId}_tasks_${new Date().toISOString().slice(0,10)}.csv`);
 }
 
@@ -3079,5 +3167,3 @@ window.renderHistory = renderHistory;
 </script>
 </body>
 </html>
-
-
