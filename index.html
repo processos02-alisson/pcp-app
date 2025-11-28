@@ -69,7 +69,12 @@
 
     .modal-fixed { position: fixed; inset: 0;
     }
-    .modal-panel { max-height: calc(100dvh - 2rem); }
+    /* ATUALIZAÇÃO DO MODAL PANEL (CORREÇÃO DE CLIQUE) */
+    .modal-panel { 
+        max-height: calc(100dvh - 2rem); 
+        position: relative; /* Necessário para o z-index funcionar */
+        z-index: 100;       /* Garante que o painel fique acima de tudo */
+    }
     .modal-body-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch;
     }
     .sticky-footer { position: sticky; bottom: 0; background: white; padding-top: .5rem;
@@ -1906,9 +1911,12 @@ async function handleConfirmedAction(){
 // ================================================================
 // NOVA FUNÇÃO INTELIGENTE (V4 - COM HASHTAGS #img, #pdf, #vid)
 // ================================================================
+// ================================================================
+// FUNÇÃO INTELIGENTE V5 (VERSÃO BLINDADA - CORREÇÃO DE CLIQUE E IMAGEM)
+// ================================================================
 function renderInstructionContent(text) {
     if (!text || text.trim() === '') {
-        return '<p class="text-gray-500 italic">Nenhuma instrução de trabalho cadastrada para esta etapa.</p>';
+        return '<p class="text-gray-500 italic">Nenhuma instrução de trabalho cadastrada.</p>';
     }
     
     let processed = text.replace(/\n/g, '<br>');
@@ -1917,7 +1925,7 @@ function renderInstructionContent(text) {
     const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[^\s]*)?/g;
     processed = processed.replace(youtubeRegex, (match, videoId) => {
         return `
-        <div class="my-4 rounded-xl overflow-hidden shadow-lg border border-gray-200 bg-black">
+        <div class="my-4 rounded-xl overflow-hidden shadow-lg border border-gray-200 bg-black" style="position: relative; z-index: 20;">
             <div style="position: relative; padding-bottom: 56.25%; height: 0;">
                 <iframe src="https://www.youtube.com/embed/${videoId}" 
                     style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" 
@@ -1927,91 +1935,90 @@ function renderInstructionContent(text) {
         </div>`;
     });
 
-    // 2. GOOGLE DRIVE (Lógica V4 com Tags)
+    // 2. GOOGLE DRIVE (Lógica Robusta V5)
     const driveRegex = /https?:\/\/(?:drive|docs)\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([a-zA-Z0-9_-]+)(?:[^\s<]*)/g;
 
     processed = processed.replace(driveRegex, (fullUrl, fileId) => {
         
-        // Remove quebras de linha que possam vir no match
         const cleanUrl = fullUrl.replace(/<br>$/, '');
-
-        // Lógica de Decisão baseada na TAG
+        
+        // Tags de Controle
         const isForceImg = cleanUrl.includes('#img');
         const isForcePdf = cleanUrl.includes('#pdf');
         const isForceVid = cleanUrl.includes('#vid');
 
-        // Definição dos Links
-        // V2 (lh3) para forçar imagem, V3 (export) para padrão
-        const imgSource = isForceImg 
-            ? `https://lh3.googleusercontent.com/d/${fileId}` 
-            : `https://drive.google.com/uc?export=view&id=${fileId}`;  
-
+        // LINKS (Método Oficial Estável)
+        const imgSource = `https://drive.google.com/uc?export=view&id=${fileId}`; 
         const openLink = `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
 
-        // TEMPLATE DE BOTÃO
+        // ESTILO DO BOTÃO (Com correção de z-index e pointer-events)
         const renderButton = (type) => `
-            <a href="${openLink}" target="_blank" 
-               class="my-3 w-full p-4 bg-${type==='video'?'purple':'blue'}-50 hover:bg-${type==='video'?'purple':'blue'}-100 border border-${type==='video'?'purple':'blue'}-200 rounded-lg flex items-center gap-3 transition group text-decoration-none cursor-pointer">
-                <div class="bg-${type==='video'?'purple':'blue'}-600 text-white p-2 rounded-full group-hover:scale-110 transition shrink-0">
-                     <i data-lucide="${type==='video'?'play-circle':'file-text'}" class="w-6 h-6"></i>
-                </div>
-                <div class="text-left overflow-hidden">
-                    <p class="font-bold text-${type==='video'?'purple':'blue'}-900 text-sm truncate">${type==='video'?'Assistir Vídeo Externo':'Abrir Documento Anexado'}</p>
-                    <p class="text-xs text-${type==='video'?'purple':'blue'}-600 truncate">Clique para acessar via Google Drive</p>
-                </div>
-                <div class="ml-auto text-${type==='video'?'purple':'blue'}-400 shrink-0">
-                    <i data-lucide="external-link" class="w-5 h-5"></i>
-                </div>
-            </a>`;
+            <div style="position: relative; z-index: 50; margin-top: 10px; margin-bottom: 10px;">
+                <a href="${openLink}" target="_blank" onclick="event.stopPropagation();"
+                   class="w-full p-4 bg-${type==='video'?'purple':'blue'}-50 hover:bg-${type==='video'?'purple':'blue'}-100 border border-${type==='video'?'purple':'blue'}-200 rounded-lg flex items-center gap-3 transition group text-decoration-none cursor-pointer shadow-sm hover:shadow-md">
+                    <div class="bg-${type==='video'?'purple':'blue'}-600 text-white p-2 rounded-full group-hover:scale-110 transition shrink-0">
+                         <i data-lucide="${type==='video'?'play-circle':'file-text'}" class="w-6 h-6"></i>
+                    </div>
+                    <div class="text-left overflow-hidden">
+                        <p class="font-bold text-${type==='video'?'purple':'blue'}-900 text-sm truncate">${type==='video'?'Assistir Vídeo Externo':'Abrir Documento Anexado'}</p>
+                        <p class="text-xs text-${type==='video'?'purple':'blue'}-600 truncate">Clique para acessar via Google Drive</p>
+                    </div>
+                    <div class="ml-auto text-${type==='video'?'purple':'blue'}-400 shrink-0">
+                        <i data-lucide="external-link" class="w-5 h-5"></i>
+                    </div>
+                </a>
+            </div>`;
 
-        // RETORNA A RENDERIZAÇÃO CORRETA
+        // LÓGICA DE EXIBIÇÃO
         if (isForcePdf) return renderButton('pdf');
         if (isForceVid) return renderButton('video');
 
+        // Padrão ou #img
         return `
-        <div class="my-3">
+        <div class="my-3" style="position: relative;">
             <img src="${imgSource}" 
                  class="rounded-lg shadow-md max-w-full h-auto mx-auto border border-gray-200" 
                  loading="lazy"
                  style="display: block;"
                  alt="Anexo"
-                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" 
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" 
             />
-            <a href="${openLink}" target="_blank" 
-               class="w-full p-4 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg items-center gap-3 transition group cursor-pointer text-decoration-none"
-               style="display: none;">
-                <div class="bg-blue-600 text-white p-2 rounded-full group-hover:scale-110 transition shrink-0">
-                     <i data-lucide="file-text" class="w-6 h-6"></i>
-                </div>
-                <div class="text-left overflow-hidden">
-                    <p class="font-bold text-blue-900 text-sm truncate">Abrir Arquivo</p>
-                    <p class="text-xs text-blue-600 truncate">Clique para visualizar</p>
-                </div>
-                <div class="ml-auto text-blue-400 shrink-0">
-                    <i data-lucide="external-link" class="w-5 h-5"></i>
-                </div>
-            </a>
+            
+            <div style="display: none; position: relative; z-index: 50;">
+                <a href="${openLink}" target="_blank" onclick="event.stopPropagation();"
+                   class="w-full p-4 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg flex items-center gap-3 transition group cursor-pointer text-decoration-none shadow-sm">
+                    <div class="bg-blue-600 text-white p-2 rounded-full group-hover:scale-110 transition shrink-0">
+                         <i data-lucide="file-text" class="w-6 h-6"></i>
+                    </div>
+                    <div class="text-left overflow-hidden">
+                        <p class="font-bold text-blue-900 text-sm truncate">Abrir Arquivo</p>
+                        <p class="text-xs text-blue-600 truncate">Clique para visualizar</p>
+                    </div>
+                    <div class="ml-auto text-blue-400 shrink-0">
+                        <i data-lucide="external-link" class="w-5 h-5"></i>
+                    </div>
+                </a>
+            </div>
         </div>
         `;
     });
 
-    // 3. Links de Imagem Direta (Genéricos)
+    // 3. Links Genéricos de Imagem
     const imgRegex = /(https?:\/\/[^\s<]+?\.(?:jpe?g|png|gif|webp|svg|bmp))(\s|<br>|$)/gi;
     processed = processed.replace(imgRegex, (match, url) => {
         if (url.includes('google.com') || url.includes('youtube')) return match;
         return `<img src="${url}" class="rounded-lg shadow-md max-w-full h-auto my-2" loading="lazy">`;
     });
 
-    // 4. Links Genéricos
+    // 4. Links de Texto (Linkify)
     const genericUrlRegex = /(https?:\/\/[^\s<]+)/g;
     processed = processed.replace(genericUrlRegex, (url) => {
-        if (url.includes('<img') || url.includes('<iframe') || url.includes('class="w-full')) return url;
-        return `<a href="${url}" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium underline break-all">${url}</a>`;
+        if (url.includes('<img') || url.includes('<iframe') || url.includes('class="w-full') || url.includes('onclick=')) return url;
+        return `<a href="${url}" target="_blank" onclick="event.stopPropagation();" class="text-indigo-600 hover:text-indigo-800 font-medium underline break-all" style="position:relative; z-index:50;">${url}</a>`;
     });
     
     return processed;
 }
-
 function openInstructionModal(taskId) {
   const task = allTasks[taskId];
   if (!task) return;
@@ -3167,3 +3174,4 @@ window.renderHistory = renderHistory;
 </script>
 </body>
 </html>
+
