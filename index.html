@@ -1716,6 +1716,250 @@ async function createOcorrenciaLog(task, type, justification, justificationText)
   }
 }
 /* ============================
+  CRIAÇÃO (OFs e Roteiros)
+  ============================ */
+// --- ROTEIROS (Rascunho) ---
+let draftTasks = [];
+
+function addEtapaToDraft(){
+  const nome = document.getElementById('new-roteiro-atividade').value.trim();
+  const setor = document.getElementById('new-roteiro-setor').value;
+  const p50 = parseFloat(document.getElementById('new-roteiro-p50').value);
+  const p95 = parseFloat(document.getElementById('new-roteiro-p95').value);
+  const setup = parseFloat(document.getElementById('new-roteiro-setup').value) || 0;
+  const fadiga = parseFloat(document.getElementById('new-roteiro-fadiga').value) || 0;
+  const instruction = document.getElementById('new-roteiro-instruction').value.trim();
+
+  if(!nome || !setor || isNaN(p50) || isNaN(p95)){
+    alert("Preencha Nome, Setor, P50 e P95."); return;
+  }
+  if(p50 > p95){
+    alert("Erro: P50 não pode ser maior que P95."); return;
+  }
+
+  draftTasks.push({
+    id: generateId(),
+    nome_atividade: nome,
+    setor,
+    media_ciclo_min: p50,
+    tempo_planejado_p50_min: p50,
+    tempo_planejado_p95_min: p95,
+    media_setup_min: setup,
+    fator_fadiga_perc: fadiga,
+    instrucao_trabalho: instruction,
+    ordem: draftTasks.length + 1
+  });
+
+  document.getElementById('new-roteiro-atividade').value = '';
+  document.getElementById('new-roteiro-p50').value = '';
+  document.getElementById('new-roteiro-p95').value = '';
+  document.getElementById('new-roteiro-setup').value = '';
+  document.getElementById('new-roteiro-fadiga').value = '';
+  document.getElementById('new-roteiro-instruction').value = '';
+  
+  renderDraftList();
+}
+
+function removeDraftTask(index){
+  draftTasks.splice(index, 1);
+  draftTasks.forEach((t, i) => t.ordem = i + 1);
+  renderDraftList();
+}
+
+function renderDraftList(){
+  const list = document.getElementById('draft-list');
+  if(!list) return;
+  list.innerHTML = draftTasks.map((t, i) => `
+    <div class="flex justify-between items-center bg-gray-50 p-2 rounded mb-2 border">
+      <div>
+        <span class="font-bold text-sm">${t.ordem}. ${t.nome_atividade}</span>
+        <span class="text-xs text-gray-600">(${t.setor})</span>
+        <div class="text-xs text-gray-500">P50: ${t.media_ciclo_min} | P95: ${t.tempo_planejado_p95_min} | Setup: ${t.media_setup_min}</div>
+      </div>
+      <button onclick="removeDraftTask(${i})" class="text-red-500 hover:text-red-700">
+        <i data-lucide="trash-2" class="w-4 h-4"></i>
+      </button>
+    </div>
+  `).join('');
+  lucide.createIcons();
+}
+
+function clearDraft(){
+  if(confirm("Limpar rascunho?")) {
+    draftTasks = [];
+    renderDraftList();
+  }
+}
+
+async function saveRoteiroFromDraft(){
+  const chicoteNome = document.getElementById('new-roteiro-nome').value.trim().toUpperCase();
+  const revInput = document.getElementById('new-roteiro-rev').value;
+  const revisao = revInput ? parseInt(revInput) : 1;
+
+  if(!chicoteNome){ alert("Digite o nome do Chicote/Produto."); return; }
+  if(draftTasks.length === 0){ alert("Adicione pelo menos uma etapa."); return; }
+
+  const idBase = chicoteNome; 
+  const existing = Object.values(allRoteiros).find(r => 
+      (r.roteiro_id_base === idBase || r.chicote_nome === chicoteNome) && 
+      (r.revisao_number || 0) === revisao
+  );
+  
+  if (existing) {
+      if(!confirm(`Já existe um roteiro "${chicoteNome}" Revisão ${revisao}. Deseja sobrescrever?`)) return;
+  }
+
+  if (window.db) {
+    const batch = db.batch();
+    draftTasks.forEach(task => {
+        const docRef = db.collection(ROTEIRO_COLLECTION).doc();
+        batch.set(docRef, {
+            ...task,
+            roteiro_id_base: idBase,
+            chicote_nome: chicoteNome,
+            revisao_number: revisao,
+            data_criacao: new Date().toISOString()
+        });
+    });
+    await batch.commit();
+    alert("Roteiro salvo no Firebase!");
+  } else {
+    draftTasks.forEach(task => {
+        const newId = generateId();
+        allRoteiros[newId] = {
+            ...task,
+            id: newId,
+            roteiro_id_base: idBase,
+            chicote_nome: chicoteNome,
+            revisao_number: revisao,
+            data_criacao: new Date().toISOString()
+        };
+    });
+    localStorage.setItem('sim_roteiros', JSON.stringify(allRoteiros));
+    alert("Roteiro salvo localmente!");
+    renderRoteiros();
+  }
+  
+  draftTasks = [];
+  renderDraftList();
+  document.getElementById('new-roteiro-nome').value = '';
+  document.getElementById('new-roteiro-rev').value = '';
+  loadRoteiroDropdowns();
+  closeModal('create-roteiro-modal');
+}
+
+// --- CRIAÇÃO DE OF ---
+async function createOF(){
+  const roteiroIdBase = document.getElementById('new-of-roteiro').value;
+  const qtd = parseInt(document.getElementById('new-of-qtd').value);
+  const priority = document.getElementById('new-of-priority').value;
+  
+  if(!roteiroIdBase || !qtd || qtd <= 0){
+    alert("Selecione um Roteiro e uma Quantidade válida."); return;
+  }
+
+  const roteirosDoProduto = Object.values(allRoteiros).filter(r => 
+      (r.roteiro_id_base === roteiroIdBase || r.chicote_nome === roteiroIdBase)
+  );
+  
+  if (roteirosDoProduto.length === 0) { alert("Erro: Roteiro não encontrado."); return; }
+
+  const maxRev = roteirosDoProduto.reduce((max, r) => Math.max(max, r.revisao_number || 0), 0);
+  const etapasRoteiro = roteirosDoProduto.filter(r => (r.revisao_number || 0) === maxRev);
+  
+  if (etapasRoteiro.length === 0) { alert("Erro: Nenhuma etapa nesta revisão."); return; }
+  
+  etapasRoteiro.sort((a,b) => (a.ordem || 0) - (b.ordem || 0));
+
+  const ofId = generateOFId(); 
+  const chicoteNome = etapasRoteiro[0].chicote_nome || roteiroIdBase;
+  
+  // Cálculo de Monte Carlo para a OF
+  const auditLog = [];
+  const simulationResults = runMonteCarloSimulation(etapasRoteiro, qtd, 5000, auditLog);
+  const auditHtml = generateAuditHTML(auditLog, simulationResults);
+
+  const newOF = {
+    id: ofId,
+    roteiro_id_base: roteiroIdBase,
+    chicote: chicoteNome,
+    revisao_number: maxRev,
+    quantidade: qtd,
+    priority,
+    status: 'Pendente',
+    data_criacao: new Date().toISOString(),
+    tempo_planejado_p50_min: simulationResults.p50_total, 
+    tempo_planejado_p95_min: simulationResults.p95_total, 
+    percentil_confianca: 0.95,
+    pecas_concluidas_ok: 0,
+    pecas_concluidas_nok: 0,
+    audit_log_html: auditHtml
+  };
+
+  const tasksToCreate = etapasRoteiro.map(etapa => {
+    // Cálculo proporcional por tarefa
+    const p50_tarefa_total = (etapa.media_setup_min || 0) + ((etapa.media_ciclo_min || 0) * qtd);
+    const p95_tarefa_total = (etapa.media_setup_min || 0) + ((etapa.tempo_planejado_p95_min || etapa.media_ciclo_min || 0) * qtd);
+
+    return {
+      id: generateId(),
+      id_of: ofId,
+      nome_atividade: etapa.nome_atividade,
+      setor: etapa.setor,
+      ordem: etapa.ordem,
+      
+      quantidade_pecas: qtd,
+      pecas_concluidas_ok: 0,
+      pecas_concluidas_nok: 0,
+      
+      // Tempos totais da tarefa para o lote inteiro
+      media_ciclo_min: etapa.media_ciclo_min, // Unitário
+      media_setup_min: etapa.media_setup_min, // Fixo
+      tempo_planejado_p50_min: p50_tarefa_total,
+      tempo_planejado_p95_min: p95_tarefa_total,
+      fator_fadiga_perc: etapa.fator_fadiga_perc,
+      instrucao_trabalho: etapa.instrucao_trabalho || "",
+      
+      status: 'Em Espera',
+      priority: priority,
+      chicote: chicoteNome,
+      is_setup_task: false
+    };
+  });
+
+  // Geração de Tarefas de Setup (separadas) se houver tempo de setup
+  const finalTasks = [];
+  tasksToCreate.forEach(t => {
+      if (t.media_setup_min > 0) {
+          const setupTask = { ...t, id: generateId(), nome_atividade: t.nome_atividade, is_setup_task: true, status: 'Em Espera', tempo_planejado_p50_min: t.media_setup_min, tempo_planejado_p95_min: t.media_setup_min };
+          finalTasks.push(setupTask);
+      }
+      finalTasks.push(t);
+  });
+
+  if (window.db) {
+    const batch = db.batch();
+    batch.set(db.collection(OF_COLLECTION).doc(ofId), newOF);
+    finalTasks.forEach(t => {
+      batch.set(db.collection(TASK_COLLECTION).doc(t.id), t);
+    });
+    await batch.commit();
+    alert(`OF ${ofId} criada com sucesso! (Firebase)`);
+  } else {
+    allOFs[ofId] = newOF;
+    finalTasks.forEach(t => allTasks[t.id] = t);
+    localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
+    localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
+    alert(`OF ${ofId} criada com sucesso! (Local)`);
+    renderOFs();
+  }
+  
+  closeModal('create-of-modal');
+  updateView('PCP');
+}
+
+
+/* ============================
   AÇÕES
   ============================ */
 function startTask(taskId){
@@ -1752,10 +1996,9 @@ async function deleteRoteiroActivity(roteiroId) {
     }
   } else {
     delete allRoteiros[roteiroId];
-    // CORREÇÃO CRÍTICA: Salvar no localStorage após a exclusão de uma atividade de roteiro.
     localStorage.setItem('sim_roteiros', JSON.stringify(allRoteiros));
     renderRoteiros();
-    loadRoteiroDropdowns(); // Recarrega o dropdown de criação de OF com a lista atualizada
+    loadRoteiroDropdowns(); 
   }
 }
 
@@ -1773,15 +2016,24 @@ async function deleteOF(ofId) {
       await batch.commit();
     } else {
       delete allOFs[ofId];
+      // Remove tarefas associadas
       Object.keys(allTasks).forEach(id => { if (allTasks[id].id_of === ofId) delete allTasks[id]; });
+      // Remove logs associados
       allOcurrencesLog = allOcurrencesLog.filter(l => l.OF !== ofId);
+      
       localStorage.setItem('sim_ofs', JSON.stringify(allOFs));
       localStorage.setItem('sim_tasks', JSON.stringify(allTasks));
       localStorage.setItem('sim_ocorrencias', JSON.stringify(allOcurrencesLog));
     }
     closeModal('of-details-modal');
-    alert(`OF ${ofId} excluída.`);
-    updateView(userViewSelect.value);
+    alert(`OF ${ofId} excluída com sucesso.`);
+    
+    // Atualiza a visão atual para sumir com o card
+    if (document.getElementById('historico-view').classList.contains('hidden') === false) {
+        renderHistory();
+    } else {
+        updateView(userViewSelect.value);
+    }
   } catch(e) {
     alert("Erro ao excluir OF: " + (e.message || e));
   }
@@ -1800,7 +2052,6 @@ function closeModal(id){
   if(modal) {
     modal.style.display = 'none';
     
-    // Limpa os modais ao fechar
     if (modalId === 'action-modal') {
       currentAction = {};
       document.getElementById('justification-select').value = '';
@@ -1817,17 +2068,16 @@ function closeModal(id){
   }
 }
 
-// Modal 1: Justificativas (Pausa ou Atraso de Setup)
+// Modal 1: Justificativas 
 function showActionModal(taskId, type, reasons, isPauseAction){
   const task = allTasks[taskId];
   if (!task) return;
   
-  // Define o novo status com base na ação e tipo de tarefa
   let newStatus = '';
   if (isPauseAction) {
     newStatus = task.is_setup_task ? 'Setup Pausado' : 'Produção Pausada';
   } else {
-    newStatus = 'Concluído'; // Ação de Finalizar (só para setup)
+    newStatus = 'Concluído'; 
   }
   
   currentAction = { taskId, type, newStatus, isPauseAction };
@@ -1847,11 +2097,9 @@ function showActionModal(taskId, type, reasons, isPauseAction){
   let isRequired = false;
   
   if (isPauseAction) {
-    // Ação de Pausar (Setup ou Produção)
     justificationRequired.textContent = `🚨 O motivo da pausa é obrigatório.`;
     isRequired = true;
   } else {
-    // Ação de Finalizar (Setup)
     const desvio = calculateDesvio(task);
     if (desvio < 0) {
       justificationRequired.textContent = `🚨 Justificativa obrigatória! Atraso de ${formatMinutes(Math.abs(desvio))} (Meta P95: ${formatMinutes(task.tempo_planejado_p95_min)})`;
@@ -1868,11 +2116,10 @@ function showActionModal(taskId, type, reasons, isPauseAction){
   openModal('action-modal');
 }
 
-// Modal 2: Reporte de Produção (OK/NOK)
+// Modal 2: Reporte de Produção
 function showReportModal(taskId) {
     const task = allTasks[taskId];
     if (!task) return;
-    // Define os status que serão usados no handleReportProduction
     currentAction = { 
         taskId: taskId, 
         newStatus: document.querySelector('input[name="report-status"]:checked')?.value || 'Pausada' 
@@ -1880,7 +2127,6 @@ function showReportModal(taskId) {
     
     document.getElementById('report-modal-title').textContent = `Reportar: ${task.nome_atividade}`;
     document.getElementById('report-modal-message').textContent = `OF ${task.id_of} - Peças Totais: ${task.quantidade_pecas}`;
-    // Adiciona listener para atualizar o newStatus
     const radios = document.querySelectorAll('input[name="report-status"]');
     radios.forEach(radio => radio.onchange = (e) => {
         currentAction.newStatus = e.target.value;
@@ -1888,7 +2134,6 @@ function showReportModal(taskId) {
     openModal('report-production-modal');
 }
 
-// Função de confirmação do Modal 1 (Pausa / Fim de Setup)
 async function handleConfirmedAction(){
   const { taskId, type, newStatus, isPauseAction, isRequired } = currentAction;
   const justificationSelect = document.getElementById('justification-select');
@@ -1909,13 +2154,7 @@ async function handleConfirmedAction(){
 }
 
 // ================================================================
-// NOVA FUNÇÃO INTELIGENTE (V4 - COM HASHTAGS #img, #pdf, #vid)
-// ================================================================
-// ================================================================
-// FUNÇÃO INTELIGENTE V5 (VERSÃO BLINDADA - CORREÇÃO DE CLIQUE E IMAGEM)
-// ================================================================
-// ================================================================
-// FUNÇÃO INTELIGENTE V6 (LINK THUMBNAIL + CORREÇÃO CLIQUE)
+// FUNÇÃO INTELIGENTE V8 (IMAGEM THUMBNAIL + BOTOES)
 // ================================================================
 function renderInstructionContent(text) {
     if (!text || text.trim() === '') {
@@ -1928,7 +2167,7 @@ function renderInstructionContent(text) {
     const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[^\s]*)?/g;
     processed = processed.replace(youtubeRegex, (match, videoId) => {
         return `
-        <div class="my-4 rounded-xl overflow-hidden shadow-lg border border-gray-200 bg-black" style="position: relative; z-index: 20;">
+        <div class="my-4 rounded-xl overflow-hidden shadow-lg border border-gray-200 bg-black" style="position: relative; z-index: 1;">
             <div style="position: relative; padding-bottom: 56.25%; height: 0;">
                 <iframe src="https://www.youtube.com/embed/${videoId}" 
                     style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" 
@@ -1938,90 +2177,68 @@ function renderInstructionContent(text) {
         </div>`;
     });
 
-    // 2. GOOGLE DRIVE (V6 - TÉCNICA THUMBNAIL)
+    // 2. GOOGLE DRIVE (Thumbnail + Botão)
     const driveRegex = /https?:\/\/(?:drive|docs)\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([a-zA-Z0-9_-]+)(?:[^\s<]*)/g;
 
     processed = processed.replace(driveRegex, (fullUrl, fileId) => {
-        
         const cleanUrl = fullUrl.replace(/<br>$/, '');
-        
-        // Tags de Controle (#)
-        const isForceImg = cleanUrl.includes('#img');
         const isForcePdf = cleanUrl.includes('#pdf');
         const isForceVid = cleanUrl.includes('#vid');
-
-        // URL "MÁGICA" (Thumbnail Gigante w1000) - Carrega muito mais rápido e não bloqueia
-        const imgSource = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`; 
         
+        // Link Thumbnail (V8)
+        const imgSource = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`; 
         const openLink = `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
 
-        // TEMPLATE DO BOTÃO
-        const renderButton = (type) => `
-            <div style="position: relative; z-index: 50; margin: 10px 0;">
-                <a href="${openLink}" target="_blank" onclick="event.stopPropagation();"
-                   class="w-full p-4 bg-${type==='video'?'purple':'blue'}-50 hover:bg-${type==='video'?'purple':'blue'}-100 border border-${type==='video'?'purple':'blue'}-200 rounded-lg flex items-center gap-3 transition group text-decoration-none cursor-pointer shadow-sm">
-                    <div class="bg-${type==='video'?'purple':'blue'}-600 text-white p-2 rounded-full group-hover:scale-110 transition shrink-0">
-                         <i data-lucide="${type==='video'?'play-circle':'file-text'}" class="w-6 h-6"></i>
-                    </div>
-                    <div class="text-left overflow-hidden">
-                        <p class="font-bold text-${type==='video'?'purple':'blue'}-900 text-sm truncate">${type==='video'?'Assistir Vídeo Externo':'Abrir Documento Anexado'}</p>
-                        <p class="text-xs text-${type==='video'?'purple':'blue'}-600 truncate">Clique para acessar via Google Drive</p>
-                    </div>
-                    <div class="ml-auto text-${type==='video'?'purple':'blue'}-400 shrink-0">
-                        <i data-lucide="external-link" class="w-5 h-5"></i>
-                    </div>
-                </a>
-            </div>`;
+        const getButtonHtml = (type, isHidden = false) => `
+            <a href="${openLink}" target="_blank" onclick="event.stopPropagation();"
+               class="drive-fallback-btn w-full p-4 bg-${type==='video'?'purple':'blue'}-50 hover:bg-${type==='video'?'purple':'blue'}-100 border border-${type==='video'?'purple':'blue'}-200 rounded-lg flex items-center gap-3 transition group text-decoration-none cursor-pointer mt-2 mb-2"
+               style="${isHidden ? 'display: none;' : 'display: flex;'} position: relative; z-index: 10000; cursor: pointer;">
+                <div class="bg-${type==='video'?'purple':'blue'}-600 text-white p-2 rounded-full shrink-0">
+                     <i data-lucide="${type==='video'?'play-circle':'file-text'}" class="w-6 h-6"></i>
+                </div>
+                <div class="text-left overflow-hidden">
+                    <p class="font-bold text-${type==='video'?'purple':'blue'}-900 text-sm truncate">${type==='video'?'Ver Vídeo Externo':'Abrir Documento'}</p>
+                    <p class="text-xs text-${type==='video'?'purple':'blue'}-600 truncate">Clique para abrir no Google Drive</p>
+                </div>
+                <div class="ml-auto text-${type==='video'?'purple':'blue'}-400 shrink-0">
+                    <i data-lucide="external-link" class="w-5 h-5"></i>
+                </div>
+            </a>`;
 
-        if (isForcePdf) return renderButton('pdf');
-        if (isForceVid) return renderButton('video');
+        if (isForcePdf) return getButtonHtml('pdf');
+        if (isForceVid) return getButtonHtml('video');
 
-        // Bloco Imagem com Fallback
         return `
-        <div class="my-3" style="position: relative;">
+        <div class="drive-content-wrapper my-3 relative">
             <img src="${imgSource}" 
                  class="rounded-lg shadow-md max-w-full h-auto mx-auto border border-gray-200" 
                  loading="lazy"
                  style="display: block;"
-                 alt="Anexo"
-                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" 
+                 alt="Carregando instrução..."
+                 referrerpolicy="no-referrer"
+                 onerror="this.remove(); this.parentElement ? this.parentElement.querySelector('.drive-fallback-btn').style.display = 'flex' : null;" 
             />
-            
-            <div style="display: none; position: relative; z-index: 50;">
-                <a href="${openLink}" target="_blank" onclick="event.stopPropagation();"
-                   class="w-full p-4 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg flex items-center gap-3 transition group cursor-pointer text-decoration-none shadow-sm">
-                    <div class="bg-blue-600 text-white p-2 rounded-full group-hover:scale-110 transition shrink-0">
-                         <i data-lucide="file-text" class="w-6 h-6"></i>
-                    </div>
-                    <div class="text-left overflow-hidden">
-                        <p class="font-bold text-blue-900 text-sm truncate">Abrir Arquivo</p>
-                        <p class="text-xs text-blue-600 truncate">Clique para visualizar</p>
-                    </div>
-                    <div class="ml-auto text-blue-400 shrink-0">
-                        <i data-lucide="external-link" class="w-5 h-5"></i>
-                    </div>
-                </a>
-            </div>
-        </div>
-        `;
+            ${getButtonHtml('pdf', true)} 
+        </div>`;
     });
 
-    // 3. Imagens Normais
+    // 3. Imagens Genéricas
     const imgRegex = /(https?:\/\/[^\s<]+?\.(?:jpe?g|png|gif|webp|svg|bmp))(\s|<br>|$)/gi;
     processed = processed.replace(imgRegex, (match, url) => {
         if (url.includes('google.com') || url.includes('youtube')) return match;
-        return `<img src="${url}" class="rounded-lg shadow-md max-w-full h-auto my-2" loading="lazy">`;
+        return `<img src="${url}" class="rounded-lg shadow-md max-w-full h-auto my-2" loading="lazy" referrerpolicy="no-referrer">`;
     });
 
     // 4. Links Texto
     const genericUrlRegex = /(https?:\/\/[^\s<]+)/g;
     processed = processed.replace(genericUrlRegex, (url) => {
-        if (url.includes('<img') || url.includes('<iframe') || url.includes('class="w-full') || url.includes('onclick=')) return url;
-        return `<a href="${url}" target="_blank" onclick="event.stopPropagation();" class="text-indigo-600 hover:text-indigo-800 font-medium underline break-all" style="position:relative; z-index:50;">${url}</a>`;
+        if (url.includes('<img') || url.includes('<iframe') || url.includes('class="') || url.includes('onclick')) return url;
+        return `<a href="${url}" target="_blank" onclick="event.stopPropagation();" class="text-indigo-600 hover:text-indigo-800 font-medium underline" style="position: relative; z-index: 10000;">${url}</a>`;
     });
     
     return processed;
 }
+
 function openInstructionModal(taskId) {
   const task = allTasks[taskId];
   if (!task) return;
@@ -2131,9 +2348,13 @@ function renderKPIs(){
   lucide.createIcons();
 }
 
-// ===== NOVO GRÁFICO DE CARGA DE TRABALHO (TOP 5 / FULL) =====
+// ===== ATUALIZAÇÃO BLINDADA: getCargaDeTrabalho =====
 function getCargaDeTrabalho() {
-    const tasksNaoConcluidas = Object.values(allTasks).filter(t => allOFs[t.id_of]?.status !== 'Concluído' && t.status !== 'Concluído');
+    const tasksNaoConcluidas = Object.values(allTasks).filter(t => {
+        // BLINDAGEM: Verifica se OF existe
+        return allOFs[t.id_of] && allOFs[t.id_of].status !== 'Concluído' && t.status !== 'Concluído';
+    });
+    
     const cargaPorSetor = {};
     SECTORS.forEach(setor => { 
         cargaPorSetor[setor] = { planoP95: 0, projecaoReal: 0 }; 
@@ -2152,14 +2373,11 @@ function getCargaDeTrabalho() {
             const p95PacePlanejado = (pecasTotais > 0) ? (p95Planejado / pecasTotais) : 0;
 
             if (task.is_setup_task) {
-                // Setup: Carga pendente = (Plano Total) - (Tempo Real Gasto)
                 cargaPendenteMin = Math.max(0, p95Planejado - tempoGastoMin);
             } else if (pecasProcessadas > 0 && tempoGastoMin > 0) {
-                // Produção: Projeta o restante com base no PACE REAL ATUAL
                 const paceRealMin = tempoGastoMin / pecasProcessadas;
                 cargaPendenteMin = pecasRestantes * paceRealMin;
             } else {
-                // Produção: Projeta o restante com base no PACE PLANEJADO (P95)
                 const cargaEstimadaRestante = pecasRestantes * p95PacePlanejado;
                 cargaPendenteMin = cargaEstimadaRestante; 
             }
@@ -2169,7 +2387,6 @@ function getCargaDeTrabalho() {
         }
     });
     
-    // Converte para array, filtra os vazios, e ordena pelo plano P95
     return Object.keys(cargaPorSetor)
         .filter(setor => cargaPorSetor[setor].planoP95 > 0 || cargaPorSetor[setor].projecaoReal > 0)
         .map(setor => ({
@@ -2185,7 +2402,7 @@ function renderWorkloadChart() {
     if (!ctxEl) return;
     
     const cargaData = getCargaDeTrabalho();
-    const top5Data = cargaData.slice(0, 5); // Pega apenas os Top 5
+    const top5Data = cargaData.slice(0, 5); 
 
     const labels = top5Data.map(d => d.setor);
     const dataPlanoP95 = top5Data.map(d => d.planoP95.toFixed(2));
@@ -2249,7 +2466,6 @@ function openChartModal() {
     const modalId = 'chart-modal';
     openModal(modalId);
     
-    // Renderiza o gráfico completo no modal
     const ctxElFull = document.getElementById('workload-chart-full');
     if (!ctxElFull) return;
 
@@ -2310,12 +2526,10 @@ function openChartModal() {
             }
         }
     });
-    // Ajusta a altura do container do gráfico no modal para caber todos os itens
     const chartContainer = document.querySelector('#chart-modal .max-h-[75vh] > div');
-    const totalHeight = labels.length * 40 + 100; // 40px por item + 100px para margem/título
+    const totalHeight = labels.length * 40 + 100;
     chartContainer.style.height = `${Math.min(totalHeight, 800)}px`;
 }
-// ===== FIM NOVO GRÁFICO DE CARGA DE TRABALHO (TOP 5 / FULL) =====
 
 
 function updateView(view){
@@ -2399,7 +2613,6 @@ function updateView(view){
   injectSearchInputs();
   lucide.createIcons();
 }
-window.updateView = updateView;
 
 function renderReport(){
   const body = document.getElementById('report-table-body');
@@ -2451,8 +2664,6 @@ function renderOFs(){
     const nextTask = tasks.find(t=> t.status !== 'Concluído' && t.status !== 'Bloqueada');
 
     let statusColor = 'bg-gray-100 border-gray-300';
-    
-    // Calcula o progresso com base nas peças OK
     const pecasOK = of.pecas_concluidas_ok || 0;
     const pecasTotais = of.quantidade || 1;
     const progress = Math.floor((pecasOK / pecasTotais) * 100);
@@ -2463,8 +2674,6 @@ function renderOFs(){
     if (of.priority === 'Alta') {
       statusColor = 'bg-red-100 border-red-500';
     } else {
-       // A lógica de atraso (amarelo) agora é mais complexa (baseada no pace)
-       // Vamos simplificar: se houver peças NOK, fica amarelo
        if ((of.pecas_concluidas_nok || 0) > 0) {
           statusColor = 'bg-yellow-100 border-yellow-500';
        }
@@ -2507,12 +2716,10 @@ function renderOFs(){
   ofsListContainer.innerHTML = ofsHtml.length > 0 ? ofsHtml : '<div class="col-span-3 p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">Nenhuma OF ativa.</div>';
   lucide.createIcons();
 }
-// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (renderOFs) =====
 
-// ===== INÍCIO DA CORREÇÃO DEFINITIVA (renderTasks) =====
+// ===== ATUALIZAÇÃO BLINDADA: renderTasks =====
 function renderTasks(){
   if (operatorView.classList.contains('hidden')) return;
-  // [NOVA VERIFICAÇÃO PARA O MASTER] Se for Master e nenhum setor foi selecionado
   if (!currentSectorFilter && isMaster()) {
     tasksListContainer.innerHTML = `
       <div class="p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">
@@ -2526,7 +2733,9 @@ function renderTasks(){
   
   const tasks = Object.values(allTasks)
     .filter(t => {
-      // FILTRO ROBUSTO (Grampeação fix)
+      // BLINDAGEM CONTRA ZUMBIS: Se a OF não existe, esconde a tarefa
+      if (!allOFs[t.id_of]) return false;
+
       const setorTarefa = (t.setor || '').trim().toLowerCase();
       const filtroSetor = (currentSectorFilter || '').trim().toLowerCase();
       
@@ -2535,12 +2744,9 @@ function renderTasks(){
              (!operatorSearchOF || (t.id_of || "").toUpperCase().includes(operatorSearchOF));
     })
     .sort((a,b) => {
-      // ORDENAÇÃO CORRIGIDA
       const priorityA = a.priority === 'Alta' ? 1 : (a.priority === 'Media' ? 2 : 3);
       const priorityB = b.priority === 'Alta' ? 1 : (b.priority === 'Media' ? 2 : 3);
       if (priorityA !== priorityB) return priorityA - priorityB;
-      
-      // Prioriza tarefas ativas (Em Setup ou Em Produção)
       
       const aIsActive = a.status === 'Em Setup' || a.status === 'Em Produção';
       const bIsActive = b.status === 'Em Setup' || b.status === 'Em Produção';
@@ -2552,16 +2758,12 @@ function renderTasks(){
     });
   const tasksHtml = tasks.map(task=>{
     const tempoReal = calculateTempoRealMinutes(task); 
-    
-    // O desvio é SEMPRE contra a meta ORIGINAL total
     const desvio = calculateDesvio(task);
-    
     const totalPauseMinutes = calculateTotalPauseMinutes(task);
 
     let statusText = task.status;
     let actions = '';
     
-    // Define os botões com base no Status e Tipo de Tarefa
     switch(task.status) {
         case 'Em Espera':
             statusText = 'Aguardando Início';
@@ -2570,7 +2772,6 @@ function renderTasks(){
                          ${task.is_setup_task ? 'Iniciar Setup' : 'Iniciar Produção'}
                        </button>`;
             break;
-        
         case 'Em Setup':
             statusText = 'Em Setup';
             actions = `<button onclick="pauseTask('${task.id}')" class="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600">
@@ -2580,7 +2781,6 @@ function renderTasks(){
                          <i data-lucide="check" class="w-4 h-4 inline-block mr-1"></i>Concluir Setup
                        </button>`;
             break;
-            
         case 'Em Produção':
             statusText = 'Em Produção';
             actions = `<button onclick="pauseTask('${task.id}')" class="px-3 py-1.5 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600">
@@ -2590,21 +2790,18 @@ function renderTasks(){
                          <i data-lucide="save" class="w-4 h-4 inline-block mr-1"></i>Reportar
                        </button>`;
             break;
-            
         case 'Setup Pausado':
             statusText = 'Setup Pausado';
             actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">
                          <i data-lucide="play" class="w-4 h-4 inline-block mr-1"></i>Retomar Setup
                        </button>`;
             break;
-            
         case 'Produção Pausada':
             statusText = 'Produção Pausada';
             actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">
                          <i data-lucide="play" class="w-4 h-4 inline-block mr-1"></i>Retomar Produção
                        </button>`;
             break;
-            
         case 'Pausada':
             statusText = 'Pausada';
             actions = `<button onclick="startTask('${task.id}')" class="px-3 py-1.5 text-sm bg-gray-700 text-white rounded-lg hover:bg-gray-600">
@@ -2614,35 +2811,14 @@ function renderTasks(){
     }
 
     const priorityClass = getPriorityClass(task.priority);
-
-    // --- LÓGICA DE TEMPO RESTANTE ---
-    const p50_total_original = task.tempo_planejado_p50_min || 0;
-    const p95_total_original = task.tempo_planejado_p95_min || 0;
+    const p50_exibido = task.tempo_planejado_p50_min || 0;
+    const p95_exibido = task.tempo_planejado_p95_min || 0;
     
-    let p50_exibido = p50_total_original;
-    let p95_exibido = p95_total_original;
-
-    const pecasOK = task.pecas_concluidas_ok || 0;
-    const pecasTotais = task.quantidade_pecas || 1;
-    
-    if (!task.is_setup_task && pecasOK > 0 && pecasOK < pecasTotais) {
-        const pecasRestantes = Math.max(0, pecasTotais - pecasOK);
-        const setup_p50 = task.media_setup_min || 0; 
-        const p50_ciclo_total = p50_total_original - setup_p50;
-        const p50_por_peca = (p50_ciclo_total > 0 && pecasTotais > 0) ? (p50_ciclo_total / pecasTotais) : 0;
-        p50_exibido = p50_por_peca * pecasRestantes;
-
-        const setup_p95_aprox = setup_p50;
-        const p95_ciclo_total = p95_total_original - setup_p95_aprox;
-        const p95_por_peca = (p95_ciclo_total > 0 && pecasTotais > 0) ? (p95_ciclo_total / pecasTotais) : 0;
-        p95_exibido = p95_por_peca * pecasRestantes;
-    }
-    // --- FIM DA LÓGICA DE TEMPO RESTANTE ---
-    
-    // Barra de Progresso Parcial (só para tarefas de produção)
     let progressBar = '';
     if (!task.is_setup_task) {
+        const pecasOK = task.pecas_concluidas_ok || 0;
         const pecasNOK = task.pecas_concluidas_nok || 0;
+        const pecasTotais = task.quantidade_pecas || 1;
         const percOK = (pecasOK / pecasTotais) * 100;
         const percNOK = (pecasNOK / pecasTotais) * 100;
         progressBar = `
@@ -2676,11 +2852,11 @@ function renderTasks(){
         
         <div class="grid grid-cols-2 gap-2 text-xs sm:text-sm mb-2">
           <div class="bg-white/50 p-2 rounded">
-             <span class="text-gray-500">Tempo Esperado (P50)</span>
+             <span class="text-gray-500">Tempo (P50)</span>
              <span class="font-semibold text-gray-800 block">${formatMinutes(p50_exibido)}</span>
           </div>
           <div class="bg-white/50 p-2 rounded border border-blue-300">
-             <span class="text-gray-500">Meta Confiável (P95)</span>
+             <span class="text-gray-500">Meta (P95)</span>
              <span class="font-bold text-blue-700 block">${formatMinutes(p95_exibido)}</span>
           </div>
         </div>
@@ -2692,7 +2868,7 @@ function renderTasks(){
         ${progressBar}
         
         <div class="mt-2 flex justify-between items-center">
-          <span class="text-xs font-semibold ${desvio < 0 ? 'text-red-600' : 'text-gray-700'}">Desvio (vs Meta P95): ${desvio < 0 ? '-' : ''}${formatMinutes(Math.abs(desvio))}</span>
+          <span class="text-xs font-semibold ${desvio < 0 ? 'text-red-600' : 'text-gray-700'}">Desvio: ${desvio < 0 ? '-' : ''}${formatMinutes(Math.abs(desvio))}</span>
           <span class="text-xs font-medium text-gray-600">${statusText}</span>
         </div>
         <div class="mt-3 flex gap-2">${actions}</div>
@@ -2703,7 +2879,6 @@ function renderTasks(){
   tasksListContainer.innerHTML = tasksHtml.length > 0 ? tasksHtml : '<div class="p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">Sem tarefas para este setor/OF.</div>';
   lucide.createIcons();
 }
-// ===== FIM DA CORREÇÃO DEFINITIVA (renderTasks) =====
 
 function renderHistory() {
     if (historicoView.classList.contains('hidden')) return;
@@ -2750,7 +2925,7 @@ function renderHistory() {
                     <p class="text-gray-700">Criado em: <span class="font-semibold">${formatDate(of.data_criacao)}</span></p>
                     <p class="text-gray-700">Tempo Real: <span class="font-semibold">${formatMinutes(totalTempoReal)}</span></p>
                     <p class="text-gray-700">Meta Confiável (P95): <span class="font-semibold">${formatMinutes(p95_min)}</span></p>
-                    <p class="font-bold ${desvioClass}">Desvio Total (vs Meta P95): ${desvioText}</p>
+                    <p class="font-bold ${desvioClass}">Desvio Total: ${desvioText}</p>
                 </div>
             </div>
         `;
@@ -2766,7 +2941,6 @@ function renderHistory() {
 /* ============================
   DETALHES / EXPORTS
   ============================ */
-// Helper para agrupar tarefas por setor
 function groupTasksBySector(tasks) {
     const grouped = tasks.reduce((acc, task) => {
         const setor = task.setor || 'Setor Não Definido';
@@ -2777,13 +2951,11 @@ function groupTasksBySector(tasks) {
         return acc;
     }, {});
     
-    // Ordena os grupos pela ordem dos setores
     const orderedGroups = {};
     const sortedSectorNames = getSortedSectors(Object.keys(grouped));
 
     sortedSectorNames.forEach(sector => {
         if (grouped[sector]) {
-            // Ordena as tarefas dentro do setor
             orderedGroups[sector] = grouped[sector].sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
             delete grouped[sector]; 
         }
@@ -2792,7 +2964,7 @@ function groupTasksBySector(tasks) {
     return orderedGroups;
 }
 
-// openOFDetails com Agrupamento por Setor
+// openOFDetails com CORREÇÃO DO BOTÃO EXCLUIR
 function openOFDetails(ofId, isHistory = false){
   window.__ofDetailsOpenId = ofId;
   const of = allOFs[ofId];
@@ -2815,19 +2987,15 @@ function openOFDetails(ofId, isHistory = false){
   `;
   document.getElementById('of-details-progress').style.width = `${progress}%`;
   
-  // --- NOVO AGRUPAMENTO POR SETOR ---
   const groupedTasks = groupTasksBySector(tasks);
   
   let content = '';
-  const totalTempoReal = tasks.reduce((sum, t) => sum + calculateTempoRealMinutes(t), 0);
   
-  // Renderiza o resumo por setor
   for (const setor in groupedTasks) {
     const setorTasks = groupedTasks[setor];
     const setorTotalTime = setorTasks.reduce((sum, t) => sum + calculateTempoRealMinutes(t), 0);
     const setorTotalP95 = setorTasks.reduce((sum, t) => sum + (t.tempo_planejado_p95_min || 0), 0);
     
-    // Header do Setor
     content += `
       <div class="mt-4 border-b border-gray-300 pb-1 flex justify-between items-center bg-gray-50 p-2 rounded-t-lg">
         <h4 class="text-base font-bold text-gray-800 flex items-center">
@@ -2837,7 +3005,6 @@ function openOFDetails(ofId, isHistory = false){
       </div>
     `;
     
-    // Lista de Tarefas do Setor
     setorTasks.forEach(task => {
         const tempoReal = calculateTempoRealMinutes(task); 
         const desvio = (task.tempo_planejado_p95_min || 0) - tempoReal;
@@ -2864,13 +3031,12 @@ function openOFDetails(ofId, isHistory = false){
               <div><span class="text-gray-500">Pausa:</span> <span class="font-semibold">${formatMinutes(calculateTotalPauseMinutesFinal(task))}</span></div>
             </div>
             ${partialInfo}
-            <p class="mt-1 text-xs ${desvio<0?'text-red-600':'text-gray-700'}">Desvio (vs Meta P95): ${desvio<0?'-':''}${formatMinutes(Math.abs(desvio))}</p>
+            <p class="mt-1 text-xs ${desvio<0?'text-red-600':'text-gray-700'}">Desvio: ${desvio<0?'-':''}${formatMinutes(Math.abs(desvio))}</p>
           </div>
         `;
     });
   }
   
-  // --- AUDITORIA E BOTÕES ---
   let auditLogHtml = "";
   if (isMaster()) {
       auditLogHtml = `
@@ -2886,15 +3052,14 @@ function openOFDetails(ofId, isHistory = false){
   
   document.getElementById('of-details-content').innerHTML = content + auditLogHtml;
 
-  // Gerencia a visibilidade do botão de Excluir
+  // CORREÇÃO: Botão visível para Master SEMPRE (mesmo histórico)
   const btnDelete = document.getElementById('btn-delete-of');
-  btnDelete.classList.toggle('hidden', !isMaster() || isHistory);
+  btnDelete.classList.toggle('hidden', !isMaster());
   
   openModal('of-details-modal');
   lucide.createIcons();
 }
 
-// Helper para o toggle do log de auditoria
 function toggleAuditLog() {
     const logDiv = document.getElementById('audit-log-details');
     if (logDiv) {
@@ -2959,7 +3124,6 @@ async function deleteSelectedOcorrencias() {
   }
 }
 
-// exportOFTasksCSV - COM CORREÇÃO DE PAUSAS
 function exportOFTasksCSV(ofId){
   const tasks = Object.values(allTasks).filter(t => t.id_of === ofId);
   const rows = [
@@ -2967,24 +3131,18 @@ function exportOFTasksCSV(ofId){
      "PECAS_OK", "PECAS_NOK",
      "ESPERADO_P50(min)", "CONFIÁVEL_P95(min)",
      "REAL(min)","DESVIO(vs_P95)(min)", "FADIGA(%)",
-     "TEMPO_PAUSA_TOTAL(min)", "MOTIVOS_PAUSA", // NOVAS COLUNAS
+     "TEMPO_PAUSA_TOTAL(min)", "MOTIVOS_PAUSA", 
      "MEDIA_CICLO(min)", "DESVIO_CICLO(min)", "MEDIA_SETUP(min)", "DESVIO_SETUP(min)"
     ]
   ];
   
   tasks.forEach(t => {
-    // Busca todos os logs de pausa para esta tarefa específica
     const logsPausa = allOcurrencesLog.filter(l => 
         l.OF === t.id_of && 
         l.ATIVIDADE === t.nome_atividade && 
         l.TIPO === 'PAUSA'
     );
-
-    // Soma o tempo de pausa (dos logs) - ou usa o da tarefa se preferir
-    // Vamos usar a soma dos logs para bater com os motivos listados
     const tempoPausaLogs = logsPausa.reduce((acc, l) => acc + (l.TEMPO_PAUSA || 0), 0);
-    
-    // Concatena os motivos
     const motivosPausa = logsPausa.map(l => l.MOTIVO_PAUSA).filter(Boolean).join('; ');
 
     rows.push([
@@ -2995,8 +3153,8 @@ function exportOFTasksCSV(ofId){
       calculateTempoRealMinutes(t).toFixed(2), 
       calculateDesvio(t).toFixed(2),
       (t.fator_fadiga_perc || 0),
-      tempoPausaLogs.toFixed(2),  // NOVA COLUNA
-      motivosPausa,               // NOVA COLUNA
+      tempoPausaLogs.toFixed(2),  
+      motivosPausa,               
       (t.media_ciclo_min || 0).toFixed(4),
       (t.desvio_ciclo_min || 0).toFixed(4),
       (t.media_setup_min || 0).toFixed(2),
@@ -3019,23 +3177,18 @@ function downloadCSV(rows, filename){
 /* ============================
   ROTEIROS (Renderiza na tela Admin - Hierárquico)
   ============================ */
-// renderRoteiros com Hierarquia e Fix
 function renderRoteiros(){
   const list = document.getElementById('roteiro-list-admin'); 
   if (!list) return;
   
-  // FIX: Filtra entradas nulas, indefinidas ou corrompidas do localStorage
   let roteiros = Object.values(allRoteiros).filter(r => r && typeof r === 'object' && r.chicote_nome);
   
-  // --- LÓGICA DE FILTRO ---
   if (roteiroSearchTerm) {
       roteiros = roteiros.filter(r => 
           (r.roteiro_id_base || r.chicote_nome || '').toUpperCase().includes(roteiroSearchTerm)
       );
   }
-  // --- FIM LÓGICA DE FILTRO ---
 
-  // 1. Agrupa as etapas por ID Base
   const groupedByIdBase = roteiros.reduce((acc, r) => {
       const idBase = r.roteiro_id_base || r.chicote_nome || 'NÃO_DEFINIDO';
       if (!acc[idBase]) {
@@ -3046,43 +3199,30 @@ function renderRoteiros(){
   }, {});
 
   let items = '';
-  
-  // Ordena os IDs Base
   const sortedIdsBase = Object.keys(groupedByIdBase).sort();
 
-  // 2. Itera sobre cada ID Base (Produto Mestre)
   sortedIdsBase.forEach(idBase => {
       let roteirosBase = groupedByIdBase[idBase];
-      
-      // Encontra a maior revisão
       const maxRevision = roteirosBase.reduce((max, r) => Math.max(max, r.revisao_number || 0), 0);
       let latestRoteiros = roteirosBase.filter(r => (r.revisao_number || 0) === maxRevision);
       
-      // Contingência para dados legados (sem revisao_number)
       if (latestRoteiros.length === 0) {
           latestRoteiros = roteirosBase.filter(r => !r.revisao_number && maxRevision === 0);
       }
-      
-      if (latestRoteiros.length === 0) return; // Se ainda estiver vazio, pula
+      if (latestRoteiros.length === 0) return; 
 
       const latestChicoteName = latestRoteiros[0]?.chicote_nome || idBase;
-
-      // 2.1. Agrupamento por Setor DENTRO do Chicote
       const groupedBySector = latestRoteiros.reduce((acc, r) => {
           const setor = r.setor || 'Outros Setores';
           if (!acc[setor]) acc[setor] = [];
           acc[setor].push(r);
           return acc;
       }, {});
-
-      // 2.2. Ordena os Setores para exibição
       const sortedSectors = getSortedSectors(Object.keys(groupedBySector));
 
-      // 3. Renderiza os detalhes das etapas por Setor
       let setoresHtml = '';
       sortedSectors.forEach(setor => {
           const setorRoteiros = groupedBySector[setor];
-          
           setorRoteiros.sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
 
           setoresHtml += `
@@ -3106,7 +3246,6 @@ function renderRoteiros(){
           `;
       });
       
-      // 4. Cria o Card Mestre Colapsável
       const totalEtapas = latestRoteiros.length;
       const collapseId = `roteiro-collapse-${idBase.replace(/[^a-zA-Z0-9]/g, '_')}`;
       items += `
@@ -3131,8 +3270,6 @@ function renderRoteiros(){
   list.innerHTML = items || '<div class="p-4 text-center text-gray-500 bg-white rounded-lg">Nenhum roteiro cadastrado.</div>';
   lucide.createIcons();
 }
-// FIM renderRoteiros
-
 
 /* ============================
   BOOTSTRAP
@@ -3141,7 +3278,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeApp();
   lucide.createIcons();
 });
-// Exposição global
+
 window.startTask = startTask;
 window.pauseTask = pauseTask;
 window.finishTask = finishTask;
@@ -3153,15 +3290,7 @@ window.openInstructionModal = openInstructionModal;
 window.openModal = openModal;
 window.closeModal = closeModal;
 window.createOF = createOF;
-// Exposição Rascunho/Revisão
-window.addEtapaToDraft = addEtapaToDraft;
-window.clearDraft = clearDraft;
-window.saveRoteiroFromDraft = saveRoteiroFromDraft;
-window.updateDraftInfo = updateDraftInfo;
-window.removeDraftTask = removeDraftTask;
-// Exposição Gráfico
-window.openChartModal = openChartModal;
-
+window.addRoteiroActivity = addRoteiroActivity;
 window.deleteRoteiroActivity = deleteRoteiroActivity;
 window.deleteOF = deleteOF;
 window.exportReportCSV = exportReportCSV;
@@ -3169,12 +3298,17 @@ window.exportOFTasksCSV = exportOFTasksCSV;
 window.openUserModal = openUserModal;
 window.confirmUser = confirmUser;
 window.updateSectorFilter = updateSectorFilter;
-
 window.deleteSelectedOcorrencias = deleteSelectedOcorrencias;
 window.toggleSelectAllOcorrencias = toggleSelectAllOcorrencias;
 window.updateDeleteButtonState = updateDeleteButtonState;
 window.renderHistory = renderHistory;
-</script>
-</body>
-</html>
 
+// Exposição Rascunho/Revisão
+window.addEtapaToDraft = addEtapaToDraft;
+window.clearDraft = clearDraft;
+window.saveRoteiroFromDraft = saveRoteiroFromDraft;
+window.updateDraftInfo = updateDraftInfo;
+window.removeDraftTask = removeDraftTask;
+
+// Exposição Gráfico
+window.openChartModal = openChartModal;
