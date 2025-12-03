@@ -2443,28 +2443,41 @@ function renderReport(){
 
 function renderOFs(){
   if (pcpView.classList.contains('hidden')) return;
+  
   let ofs = Object.values(allOFs).filter(of => of.status !== 'Concluído');
+  
+  // Filtro de Busca
   if (pcpSearchOF) ofs = ofs.filter(of => (of.id || "").toUpperCase().includes(pcpSearchOF));
+  
   const ofsHtml = ofs.map(of=>{
+    // 1. Busca todas as tarefas desta OF
     const tasks = Object.values(allTasks).filter(t=> t.id_of === of.id);
+    const totalTasks = tasks.length;
+    
+    // 2. Conta quantas estão prontas
     const completedTasks = tasks.filter(t => t.status === 'Concluído').length;
     const nextTask = tasks.find(t=> t.status !== 'Concluído' && t.status !== 'Bloqueada');
 
+    // 3. NOVO CÁLCULO: (Tarefas Prontas / Total de Tarefas) * 100
+    let progress = 0;
+    if (totalTasks > 0) {
+        progress = Math.floor((completedTasks / totalTasks) * 100);
+    }
+    // Se a OF estiver marcada como Concluída manualmente, força 100%
+    if (of.status === 'Concluído') progress = 100;
+
+    // --- LÓGICA DE CORES ---
     let statusColor = 'bg-gray-100 border-gray-300';
     
-    // Calcula o progresso com base nas peças OK
-    const pecasOK = of.pecas_concluidas_ok || 0;
-    const pecasTotais = of.quantidade || 1;
-    const progress = Math.floor((pecasOK / pecasTotais) * 100);
-
-    if (progress === 0 && of.status === 'Pendente') statusColor = 'bg-gray-200 border-gray-400';
-    else if (progress < 100) statusColor = 'bg-blue-100 border-blue-400';
+    if (progress === 0 && of.status === 'Pendente') {
+        statusColor = 'bg-gray-200 border-gray-400';
+    } else if (progress < 100) {
+        statusColor = 'bg-blue-100 border-blue-400';
+    }
     
     if (of.priority === 'Alta') {
       statusColor = 'bg-red-100 border-red-500';
     } else {
-       // A lógica de atraso (amarelo) agora é mais complexa (baseada no pace)
-       // Vamos simplificar: se houver peças NOK, fica amarelo
        if ((of.pecas_concluidas_nok || 0) > 0) {
           statusColor = 'bg-yellow-100 border-yellow-500';
        }
@@ -2473,13 +2486,16 @@ function renderOFs(){
     const p50_min = of.tempo_planejado_p50_min || 0;
     const p95_min = of.tempo_planejado_p95_min || 0;
     const pLabel = (of.percentil_confianca || 0.95) * 100;
+
     return `
       <div class="${statusColor} p-4 rounded-xl border border-gray-300 ${statusColor.replace('bg-', 'border-')}"
-           onclick="openOFDetails('${of.id}')">
+           onclick="openOFDetails('${of.id}')" style="cursor: pointer;">
+        
         <h3 class="text-lg font-bold text-gray-800 mb-1 flex justify-between items-center">
           ${of.id} - REV ${of.revisao_number || 1}
           ${of.status === 'Concluído' ? '<i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>' : (nextTask ? '<i data-lucide="play-circle" class="w-5 h-5 text-blue-600"></i>' : '<i data-lucide="pause-circle" class="w-5 h-5 text-yellow-600"></i>')}
         </h3>
+        
         <p class="text-sm text-gray-600 mb-3">${of.chicote} | Qtd: ${of.quantidade}</p>
         
         <div class="grid grid-cols-2 gap-2 text-xs mb-2">
@@ -2494,20 +2510,24 @@ function renderOFs(){
         </div>
 
         <div class="flex justify-between items-center mb-1">
-          <span class="text-xs font-semibold text-gray-600">${progress}% Concluído (Peças OK)</span>
-          <span class="text-xs font-medium text-gray-500">${completedTasks} / ${tasks.length} etapas</span>
+          <span class="text-xs font-bold text-gray-700">${progress}% Concluído</span>
+          <span class="text-xs font-medium text-gray-600">${completedTasks} / ${totalTasks} etapas</span>
         </div>
-        <div class="w-full bg-gray-200 rounded-full h-1.5">
-          <div class="h-1.5 rounded-full bg-blue-500" style="width:${progress}%"></div>
+        
+        <div class="w-full bg-gray-200 rounded-full h-2.5 border border-gray-300 overflow-hidden">
+          <div class="h-2.5 rounded-full bg-blue-600 transition-all duration-500 ease-out" style="width:${progress}%"></div>
         </div>
-        <p class="text-xs mt-2 text-gray-700 font-medium">Próxima Etapa: ${nextTask ? nextTask.nome_atividade : (of.status === 'Concluído' ? 'Finalizada' : 'N/A')}</p>
+        
+        <p class="text-xs mt-2 text-gray-700 font-medium truncate">
+            Próxima: ${nextTask ? nextTask.nome_atividade : (of.status === 'Concluído' ? 'Finalizada' : 'Nenhuma')}
+        </p>
       </div>
     `;
   }).join('');
+
   ofsListContainer.innerHTML = ofsHtml.length > 0 ? ofsHtml : '<div class="col-span-3 p-6 text-center text-gray-500 bg-white rounded-xl border border-gray-300">Nenhuma OF ativa.</div>';
   lucide.createIcons();
 }
-// ===== FIM DA EDIÇÃO PRODUÇÃO PARCIAL (renderOFs) =====
 
 // ===== INÍCIO DA CORREÇÃO DEFINITIVA (renderTasks) =====
 function renderTasks(){
@@ -3178,3 +3198,4 @@ window.renderHistory = renderHistory;
 </body>
 </html>
 <script>
+
